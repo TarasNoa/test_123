@@ -19,6 +19,7 @@ using Libr4.IDE.Application.GitAutomation;
 using Libr4.IDE.Application.CodeSearch;
 using Libr4.IDE.Application.PromptOptimization;
 using Libr4.IDE.Infrastructure.SemanticIndex;
+using Libr4.IDE.Infrastructure.Persistence;
 using Libr4.IDE.Application.SecurityTesting;
 using Libr4.IDE.Application.CodeReview;
 using Libr4.IDE.Application.Escrow;
@@ -28,6 +29,7 @@ using Libr4.IDE.Application.ShadowWorkspace;
 using Libr4.IDE.Application.MultiAgentOrchestration;
 using Libr4.IDE.Application.DesignContext;
 using Libr4.IDE.Application.DesignSkills;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -107,6 +109,13 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.AIWorkflowAutomation.Commands.DistillWorkflowCommand).Assembly));
 builder.Services.AddScoped<IAIService, Libr4.AI.Infrastructure.AI.AIService>();
 builder.Services.AddHttpClient();
+
+// Golden Stack: ApplicationDbContext for PostgreSQL persistence with F# state converter
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("PostgresConnection");
+    options.UseNpgsql(connectionString);
+});
 
 // Shadow workspace services already registered above
 builder.Services.AddScoped<ISelfHealingBuildPipeline, SelfHealingBuildPipeline>();
@@ -213,6 +222,9 @@ app.MapSecurityTestingEndpoints();
 
 // HackerAgent endpoints - commented out due to missing endpoint file
 // app.MapHackerAgentEndpoints();
+
+// Golden Stack: Agent State endpoints for Frontend synchronization
+app.MapAgentStateEndpoints();
 
 // F# Interop demo endpoint - Agent State Machine - commented out due to missing IAgentStateMachineBridge
 /*

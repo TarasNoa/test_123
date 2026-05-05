@@ -1,0 +1,73 @@
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
+using Libr4.IDE.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+
+namespace Libr4.IDE.Api;
+
+/// <summary>
+/// API endpoints for agent states and events
+/// Provides REST API for Frontend to fetch real agent data from PostgreSQL
+/// </summary>
+public static class AgentStateEndpoints
+{
+    public static void MapAgentStateEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/ide/agent-states")
+            .WithTags("AgentStates")
+            .WithOpenApi();
+
+        // Get all agent events (using AgentEventEntity from persistence)
+        group.MapGet("/events", async (
+            ApplicationDbContext context,
+            CancellationToken ct) =>
+        {
+            var events = await context.AgentEvents
+                .AsNoTracking()
+                .OrderByDescending(e => e.Timestamp)
+                .Take(100)
+                .ToListAsync(ct);
+
+            return Results.Ok(events.Select(e => new
+            {
+                e.Id,
+                e.RunId,
+                e.Type,
+                e.Timestamp,
+                e.Command,
+                e.Output,
+                e.ExitCode,
+                e.DurationMs
+            }));
+        })
+        .WithName("GetAllAgentEvents")
+        .WithSummary("Get all agent events");
+
+        // Get events for specific run
+        group.MapGet("/events/{runId}", async (
+            Guid runId,
+            ApplicationDbContext context,
+            CancellationToken ct) =>
+        {
+            var events = await context.AgentEvents
+                .AsNoTracking()
+                .Where(e => e.RunId == runId)
+                .OrderBy(e => e.Timestamp)
+                .ToListAsync(ct);
+
+            return Results.Ok(events.Select(e => new
+            {
+                e.Id,
+                e.RunId,
+                e.Type,
+                e.Timestamp,
+                e.Command,
+                e.Output,
+                e.ExitCode,
+                e.DurationMs
+            }));
+        })
+        .WithName("GetEventsByRunId")
+        .WithSummary("Get events for specific run");
+    }
+}
