@@ -1,0 +1,22 @@
+[install]
+# Use native platform-specific binaries for faster installation
+exact = true
+
+# Install dependencies in parallel
+lockfile = true
+
+# Use the fastest registry
+registry = "https://registry.npmjs.org/"
+
+[test]
+# Use Bun's built-in test runner
+preload = "./test/setup.ts"
+
+[run]
+# Use Bun's native script runner
+shell = true
+
+[build]
+# Use Bun's native bundler
+target = "browser"
+format = "esm"
