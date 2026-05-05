@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+option csharp_namespace = "Libr4.IDE.Infrastructure.Protos";
+
+package sandbox;
+
+// Sandbox service running on Rust side
+service SandboxService {
+  // Execute code with real-time resource monitoring
+  rpc ExecuteCode (ExecutionRequest) returns (ExecutionResult);
+}
+
+message ExecutionRequest {
+  string task_id = 1;
+  string code = 2;
+  string language = 3;
+  int32 memory_limit_mb = 4;
+  int32 timeout_seconds = 5;
+}
+
+message ExecutionResult {
+  string stdout = 1;
+  string stderr = 2;
+  int32 exit_code = 3;
+  string termination_reason = 4; // MemoryLimit, Timeout, Success
+  ResourceUsage resources = 5;
+}
+
+message ResourceUsage {
+  uint64 peak_memory_kb = 1;
+  double cpu_time_seconds = 2;
+}

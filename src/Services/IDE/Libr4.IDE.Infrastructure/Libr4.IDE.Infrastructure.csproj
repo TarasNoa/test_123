@@ -23,6 +23,17 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
     <!-- Neo4j for SemanticBlame (Semantic Git Blame feature) -->
     <PackageReference Include="Neo4j.Driver" Version="5.15.0" />
+    <!-- gRPC packages for Rust-C# integration -->
+    <PackageReference Include="Grpc.Net.Client" Version="2.59.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.25.2" />
+    <PackageReference Include="Grpc.Tools" Version="2.59.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\sandbox.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>
