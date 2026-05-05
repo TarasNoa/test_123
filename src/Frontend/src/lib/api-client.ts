@@ -1,29 +1,40 @@
 /// API client for communicating with C# backend
-const API_BASE_URL = "http://localhost:5000";
+const API_BASE = "http://localhost:5000/api/ide/agent-states";
 
 export interface AgentEvent {
   id: string;
+  agentId: string;
   runId: string;
-  type: string;
+  status: string;
+  data: string;
   timestamp: string;
-  command: string | null;
-  output: string | null;
-  exitCode: number | null;
-  durationMs: number | null;
 }
 
-export async function fetchAgentEvents(): Promise<AgentEvent[]> {
-  const response = await fetch(`${API_BASE_URL}/api/ide/agent-states/events`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch agent events: ${response.statusText}`);
-  }
-  return response.json();
-}
+export const agentApi = {
+  // Fetching with typing
+  async fetchAgentEvents(): Promise<AgentEvent[]> {
+    const response = await fetch(`${API_BASE}/events`);
+    if (!response.ok) throw new Error("Failed to fetch events");
+    return response.json();
+  },
 
-export async function fetchEventsByRunId(runId: string): Promise<AgentEvent[]> {
-  const response = await fetch(`${API_BASE_URL}/api/ide/agent-states/events/${runId}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch events for run: ${response.statusText}`);
+  async fetchEventsByRunId(runId: string): Promise<AgentEvent[]> {
+    const response = await fetch(`${API_BASE}/events/${runId}`);
+    if (!response.ok) throw new Error("Failed to fetch events for run");
+    return response.json();
+  },
+
+  // Polling (auto-update every 3 sec while Rust is running)
+  subscribeToEvents(callback: (events: AgentEvent[]) => void) {
+    const interval = setInterval(async () => {
+      try {
+        const data = await this.fetchAgentEvents();
+        callback(data);
+      } catch (e) {
+        console.error("Polling error:", e);
+      }
+    }, 3000);
+
+    return () => clearInterval(interval); // Unsubscribe function
   }
-  return response.json();
-}
+};

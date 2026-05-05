@@ -69,5 +69,45 @@ public static class AgentStateEndpoints
         })
         .WithName("GetEventsByRunId")
         .WithSummary("Get events for specific run");
+
+        // Run code - activates full chain: Frontend → C# → F# → Rust
+        group.MapPost("/run", async (
+            [FromBody] RunCodeRequest request,
+            ApplicationDbContext context,
+            CancellationToken ct) =>
+        {
+            // Create new run ID
+            var runId = Guid.NewGuid();
+            
+            // Create TaskAssigned event
+            var taskEvent = new AgentEventEntity
+            {
+                Id = Guid.NewGuid(),
+                RunId = runId,
+                Type = "TaskAssigned",
+                Timestamp = DateTime.UtcNow,
+                Command = request.Code,
+                Output = null,
+                ExitCode = null,
+                DurationMs = null
+            };
+
+            context.AgentEvents.Add(taskEvent);
+            await context.SaveChangesAsync(ct);
+
+            // TODO: Call F# state machine to process task
+            // TODO: Call Rust sandbox via gRPC to execute code
+            // TODO: Update event with result
+
+            return Results.Ok(new { runId, status = "TaskAssigned" });
+        })
+        .WithName("RunCode")
+        .WithSummary("Run code through full chain: C# → F# → Rust");
     }
+}
+
+public record RunCodeRequest
+{
+    public string Code { get; init; } = string.Empty;
+    public string Language { get; init; } = "python";
 }

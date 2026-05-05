@@ -30,8 +30,25 @@ using Libr4.IDE.Application.MultiAgentOrchestration;
 using Libr4.IDE.Application.DesignContext;
 using Libr4.IDE.Application.DesignSkills;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 1. Configure JSON for F# support and pretty output
+builder.Services.ConfigureHttpJsonOptions(options => {
+    // Add support for enum-like structures (important for F#)
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    options.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+});
+
+// 2. Configure CORS for Frontend (SolidJS/Next.js)
+builder.Services.AddCors(options => {
+    options.AddDefaultPolicy(policy => {
+        policy.WithOrigins("http://localhost:3000") // Frontend port
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
 
 // Add services
 builder.Services.AddSingleton<TerminalWebSocketHandler>();
@@ -110,12 +127,9 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4
 builder.Services.AddScoped<IAIService, Libr4.AI.Infrastructure.AI.AIService>();
 builder.Services.AddHttpClient();
 
-// Golden Stack: ApplicationDbContext for PostgreSQL persistence with F# state converter
+// 3. PostgreSQL
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("PostgresConnection");
-    options.UseNpgsql(connectionString);
-});
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Shadow workspace services already registered above
 builder.Services.AddScoped<ISelfHealingBuildPipeline, SelfHealingBuildPipeline>();
@@ -130,20 +144,11 @@ builder.Services.AddScoped<IGatewayPreviewIntegration, GatewayPreviewIntegration
 
 builder.Services.AddScoped<IAIAlgorithmService, AIAlgorithmServiceWrapper>();
 
-// Add CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowAll", policy =>
-    {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
+// CORS already configured above with specific origin
 
 var app = builder.Build();
 
-app.UseCors("AllowAll");
+app.UseCors();
 app.UseSwagger();
 app.UseSwaggerUI(options => {});
 app.MapControllers();
