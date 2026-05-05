@@ -92,7 +92,12 @@ public sealed class FileSystemWorkspaceSyncService : IWorkspaceSyncService
         public WatcherBundle(FileSystemWatcher w) { _w = w; }
         public void Dispose()
         {
-            try { _w.EnableRaisingEvents = false; _w.Dispose(); } catch { /* ignore */ }
+            try { _w.EnableRaisingEvents = false; _w.Dispose(); }
+            catch (Exception ex)
+            {
+                // Best-effort cleanup - ignore watcher disposal errors
+                System.Diagnostics.Debug.WriteLine($"Failed to dispose FileSystemWatcher: {ex.Message}");
+            }
         }
     }
 }

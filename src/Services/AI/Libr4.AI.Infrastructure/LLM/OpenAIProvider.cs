@@ -127,7 +127,10 @@ public class OpenAIProvider : ILLMProvider
                 var chunk = JsonSerializer.Deserialize<OpenAIStreamChunk>(data);
                 delta = chunk?.Choices?[0]?.Delta?.Content;
             }
-            catch { /* skip invalid chunks */ }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to parse streaming chunk");
+            }
             if (!string.IsNullOrEmpty(delta)) yield return delta;
         }
     }

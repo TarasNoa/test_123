@@ -173,7 +173,10 @@ public class BinanceMarketDataService : IMarketDataService, IDisposable
                     ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Service disposing", CancellationToken.None).GetAwaiter().GetResult();
                     ws.Dispose();
                 }
-                catch { /* Ignore cleanup errors */ }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "Failed to close WebSocket during disposal");
+                }
             }
             _activeStreams.Clear();
         }

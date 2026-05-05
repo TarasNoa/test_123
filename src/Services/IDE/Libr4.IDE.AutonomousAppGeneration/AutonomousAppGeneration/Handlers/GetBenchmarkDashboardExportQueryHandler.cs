@@ -76,7 +76,13 @@ public sealed class GetBenchmarkDashboardExportQueryHandler
 
     private static void SafeDelete(FileInfo file)
     {
-        try { file.Delete(); } catch { /* best effort cleanup */ }
+        try { file.Delete(); }
+        catch (Exception ex)
+        {
+            // Best-effort cleanup - log but don't fail
+            // In production, consider using ILogger injection
+            System.Diagnostics.Debug.WriteLine($"Failed to delete {file.FullName}: {ex.Message}");
+        }
     }
 
     private static string ComputeSha256(string input)

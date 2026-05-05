@@ -24,15 +24,7 @@ public class EfAgentEventRepository : IAgentEventRepository
     {
         await using var context = await _contextFactory.CreateDbContextAsync(ct);
         
-        var entity = new AgentEventEntity
-        {
-            Id = evt.Id,
-            RunId = evt.RunId,
-            Type = evt.Type,
-            Timestamp = evt.Timestamp,
-            Data = System.Text.Json.JsonSerializer.Serialize(evt.Data),
-            CreatedAt = DateTime.UtcNow
-        };
+        var entity = AgentEventEntity.FromDomain(evt);
 
         context.AgentEvents.Add(entity);
         await context.SaveChangesAsync(ct);
@@ -45,18 +37,12 @@ public class EfAgentEventRepository : IAgentEventRepository
         await using var context = await _contextFactory.CreateDbContextAsync(ct);
         
         var entities = await context.AgentEvents
+            .AsNoTracking()
             .Where(e => e.RunId == runId)
             .OrderBy(e => e.Timestamp)
             .ToArrayAsync(ct);
 
-        return entities.Select(e => new AgentEvent
-        {
-            Id = e.Id,
-            RunId = e.RunId,
-            Type = e.Type,
-            Timestamp = e.Timestamp,
-            Data = System.Text.Json.JsonSerializer.Deserialize<object>(e.Data) ?? new()
-        }).ToArray();
+        return entities.Select(e => e.ToDomain()).ToArray();
     }
 
     public async Task ClearEventsForRunAsync(Guid runId, CancellationToken ct = default)
@@ -72,18 +58,4 @@ public class EfAgentEventRepository : IAgentEventRepository
 
         _logger.LogDebug("Cleared {Count} events for run {RunId}", events.Count, runId);
     }
-}
-
-/// <summary>
-/// EF Core entity for agent events.
-/// </summary>
-public class AgentEventEntity
-{
-    public Guid Id { get; set; }
-    public Guid RunId { get; set; }
-    public string Type { get; set; } = "";
-    public DateTime Timestamp { get; set; }
-    public string Data { get; set; } = "{}";
-    public DateTime CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
 }

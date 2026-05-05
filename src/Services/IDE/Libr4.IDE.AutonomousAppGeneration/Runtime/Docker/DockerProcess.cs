@@ -50,7 +50,12 @@ internal static class DockerProcess
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested && !ct.IsCancellationRequested)
         {
-            try { process.Kill(entireProcessTree: true); } catch { /* ignore */ }
+            try { process.Kill(entireProcessTree: true); }
+            catch (Exception ex)
+            {
+                // Best-effort cleanup - ignore kill errors
+                System.Diagnostics.Debug.WriteLine($"Failed to kill docker process: {ex.Message}");
+            }
             logs.Add(new ConsoleLogEntry(DateTime.UtcNow, "stderr",
                 $"[timeout] docker {arguments} exceeded {timeout.TotalSeconds}s"));
             return (-1, logs);

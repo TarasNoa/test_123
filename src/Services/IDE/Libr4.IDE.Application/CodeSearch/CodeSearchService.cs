@@ -133,7 +133,10 @@ public class CodeSearchService : ICodeSearchService
                             }
                         }
                     }
-                    catch { /* skip unreadable files */ }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to read file {File}", file);
+                    }
                 }
             }
         }
