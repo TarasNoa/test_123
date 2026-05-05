@@ -1,0 +1,77 @@
+{{/* Generic microservice deployment template */}}
+{{- range $serviceName, $serviceConfig := .Values.services }}
+{{- if $serviceConfig.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "libr4.fullname" $ }}-{{ $serviceName }}
+  labels:
+    {{- include "libr4.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $serviceName }}
+spec:
+  {{- if not $serviceConfig.hpa.enabled }}
+  replicas: {{ $serviceConfig.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "libr4.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $serviceName }}
+  template:
+    metadata:
+      labels:
+        {{- include "libr4.selectorLabels" $ | nindent 8 }}
+        app.kubernetes.io/component: {{ $serviceName }}
+      {{- if $.Values.monitoring.enabled }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+      {{- end }}
+    spec:
+      containers:
+        - name: {{ $serviceName }}
+          image: "{{ $.Values.global.image.registry }}/{{ $serviceName }}:{{ $.Values.global.image.tag }}"
+          imagePullPolicy: {{ $.Values.global.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $serviceConfig.service.port }}
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: {{ $.Values.global.environment | quote }}
+            - name: ConnectionStrings__Postgres
+              value: {{ include "libr4.postgresConnectionString" $ | quote }}
+            - name: ConnectionStrings__Redis
+              value: {{ include "libr4.redisConnectionString" $ | quote }}
+            - name: RabbitMQ__Host
+              value: {{ $.Values.global.rabbitmq.host | quote }}
+            - name: RabbitMQ__Port
+              value: {{ $.Values.global.rabbitmq.port | quote }}
+            - name: RabbitMQ__Username
+              value: {{ $.Values.global.rabbitmq.username | quote }}
+            - name: RabbitMQ__Password
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "libr4.fullname" $ }}-rabbitmq
+                  key: rabbitmq-password
+            - name: JWT__Authority
+              value: {{ $.Values.global.jwt.authority | quote }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://{{ include "libr4.fullname" $ }}-otel-collector:4317"
+          resources:
+            {{- toYaml $serviceConfig.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+{{- end }}
+{{- end }}

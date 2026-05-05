@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\Libr4.IDE.Domain\Libr4.IDE.Domain.csproj" />
+    <ProjectReference Include="..\Libr4.IDE.Domain.Algorithms\Libr4.IDE.Domain.Algorithms.fsproj" />
+    <ProjectReference Include="..\Libr4.IDE.Domain.FSharp\Libr4.IDE.Domain.FSharp.fsproj" />
+    <ProjectReference Include="..\..\AI\Libr4.AI.Domain.Terminal\Libr4.AI.Domain.Terminal.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" Version="12.4.1" />
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    
+    <!-- gRPC for Rust container-runtime communication -->
+    <PackageReference Include="Grpc.Net.Client" Version="2.60.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.25.1" />
+    <PackageReference Include="Grpc.Tools" Version="2.60.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+    </PackageReference>
+    
+    <!-- Git automation -->
+    <PackageReference Include="LibGit2Sharp" Version="0.30.0" />
+    
+    <!-- F# interop -->
+    <PackageReference Include="FSharp.Core" Version="8.0.100" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Protobuf Include="ShadowWorkspace\Protos\container_runtime.proto" GrpcServices="Client" />
+    <Protobuf Include="Obscura\Protos\browser_automation.proto" GrpcServices="Client" />
+  </ItemGroup>
+
+</Project>

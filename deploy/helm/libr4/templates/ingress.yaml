@@ -1,0 +1,36 @@
+{{/* Ingress with TLS termination */}}
+{{- if .Values.services.gateway.enabled }}
+{{- if .Values.services.gateway.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "libr4.fullname" . }}-gateway
+  labels:
+    {{- include "libr4.labels" . | nindent 4 }}
+  annotations:
+    {{- if eq .Values.services.gateway.ingress.className "traefik" }}
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: "letsencrypt"
+    {{- else if eq .Values.services.gateway.ingress.className "nginx" }}
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.services.gateway.ingress.className }}
+  tls:
+    - hosts:
+        - {{ .Values.services.gateway.ingress.host | required "ingress host is required" }}
+      secretName: {{ include "libr4.fullname" . }}-tls
+  rules:
+    - host: {{ .Values.services.gateway.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "libr4.fullname" . }}-gateway
+                port:
+                  number: {{ .Values.services.gateway.service.port }}
+{{- end }}
+{{- end }}

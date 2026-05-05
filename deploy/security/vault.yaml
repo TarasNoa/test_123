@@ -1,0 +1,134 @@
+# HashiCorp Vault for Secrets Management
+# Deployed via Helm: helm install vault hashicorp/vault
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault
+
+---
+# Vault Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: vault
+data:
+  vault.hcl: |
+    ui = true
+
+    listener "tcp" {
+      tls_disable = 1
+      address = "[::]:8200"
+      cluster_address = "[::]:8201"
+    }
+
+    storage "file" {
+      path = "/vault/data"
+    }
+
+    # Azure Key Vault as auto-unseal
+    seal "azurekeyvault" {
+      tenant_id      = "${AZURE_TENANT_ID}"
+      vault_name     = "libr4-vault"
+      key_name       = "vault-unseal-key"
+    }
+
+    # Kubernetes auth method
+    auth "kubernetes" {
+      kubernetes_host = "https://$KUBERNETES_PORT_443_TCP_ADDR:443"
+    }
+
+    # Audit logging
+    audit "file" {
+      path = "/vault/logs/audit.log"
+    }
+
+---
+# Vault CSI Provider for Secrets
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: vault-libr4
+  namespace: libr4-production
+spec:
+  provider: vault
+  secretObjects:
+    - secretName: libr4-db-credentials
+      type: Opaque
+      data:
+        - objectName: "db-password"
+          key: password
+        - objectName: "db-username"
+          key: username
+    - secretName: libr4-jwt-key
+      type: Opaque
+      data:
+        - objectName: "jwt-secret"
+          key: secret
+    - secretName: libr4-stripe-keys
+      type: Opaque
+      data:
+        - objectName: "stripe-publishable"
+          key: publishableKey
+        - objectName: "stripe-secret"
+          key: secretKey
+        - objectName: "stripe-webhook"
+          key: webhookSecret
+    - secretName: libr4-openai-key
+      type: Opaque
+      data:
+        - objectName: "openai-api-key"
+          key: apiKey
+  parameters:
+    vaultAddress: "http://vault.vault:8200"
+    roleName: "libr4-prod"
+    objects: |
+      - objectName: "db-password"
+        secretPath: "secret/data/libr4/database"
+        secretKey: "password"
+      - objectName: "db-username"
+        secretPath: "secret/data/libr4/database"
+        secretKey: "username"
+      - objectName: "jwt-secret"
+        secretPath: "secret/data/libr4/auth"
+        secretKey: "jwt-secret"
+      - objectName: "stripe-publishable"
+        secretPath: "secret/data/libr4/payments"
+        secretKey: "stripe-publishable-key"
+      - objectName: "stripe-secret"
+        secretPath: "secret/data/libr4/payments"
+        secretKey: "stripe-secret-key"
+      - objectName: "stripe-webhook"
+        secretPath: "secret/data/libr4/payments"
+        secretKey: "stripe-webhook-secret"
+      - objectName: "openai-api-key"
+        secretPath: "secret/data/libr4/ai"
+        secretKey: "openai-api-key"
+
+---
+# Vault Policy for Libr4
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-policy-libr4
+  namespace: vault
+data:
+  policy.hcl: |
+    path "secret/data/libr4/*" {
+      capabilities = ["read"]
+    }
+    
+    path "auth/token/renew-self" {
+      capabilities = ["update"]
+    }
+
+---
+# Vault Kubernetes Auth Role
+# Applied via: vault write auth/kubernetes/role/libr4-prod ...
+# Documented here for reference
+# vault write auth/kubernetes/role/libr4-prod \
+#   bound_service_account_names=libr4-sa \
+#   bound_service_account_namespaces=libr4-production \
+#   policies=libr4 \
+#   ttl=1h

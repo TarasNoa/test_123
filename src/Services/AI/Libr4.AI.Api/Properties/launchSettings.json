@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Libr4.AI.Api": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:5006",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    }
+  }
+}

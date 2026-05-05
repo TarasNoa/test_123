@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "skills": {
+    "enabled": true,
+    "paths": [
+      ".windsurf/claude-skills"
+    ],
+    "domains": [
+      "engineering-team",
+      "engineering",
+      "project-management",
+      "standards",
+      "templates"
+    ],
+    "recommended": [
+      "engineering/agenthub",
+      "engineering/autoresearch-agent",
+      "engineering/prompt-governance",
+      "engineering-team/code-review",
+      "engineering-team/security",
+      "engineering-team/testing"
+    ]
+  },
+  "agentProfiles": [
+    {
+      "id": "orchestrator",
+      "goal": "decompose task, pick skills, control MCP budget"
+    },
+    {
+      "id": "coder",
+      "goal": "implement production-ready code with strict contracts"
+    },
+    {
+      "id": "reviewer",
+      "goal": "run quality/security checks and prevent regressions"
+    },
+    {
+      "id": "memory-manager",
+      "goal": "maintain and retrieve long-term contextual memory"
+    }
+  ],
+  "safety": {
+    "defaultExternalToolsApproval": "manual",
+    "requireEvidenceInReviews": true
+  }
+}

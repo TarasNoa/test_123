@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="FinancialTypes.fs" />
+    <Compile Include="FinancialPropertyTests.fs" />
+    <Compile Include="Types.fs" />
+    <Compile Include="TimeSessionOps.fs" />
+    <Compile Include="TimeTrackingErrors.fs" />
+    <Compile Include="TimeTrackingDomain.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
+  </ItemGroup>
+
+</Project>

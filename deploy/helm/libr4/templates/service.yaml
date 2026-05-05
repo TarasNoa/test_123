@@ -1,0 +1,23 @@
+{{/* Generic microservice service template */}}
+{{- range $serviceName, $serviceConfig := .Values.services }}
+{{- if $serviceConfig.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "libr4.fullname" $ }}-{{ $serviceName }}
+  labels:
+    {{- include "libr4.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $serviceName }}
+spec:
+  type: {{ $serviceConfig.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ $serviceConfig.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "libr4.selectorLabels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $serviceName }}
+{{- end }}
+{{- end }}

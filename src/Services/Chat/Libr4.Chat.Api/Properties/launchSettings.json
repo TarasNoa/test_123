@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "Libr4.Chat.Api": {
+      "commandName": "Project",
+      "applicationUrl": "http://localhost:5004",
+      "environmentVariables": { "ASPNETCORE_ENVIRONMENT": "Development" }
+    }
+  }
+}

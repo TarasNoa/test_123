@@ -1,0 +1,492 @@
+﻿[
+    {
+        "repo":  "nousresearch/hermes-agent",
+        "name":  "hermes-agent",
+        "stars":  116688,
+        "lang":  "Python",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T22:21:49Z",
+        "description":  "The agent that grows with you",
+        "topics":  "ai,ai-agent,ai-agents,anthropic,chatgpt,claude,claude-code,clawdbot,codex,hermes,hermes-agent,llm,moltbot,nous-research,openai,openclaw"
+    },
+    {
+        "repo":  "affaan-m/everything-claude-code",
+        "name":  "everything-claude-code",
+        "stars":  166936,
+        "lang":  "JavaScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-23T06:14:29Z",
+        "description":  "The agent harness performance optimization system. Skills, instincts, memory, security, and research-first development for Claude Code, Codex, Opencode, Cursor and beyond.",
+        "topics":  "ai-agents,anthropic,claude,claude-code,developer-tools,llm,mcp,productivity"
+    },
+    {
+        "repo":  "Donchitos/Claude-Code-Game-Studios",
+        "name":  "Claude-Code-Game-Studios",
+        "stars":  16135,
+        "lang":  "Shell",
+        "archived":  false,
+        "pushed_at":  "2026-04-24T04:28:29Z",
+        "description":  "Turn Claude Code into a full game dev studio — 49 AI agents, 72 workflow skills, and a complete coordination system mirroring real studio hierarchy.",
+        "topics":  "ai-agents,ai-assisted-development,anthropic,claude,claude-code,game-design,game-development,gamedev,godot,indie-game-dev,unity,unreal-engine"
+    },
+    {
+        "repo":  "bytedance/deer-flow",
+        "name":  "deer-flow",
+        "stars":  63778,
+        "lang":  "Python",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T14:00:49Z",
+        "description":  "An open-source long-horizon SuperAgent harness that researches, codes, and creates. With the help of sandboxes, memories, tools, skill, subagents and message gateway, it handles different levels of tasks that could take minutes to hours.",
+        "topics":  "agent,agentic,agentic-framework,agentic-workflow,ai,ai-agents,deep-research,harness,langchain,langgraph,langmanus,llm,multi-agent,nodejs,podcast,python,superagent,typescript"
+    },
+    {
+        "repo":  "coleam00/Archon",
+        "name":  "Archon",
+        "stars":  19701,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-24T15:58:41Z",
+        "description":  "The first open-source harness builder for AI coding. Make AI coding deterministic and repeatable.",
+        "topics":  "ai,automation,bun,claude,cli,coding-assistant,developer-tools,typescript,workflow-engine,yaml"
+    },
+    {
+        "repo":  "thedotmack/claude-mem",
+        "name":  "claude-mem",
+        "stars":  67456,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T23:03:09Z",
+        "description":  "A Claude Code plugin that automatically captures everything Claude does during your coding sessions, compresses it with AI (using Claude\u0027s agent-sdk), and injects relevant context back into future sessions.",
+        "topics":  "ai,ai-agents,ai-memory,anthropic,artificial-intelligence,chromadb,claude,claude-agent-sdk,claude-agents,claude-code,claude-code-plugin,claude-skills,embeddings,long-term-memory,mem0,memory-engine,openmemory,rag,sqlite,supermemory"
+    },
+    {
+        "repo":  "ekzhang/sshx",
+        "name":  "sshx",
+        "stars":  7451,
+        "lang":  "Rust",
+        "archived":  false,
+        "pushed_at":  "2025-06-19T14:09:18Z",
+        "description":  "Fast, collaborative live terminal sharing over the web",
+        "topics":  "collaborative,rust,share,ssh,terminal,tty,web"
+    },
+    {
+        "repo":  "mempalace/mempalace",
+        "name":  "mempalace",
+        "stars":  49651,
+        "lang":  "Python",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T23:03:13Z",
+        "description":  "The best-benchmarked open-source AI memory system. And it\u0027s free.",
+        "topics":  "ai,chromadb,llm,mcp,memory,python"
+    },
+    {
+        "repo":  "PatrickJS/awesome-cursorrules",
+        "name":  "awesome-cursorrules",
+        "stars":  39256,
+        "lang":  "MDX",
+        "archived":  false,
+        "pushed_at":  "2025-10-24T16:37:26Z",
+        "description":  "📄  Configuration files that enhance Cursor AI editor experience with custom rules and behaviors",
+        "topics":  "awesome,awesome-list,cursor,cursor-ai-editor,cursorrules"
+    },
+    {
+        "repo":  "7836246/cursor2api",
+        "name":  "cursor2api",
+        "stars":  1780,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-03T01:13:57Z",
+        "description":  "将 Cursor Web Docs 免费 API 转换为 OpenAI/Anthropic 兼容格式的代理服务。提供 Claude Code工具及图片支持。",
+        "topics":  "ai,cc,claude,cursor,gpt"
+    },
+    {
+        "repo":  "eyaltoledano/claude-task-master",
+        "name":  "claude-task-master",
+        "stars":  26825,
+        "lang":  "JavaScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-23T12:09:20Z",
+        "description":  "An AI-powered task-management system you can drop into Cursor, Lovable, Windsurf, Roo, and others.",
+        "topics":  "ai,cursor,cursor-ai,cursorai,lovable,lovable-dev,roocode,task-manager,tasks,tasks-list,windsurf,windsurf-ai"
+    },
+    {
+        "repo":  "onlook-dev/onlook",
+        "name":  "onlook",
+        "stars":  25625,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-03-27T18:58:36Z",
+        "description":  "The Cursor for Designers • An Open-Source AI-First Design tool • Visually build, style, and edit your React App with AI",
+        "topics":  "ai,cursor,cursor-ai,design,design-to-code,drizzle,editor,figma,frontend,ide,low-code,nextjs,react,supabase,tailwindcss,typescript,ui,vibe-coding,vibecoding"
+    },
+    {
+        "repo":  "x1xhlol/system-prompts-and-models-of-ai-tools",
+        "name":  "system-prompts-and-models-of-ai-tools",
+        "stars":  136085,
+        "lang":  null,
+        "archived":  false,
+        "pushed_at":  "2026-04-17T10:02:58Z",
+        "description":  "FULL Augment Code, Claude Code, Cluely, CodeBuddy, Comet, Cursor, Devin AI, Junie, Kiro, Leap.new, Lovable, Manus, NotionAI, Orchids.app, Perplexity, Poke, Qoder, Replit, Same.dev, Trae, Traycer AI, VSCode Agent, Warp.dev, Windsurf, Xcode, Z.ai Code, Dia \u0026 v0. (And other Open Sourced) System Prompts, Internal Tools \u0026 AI Models",
+        "topics":  "ai,bolt,cluely,copilot,cursor,cursorai,devin,github-copilot,lovable,open-source,perplexity,replit,system-prompts,trae,trae-ai,trae-ide,v0,vscode,windsurf,windsurf-ai"
+    },
+    {
+        "repo":  "AgentDeskAI/browser-tools-mcp",
+        "name":  "browser-tools-mcp",
+        "stars":  7201,
+        "lang":  "JavaScript",
+        "archived":  false,
+        "pushed_at":  "2026-03-18T06:11:12Z",
+        "description":  "Monitor browser logs directly from Cursor and other MCP compatible IDEs.",
+        "topics":  "ai,anthropic,cursor,mcp,mcp-server"
+    },
+    {
+        "repo":  "elder-plinius/CL4R1T4S",
+        "name":  "CL4R1T4S",
+        "stars":  25522,
+        "lang":  null,
+        "archived":  false,
+        "pushed_at":  "2026-04-17T19:56:21Z",
+        "description":  "LEAKED SYSTEM PROMPTS FOR CHATGPT, GEMINI, GROK, CLAUDE, PERPLEXITY, CURSOR, DEVIN, REPLIT, AND MORE! - AI SYSTEMS TRANSPARENCY FOR ALL! 👐",
+        "topics":  "agents,ai,chatgpt,gemini,google,grok,hacking,leak,leaked,openai,prompt,prompt-engineering,prompts,red-team,red-teaming,system,system-info,system-prompts,tools,transparency"
+    },
+    {
+        "repo":  "eastlondoner/vibe-tools",
+        "name":  "vibe-tools",
+        "stars":  4762,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2025-08-25T10:10:43Z",
+        "description":  "Give Cursor Agent an AI Team and Advanced Skills",
+        "topics":  ""
+    },
+    {
+        "repo":  "vanzan01/cursor-memory-bank",
+        "name":  "cursor-memory-bank",
+        "stars":  3031,
+        "lang":  null,
+        "archived":  false,
+        "pushed_at":  "2026-01-07T11:26:52Z",
+        "description":  "A modular, documentation-driven framework using Cursor custom modes (VAN, PLAN, CREATIVE, IMPLEMENT) to provide persistent memory and guide AI through a structured development workflow with visual process maps.",
+        "topics":  ""
+    },
+    {
+        "repo":  "ghuntley/how-to-build-a-coding-agent",
+        "name":  "how-to-build-a-coding-agent",
+        "stars":  5494,
+        "lang":  "Go",
+        "archived":  false,
+        "pushed_at":  "2026-04-19T05:42:12Z",
+        "description":  "A workshop that teaches you how to build your own coding agent. Similar to Roo code, Cline, Amp, Cursor, Windsurf or OpenCode.",
+        "topics":  "agent,ai,cursor,tutorial,workshop"
+    },
+    {
+        "repo":  "bjlida/AI-IDE-Agent",
+        "name":  "AI-IDE-Agent",
+        "stars":  635,
+        "lang":  null,
+        "archived":  false,
+        "pushed_at":  "2026-04-10T06:56:02Z",
+        "description":  "Claude/Cursor/trae AI IDE智能体提示词合集",
+        "topics":  ""
+    },
+    {
+        "repo":  "safishamsi/graphify",
+        "name":  "graphify",
+        "stars":  34817,
+        "lang":  "Python",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T14:56:59Z",
+        "description":  "AI coding assistant skill (Claude Code, Codex, OpenCode, Cursor, Gemini CLI, GitHub Copilot CLI, OpenClaw, Factory Droid, Trae, Google Antigravity). Turn any folder of code, docs, papers, images, or videos into a queryable knowledge graph",
+        "topics":  "antigravity,claude-code,codex,gemini,graphrag,knowledge-graph,openclaw,skills"
+    },
+    {
+        "repo":  "evanca/flutter-ai-rules",
+        "name":  "flutter-ai-rules",
+        "stars":  537,
+        "lang":  null,
+        "archived":  false,
+        "pushed_at":  "2026-04-18T17:21:43Z",
+        "description":  "Flutter AI Skills and Rules for Cursor, Copilot, Antigravity, and Other AI-Powered IDEs",
+        "topics":  "ai,ai-rules,ai-skills,antigravity,cursor,cursor-ai,dart,dartlang,flutter,llm,windsurf,windsurf-ai"
+    },
+    {
+        "repo":  "LakshmanTurlapati/Review-Gate",
+        "name":  "Review-Gate",
+        "stars":  1539,
+        "lang":  "JavaScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-02T23:42:15Z",
+        "description":  "Review-Gate V2 is a powerful rule for the Cursor IDE that helps you get up to 5x more value from your monthly requests. It creates an interactive loop where the AI waits for your follow-up commands—via text, voice, or image upload—allowing you to perform deep, iterative work all within a single request.",
+        "topics":  "ai,claude,cursor,ide"
+    },
+    {
+        "repo":  "BrowserMCP/mcp",
+        "name":  "mcp",
+        "stars":  6396,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2025-04-24T21:49:44Z",
+        "description":  "Browser MCP is a Model Context Provider (MCP) server that allows AI applications to control your browser",
+        "topics":  "browser-automation,browser-extension,claude,cursor,mcp,mcp-server"
+    },
+    {
+        "repo":  "ipenywis/aimemory",
+        "name":  "aimemory",
+        "stars":  84,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2025-04-04T22:10:32Z",
+        "description":  "Add memory superpowers to your Cursor workflow",
+        "topics":  ""
+    },
+    {
+        "repo":  "todo-for-ai/todo-for-ai",
+        "name":  "todo-for-ai",
+        "stars":  1163,
+        "lang":  "Shell",
+        "archived":  false,
+        "pushed_at":  "2026-03-30T14:25:46Z",
+        "description":  "🤖 A comprehensive task management system specifically designed for AI assistants. Supports project management, task tracking, team collaboration, and seamless AI integration through MCP (Model Context Protocol). Built with modern tech stack including React, Flask, and Docker. Try it now at https://todo4ai.org/",
+        "topics":  "ai-coding-tools,cursor,kiro,todo4ai,trae,windsurf"
+    },
+    {
+        "repo":  "rohitg00/skillkit",
+        "name":  "skillkit",
+        "stars":  888,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-21T10:18:26Z",
+        "description":  "Supercharge AI coding agents with portable skills. Install, translate \u0026 share skills across Claude Code, Cursor, Codex, Copilot \u0026 40 more",
+        "topics":  "agent-skills,agentskills,ai,cli,codex,cursor,gemini,opencode,skills"
+    },
+    {
+        "repo":  "menkesu/awesome-pm-skills",
+        "name":  "awesome-pm-skills",
+        "stars":  310,
+        "lang":  null,
+        "archived":  false,
+        "pushed_at":  "2026-02-19T12:25:38Z",
+        "description":  "28 AI-powered PM skills from Lenny\u0027s Podcast. Transform Claude Code \u0026 Cursor into world-class product partners.",
+        "topics":  "ai,awesome-list,claude,cursor,lenny-rachitsky,pm-skills,product-management"
+    },
+    {
+        "repo":  "mbeijen/andrej-karpathy-skills-cursor-vscode",
+        "name":  "andrej-karpathy-skills-cursor-vscode",
+        "stars":  217,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-02-11T12:13:43Z",
+        "description":  "Andrej Karpathy skills for your Cursor or VS Code editor",
+        "topics":  "ai,cursor-ide,cursor-rules,vscode-extension"
+    },
+    {
+        "repo":  "matank001/cursor-security-rules",
+        "name":  "cursor-security-rules",
+        "stars":  370,
+        "lang":  null,
+        "archived":  false,
+        "pushed_at":  "2025-08-27T10:12:58Z",
+        "description":  "This repository contains Cursor Security Rules designed to improve the security of both development workflows and AI agent usage within the Cursor environment. These rules aim to enforce safe coding practices, control sensitive operations, and reduce risk in AI-assisted development.",
+        "topics":  "agent-security,agents,ai,aiagents,cursor,cursor-rules,cursor-security,cursorrules,security"
+    },
+    {
+        "repo":  "mukul975/Anthropic-Cybersecurity-Skills",
+        "name":  "Anthropic-Cybersecurity-Skills",
+        "stars":  5726,
+        "lang":  "Python",
+        "archived":  false,
+        "pushed_at":  "2026-04-18T00:09:43Z",
+        "description":  "754 structured cybersecurity skills for AI agents · Mapped to 5 frameworks: MITRE ATT\u0026CK, NIST CSF 2.0, MITRE ATLAS, D3FEND \u0026 NIST AI RMF · agentskills.io standard · Works with Claude Code, GitHub Copilot, Codex CLI, Cursor, Gemini CLI \u0026 20+ platforms · 26 security domains · Apache 2.0",
+        "topics":  "ai-agents,claude-code,cloud-security,cybersecurity,devsecops,ethical-hacking,incident-response,infosec,llm,malware-analysis,mcp,mitre-attack,nist-csf,osint,penetration-testing,red-team,security,security-automation,threat-hunting,threat-intelligence"
+    },
+    {
+        "repo":  "aaron-he-zhu/seo-geo-claude-skills",
+        "name":  "seo-geo-claude-skills",
+        "stars":  1266,
+        "lang":  "Shell",
+        "archived":  false,
+        "pushed_at":  "2026-04-23T12:44:38Z",
+        "description":  "20 SEO \u0026 GEO skills for Claude Code, Cursor, Codex, and 35+ AI agents. Keyword research, content writing, technical audits, rank tracking. CORE-EEAT + CITE frameworks.",
+        "topics":  "agent-skills,ai-skills,claude-code,claude-skills,content-optimization,generative-engine-optimization,geo,marketing,search-engine-optimization,seo,seo-tools"
+    },
+    {
+        "repo":  "NeoLabHQ/context-engineering-kit",
+        "name":  "context-engineering-kit",
+        "stars":  867,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-22T21:14:46Z",
+        "description":  "Hand-crafted Claude Code Skills focused on improving agent results quality. Compatible with OpenCode, Cursor, Antigravity, Gemini CLI, and others.",
+        "topics":  "agent,ai,claude,cline,cursor,llm,marketplace,opencode,windsurf"
+    },
+    {
+        "repo":  "botingw/rulebook-ai",
+        "name":  "rulebook-ai",
+        "stars":  594,
+        "lang":  "Python",
+        "archived":  false,
+        "pushed_at":  "2025-10-03T00:56:25Z",
+        "description":  "Elevate vibe coding to vibe engineering: Get consistent Github Copilot custom instructions, Cursor, Roo Code, Cline, Windsurf, Claude Code, Gemini Cli, Codex CLI, kilo code, warp custom rules via a universal, managed template. Features vibe coding memory bank \u0026 best practices for large codebases.",
+        "topics":  "claude-code,cline,codex-cli,context-en,cursor,gemini-cli,github-cop,kilo-code,roo-code,vibe-coding,warp,windsurf"
+    },
+    {
+        "repo":  "agent-sh/agentsys",
+        "name":  "agentsys",
+        "stars":  760,
+        "lang":  "JavaScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T00:19:09Z",
+        "description":  "AI writes code. This automates everything else · 19 plugins, 47 agents, and 40 skills · for Claude Code, OpenCode, Codex, Cursor, Kiro.",
+        "topics":  "agent,ai,anthropic,automation,autonomous-agents,claude,claude-code,cli,code-review,codex,cursor,devtools,openai,opencode,plugins,productivity,skills,slash-commands,vibe-coding,workflow"
+    },
+    {
+        "repo":  "crispvibe/Windsurf-Tool",
+        "name":  "Windsurf-Tool",
+        "stars":  326,
+        "lang":  "JavaScript",
+        "archived":  false,
+        "pushed_at":  "2026-01-07T14:12:42Z",
+        "description":  "Windsurf-Tool 一键切号，一键查询积分，一键导入，批量注册，获取绑卡链接，自动绑卡免费使用。 适用于Mac Windows 完全开源 | 本地运行 | 无后端服务器",
+        "topics":  ""
+    },
+    {
+        "repo":  "czlonkowski/n8n-mcp",
+        "name":  "n8n-mcp",
+        "stars":  18705,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-23T14:14:30Z",
+        "description":  "A MCP for Claude Desktop / Claude Code / Windsurf / Cursor to build n8n workflows for you ",
+        "topics":  "mcp,mcp-server,n8n,workflows"
+    },
+    {
+        "repo":  "anomalyco/opencode",
+        "name":  "opencode",
+        "stars":  149482,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T22:55:51Z",
+        "description":  "The open source coding agent.",
+        "topics":  ""
+    },
+    {
+        "repo":  "QwenLM/qwen-code",
+        "name":  "qwen-code",
+        "stars":  23854,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T22:49:42Z",
+        "description":  "An open-source AI agent that lives in your terminal.",
+        "topics":  ""
+    },
+    {
+        "repo":  "langchain-ai/open-swe",
+        "name":  "open-swe",
+        "stars":  9655,
+        "lang":  "Python",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T19:27:22Z",
+        "description":  "An Open-Source Asynchronous Coding Agent",
+        "topics":  "agent,agents,ai,anthropic,claudecode,llm,llms,openai"
+    },
+    {
+        "repo":  "Gitlawb/openclaude",
+        "name":  "openclaude",
+        "stars":  24372,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T04:39:03Z",
+        "description":  "Open Claude Is Open-source coding-agent CLI for OpenAI, Gemini, DeepSeek, Ollama, Codex, GitHub Models, and 200+ models via OpenAI-compatible APIs.",
+        "topics":  ""
+    },
+    {
+        "repo":  "LING71671/Open-ClaudeCode",
+        "name":  "Open-ClaudeCode",
+        "stars":  779,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-02T14:55:18Z",
+        "description":  "ClaudeCode related repository",
+        "topics":  ""
+    },
+    {
+        "repo":  "OpenSees/OpenSees",
+        "name":  "OpenSees",
+        "stars":  752,
+        "lang":  "C++",
+        "archived":  false,
+        "pushed_at":  "2026-04-24T19:02:47Z",
+        "description":  "OpenSees Source Code Repository",
+        "topics":  ""
+    },
+    {
+        "repo":  "OpenCoworkAI/open-codesign",
+        "name":  "open-codesign",
+        "stars":  2374,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T13:44:41Z",
+        "description":  "Open-source Claude Design alternative. One-click import your Claude Code / Codex API key. Prompt → prototype / slides / PDF. Multi-model (Claude, GPT, Gemini, Kimi, GLM, Ollama). BYOK, local-first, MIT.",
+        "topics":  "ai-design,anthropic,byok,claude,claude-code,claude-design,claude-design-alternative,deepseek,design-to-code,desktop-app,electron,figma-alternative,gemini,local-first,multi-model,ollama,openai,openrouter,typescript,ui-generator"
+    },
+    {
+        "repo":  "sickn33/antigravity-awesome-skills",
+        "name":  "antigravity-awesome-skills",
+        "stars":  35098,
+        "lang":  "Python",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T06:33:17Z",
+        "description":  "Installable GitHub library of 1,400+ agentic skills for Claude Code, Cursor, Codex CLI, Gemini CLI, Antigravity, and more. Includes installer CLI, bundles, workflows, and official/community skill collections.",
+        "topics":  "agent-skills,agentic-skills,ai-agent-skills,ai-agents,ai-coding,ai-workflows,antigravity,antigravity-skills,claude-code,claude-code-skills,codex-cli,codex-skills,cursor,cursor-skills,developer-tools,gemini-cli,gemini-skills,kiro,mcp,skill-library"
+    },
+    {
+        "repo":  "CaviraOSS/OpenMemory",
+        "name":  "OpenMemory",
+        "stars":  4018,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-25T13:14:09Z",
+        "description":  "Local persistent memory store for LLM applications including claude desktop, github copilot, codex, antigravity, etc.",
+        "topics":  "ai,ai-agents,ai-infrastructure,ai-memory,artificial-intelligence,cognitive-architecture,embeddings,gemini,llm,long-term-memory,memory,memory-engine,memory-retrieval,ollama,one-line,openai,openmemory,rag,supermemory,vector-database"
+    },
+    {
+        "repo":  "ishandutta2007/open-antigravity",
+        "name":  "open-antigravity",
+        "stars":  399,
+        "lang":  "JavaScript",
+        "archived":  false,
+        "pushed_at":  "2026-02-08T16:54:13Z",
+        "description":  "🚀🪐🌕🌑☄️🛸 Opensource equivalent of Google\u0027s Antigravity",
+        "topics":  "ai-agent,ai-editor,anti-gravity,antigravity,antigravity-ai,antigravity-ide,cursor-ai,cursor-ide"
+    },
+    {
+        "repo":  "RooCodeInc/Roo-Code",
+        "name":  "Roo-Code",
+        "stars":  23499,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2026-04-24T18:05:51Z",
+        "description":  "Roo Code gives you a whole dev team of AI agents in your code editor.",
+        "topics":  ""
+    },
+    {
+        "repo":  "GreatScottyMac/RooFlow",
+        "name":  "RooFlow",
+        "stars":  1133,
+        "lang":  "Python",
+        "archived":  false,
+        "pushed_at":  "2025-06-18T22:06:28Z",
+        "description":  "RooFlow - Enhanced Memory Bank System with ☢️Footgun Power☢️  Next-gen Memory Bank system with five integrated modes and system-level customization. Uses Roo Code\u0027s experimental \"Footgun\" feature for deep AI assistant customization while maintaining efficient token usage! ",
+        "topics":  ""
+    },
+    {
+        "repo":  "OpenAnalystInc/OpenAnalyst",
+        "name":  "OpenAnalyst",
+        "stars":  159,
+        "lang":  "TypeScript",
+        "archived":  false,
+        "pushed_at":  "2025-12-01T08:20:12Z",
+        "description":  "Open-source VS Code AI agent that combines the best of Roo Code, Cline and kilo code, with advanced AI capabilities, multi-model support, and seamless development workflow integration.",
+        "topics":  ""
+    }
+]

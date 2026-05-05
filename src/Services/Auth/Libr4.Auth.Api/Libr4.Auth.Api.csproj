@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Libr4.Auth.Api</RootNamespace>
+    <UserSecretsId>libr4-auth-api</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Libr4.Auth.Application\Libr4.Auth.Application.csproj" />
+    <ProjectReference Include="..\Libr4.Auth.Infrastructure\Libr4.Auth.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Web\Libr4.Shared.Web.csproj" />
+  </ItemGroup>
+</Project>

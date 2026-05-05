@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Libr4.Tasks.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Libr4.Tasks.Domain\Libr4.Tasks.Domain.csproj" />
+    <ProjectReference Include="..\Libr4.Tasks.Domain.TimeTracking.FSharp\Libr4.Tasks.Domain.TimeTracking.FSharp.fsproj" />
+    <ProjectReference Include="..\Libr4.Tasks.Application\Libr4.Tasks.Application.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Infrastructure\Libr4.Shared.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="MassTransit.RabbitMQ" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+  </ItemGroup>
+</Project>

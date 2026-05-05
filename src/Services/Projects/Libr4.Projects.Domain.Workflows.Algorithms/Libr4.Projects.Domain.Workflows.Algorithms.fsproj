@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="WorkflowAlgorithms.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\AI\Libr4.AI.Infrastructure\Libr4.AI.Infrastructure.csproj" />
+    <ProjectReference Include="..\Libr4.Projects.Domain\Libr4.Projects.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

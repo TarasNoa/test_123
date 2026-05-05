@@ -1,0 +1,15 @@
+[package]
+name = "libr4-sandbox-executor"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "libr4_sandbox_executor"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[build-dependencies]
+cbindgen = "0.26"

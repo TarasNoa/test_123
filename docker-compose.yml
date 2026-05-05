@@ -1,0 +1,322 @@
+name: libr4
+
+include:
+  - docker-compose.infra.yml
+
+services:
+  gateway:
+    build:
+      context: .
+      dockerfile: src/Gateway/Libr4.Gateway/Dockerfile
+    container_name: libr4-gateway
+    depends_on:
+      - auth-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "5000:8080"
+
+  auth-api:
+    build:
+      context: .
+      dockerfile: src/Services/Auth/Libr4.Auth.Api/Dockerfile
+    container_name: libr4-auth-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_auth;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      ConnectionStrings__Redis: redis:6379
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      Jwt__Issuer: ${JWT_ISSUER:-libr4}
+      Jwt__Audience: ${JWT_AUDIENCE:-libr4-clients}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-dev-super-secret-change-me-to-random-64-bytes-dev-super-secret-change-me}
+    ports:
+      - "5001:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: libr4-frontend
+    depends_on:
+      - gateway
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:5000
+      NEXT_PUBLIC_WS_BASE_URL: ws://localhost:5000
+    ports:
+      - "3000:3000"
+
+  tasks-api:
+    build:
+      context: .
+      dockerfile: src/Services/Tasks/Libr4.Tasks.Api/Dockerfile
+    container_name: libr4-tasks-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_tasks;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      ConnectionStrings__Redis: redis:6379
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      Jwt__Authority: http://gateway:8080
+      Jwt__Audience: libr4-clients
+    ports:
+      - "5002:8080"
+
+  payments-api:
+    build:
+      context: .
+      dockerfile: src/Services/Payments/Libr4.Payments.Api/Dockerfile
+    container_name: libr4-payments-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_payments;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      Stripe__SecretKey: ${STRIPE_SECRET_KEY:-sk_test_dummy}
+      Stripe__PublishableKey: ${STRIPE_PUBLISHABLE_KEY:-pk_test_dummy}
+      Stripe__WebhookSecret: ${STRIPE_WEBHOOK_SECRET:-whsec_dummy}
+      Jwt__Authority: http://gateway:8080
+      Jwt__Audience: libr4-clients
+    ports:
+      - "5003:8080"
+
+  chat-api:
+    build:
+      context: .
+      dockerfile: src/Services/Chat/Libr4.Chat.Api/Dockerfile
+    container_name: libr4-chat-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_chat;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      ConnectionStrings__Redis: redis:6379
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      S3__Endpoint: http://minio:9000
+      S3__AccessKey: ${MINIO_ACCESS_KEY:-minioadmin}
+      S3__SecretKey: ${MINIO_SECRET_KEY:-minioadmin}
+      S3__Bucket: libr4-files
+      Jwt__Authority: http://gateway:8080
+      Jwt__Audience: libr4-clients
+    ports:
+      - "5004:8080"
+
+  trading-api:
+    build:
+      context: .
+      dockerfile: src/Services/Trading/Libr4.Trading.Api/Dockerfile
+    container_name: libr4-trading-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_trading;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      Jwt__Authority: http://gateway:8080
+      Jwt__Audience: libr4-clients
+    ports:
+      - "5005:8080"
+
+  ai-api:
+    build:
+      context: .
+      dockerfile: src/Services/AI/Libr4.AI.Api/Dockerfile
+    container_name: libr4-ai-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_ai;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      Ollama__BaseUrl: ${OLLAMA_URL:-http://ollama:11434}
+      OpenAI__ApiKey: ${OPENAI_API_KEY:-}
+      Jwt__Authority: http://gateway:8080
+      Jwt__Audience: libr4-clients
+    ports:
+      - "5006:8080"
+
+  # Ollama for local LLM inference (Qwen3-Coder-Next, Qwen3-8B, etc.)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: libr4-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_MAX_LOADED_MODELS=3
+    # GPU support (optional, for faster inference)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Pre-configure Ollama with recommended models
+  ollama-setup:
+    image: ollama/ollama:latest
+    container_name: libr4-ollama-setup
+    depends_on:
+      - ollama
+    entrypoint: >
+      sh -c "
+        sleep 10 &&
+        echo 'Pulling recommended models...' &&
+        ollama pull qwen3-coder-next &&
+        ollama pull qwen3:8b &&
+        ollama pull stable-code:3b-code &&
+        echo 'Models ready!'
+      "
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    profiles:
+      - setup
+
+  # Rust Shadow Sync Service - High-performance file sync for Shadow Workspace
+  shadow-sync:
+    build:
+      context: ./obscura
+      dockerfile: crates/shadow-sync/Dockerfile
+    container_name: libr4-shadow-sync
+    restart: unless-stopped
+    depends_on:
+      - ide-api
+    environment:
+      SHADOW_SYNC_SOURCE: /workspace/source
+      SHADOW_SYNC_TARGET: /workspace/target
+      SHADOW_SYNC_WORKSPACE_ID: default
+      SHADOW_SYNC_DEBOUNCE_MS: 50
+    ports:
+      - "8080:8080"  # API port
+    volumes:
+      - workspace_source:/workspace/source
+      - workspace_target:/workspace/target
+    networks:
+      - libr4-network
+
+  # Rust Sandbox Controller - Resource monitoring and kill switch
+  sandbox-controller:
+    build:
+      context: ./obscura
+      dockerfile: crates/sandbox-controller/Dockerfile
+    container_name: libr4-sandbox-controller
+    restart: unless-stopped
+    privileged: true  # Required for container monitoring
+    depends_on:
+      - docker-socket
+    environment:
+      DOCKER_SOCKET: /var/run/docker.sock
+    ports:
+      - "9090:9090"  # API port
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - libr4-network
+
+  # Docker socket proxy for security (optional, for production)
+  docker-socket:
+    image: tecnativa/docker-socket-proxy:latest
+    container_name: libr4-docker-socket
+    restart: unless-stopped
+    privileged: true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      CONTAINERS: 1
+      POST: 0
+    networks:
+      - libr4-network
+
+  # Rust Security Scanner - Autonomous offensive security
+  security-scanner:
+    build:
+      context: ./obscura
+      dockerfile: crates/security-scanner/Dockerfile
+    container_name: libr4-security-scanner
+    restart: unless-stopped
+    depends_on:
+      - ide-api
+      - sandbox-controller
+    environment:
+      RUST_LOG: info
+      SCAN_TIMEOUT_SECS: 30
+    ports:
+      - "7070:7070"  # API port
+    networks:
+      - libr4-network
+
+  # Rust Binary Archeology - Legacy code migration
+  binary-archeology:
+    build:
+      context: ./obscura
+      dockerfile: crates/binary-archeology/Dockerfile
+    container_name: libr4-binary-archeology
+    restart: unless-stopped
+    environment:
+      RUST_LOG: info
+    ports:
+      - "6060:6060"  # API port
+    volumes:
+      - binary_uploads:/uploads
+    networks:
+      - libr4-network
+
+volumes:
+  ollamadata:
+  workspace_source:
+  workspace_target:
+  binary_uploads:
+
+networks:
+  libr4-network:
+    driver: bridge

@@ -1,0 +1,47 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+*.pdb
+TestResults/
+coverage*
+
+## Rider / Visual Studio
+.idea/
+*.DotSettings.user
+
+## Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+
+## Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+## Logs
+*.log
+logs/
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Docker
+*.pid
+
+## Data volumes
+pgdata/
+redisdata/
+rabbitdata/
+prometheusdata/
+grafanadata/

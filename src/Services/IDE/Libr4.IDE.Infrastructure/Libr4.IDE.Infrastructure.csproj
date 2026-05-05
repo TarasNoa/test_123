@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\Libr4.IDE.Application\Libr4.IDE.Application.csproj" />
+    <ProjectReference Include="..\Libr4.IDE.Domain\Libr4.IDE.Domain.csproj" />
+    <ProjectReference Include="..\Libr4.IDE.Domain.FSharp\Libr4.IDE.Domain.FSharp.fsproj" />
+    <ProjectReference Include="..\Libr4.IDE.AutonomousAppGeneration\Libr4.IDE.AutonomousAppGeneration.csproj" />
+    <ProjectReference Include="..\Libr4.IDE.AutonomousAppGeneration.Persistence\Libr4.IDE.AutonomousAppGeneration.Persistence.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="8.0.100" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <!-- Neo4j for SemanticBlame (Semantic Git Blame feature) -->
+    <PackageReference Include="Neo4j.Driver" Version="5.15.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.Logging" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+  </ItemGroup>
+
+  <!-- Exclude pre-existing files with unresolved dependencies (tracked in tech-debt backlog) -->
+  <ItemGroup>
+    <Compile Remove="Persistence\AppGenerationRepository.cs" />
+    <Compile Remove="Persistence\EfAgentEventRepository.cs" />
+    <Compile Remove="Persistence\EfAgentOrchestrationRepository.cs" />
+    <Compile Remove="Persistence\AgentEventEntity.cs" />
+    <Compile Remove="Persistence\AgentOrchestrationEntity.cs" />
+    <Compile Remove="Persistence\IAgentEventRepository.cs" />
+    <Compile Remove="Persistence\IAgentOrchestrationRepository.cs" />
+    <Compile Remove="FSharpInterop\AgentStateMachineBridge.cs" />
+    <Compile Remove="FSharpInterop\NeuralContextBridge.cs" />
+    <Compile Remove="FSharpInterop\FSharpInteropExtensions.cs" />
+    <Compile Remove="Containers\ContainerPoolWarmupService.cs" />
+    <Compile Remove="Containers\ContainerConnectionTracker.cs" />
+    <Compile Remove="Containers\ContainerManager.cs" />
+    <Compile Remove="Containers\PreWarmedContainerPool.cs" />
+    <Compile Remove="Obscura\ObscuraBrowserService.cs" />
+    <Compile Remove="Memory\SemanticBlameService.cs" />
+    <Compile Remove="Collaboration\CrdtDocumentService.cs" />
+  </ItemGroup>
+
+</Project>

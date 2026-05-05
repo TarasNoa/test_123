@@ -1,0 +1,153 @@
+syntax = "proto3";
+
+option csharp_namespace = "ContainerRuntime";
+
+package container_runtime;
+
+service ContainerRuntime {
+  // Container lifecycle
+  rpc CreateContainer(CreateContainerRequest) returns (CreateContainerResponse);
+  rpc StartContainer(StartContainerRequest) returns (StartContainerResponse);
+  rpc StopContainer(StopContainerRequest) returns (StopContainerResponse);
+  rpc DeleteContainer(DeleteContainerRequest) returns (DeleteContainerResponse);
+  
+  // Operations
+  rpc ExecuteCommand(ExecuteCommandRequest) returns (ExecuteCommandResponse);
+  rpc GetContainerStatus(GetContainerStatusRequest) returns (GetContainerStatusResponse);
+  rpc StreamLogs(StreamLogsRequest) returns (stream LogEntry);
+  
+  // Pool management
+  rpc WarmPool(WarmPoolRequest) returns (WarmPoolResponse);
+  rpc GetPoolStats(GetPoolStatsRequest) returns (GetPoolStatsResponse);
+}
+
+message CreateContainerRequest {
+  string image = 1;
+  string name = 2;
+  map<string, string> environment = 3;
+  repeated VolumeMount volumes = 4;
+  repeated PortMapping ports = 5;
+  string network = 6;
+  ResourceLimits resources = 7;
+  string command = 8;
+  bool auto_start = 9;
+}
+
+message VolumeMount {
+  string host_path = 1;
+  string container_path = 2;
+  bool read_only = 3;
+}
+
+message PortMapping {
+  int32 host_port = 1;
+  int32 container_port = 2;
+}
+
+message ResourceLimits {
+  int64 memory_mb = 1;
+  double cpu_cores = 2;
+}
+
+message CreateContainerResponse {
+  string container_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message StartContainerRequest {
+  string container_id = 1;
+}
+
+message StartContainerResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message StopContainerRequest {
+  string container_id = 1;
+  int32 timeout_seconds = 2;
+}
+
+message StopContainerResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message DeleteContainerRequest {
+  string container_id = 1;
+  bool force = 2;
+}
+
+message DeleteContainerResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message ExecuteCommandRequest {
+  string container_id = 1;
+  string command = 2;
+  string working_dir = 3;
+  int32 timeout_seconds = 4;
+}
+
+message ExecuteCommandResponse {
+  int32 exit_code = 1;
+  string stdout = 2;
+  string stderr = 3;
+  bool success = 4;
+}
+
+message GetContainerStatusRequest {
+  string container_id = 1;
+}
+
+message GetContainerStatusResponse {
+  string container_id = 1;
+  string state = 2;
+  int32 exit_code = 3;
+  int64 pid = 4;
+  int64 memory_usage_mb = 5;
+  double cpu_usage_percent = 6;
+  string started_at = 7;
+  string finished_at = 8;
+}
+
+message StreamLogsRequest {
+  string container_id = 1;
+  bool follow = 2;
+  int32 tail_lines = 3;
+  bool timestamps = 4;
+}
+
+message LogEntry {
+  string container_id = 1;
+  string message = 2;
+  string timestamp = 3;
+  bool is_stderr = 4;
+}
+
+message WarmPoolRequest {
+  string environment_type = 1;
+  int32 count = 2;
+}
+
+message WarmPoolResponse {
+  bool success = 1;
+  int32 warmed_count = 2;
+  string error = 3;
+}
+
+message GetPoolStatsRequest {}
+
+message PoolEntry {
+  string environment_type = 1;
+  int32 available = 2;
+  int32 active = 3;
+  int32 min_size = 4;
+  int32 max_size = 5;
+}
+
+message GetPoolStatsResponse {
+  repeated PoolEntry pools = 1;
+}

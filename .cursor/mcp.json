@@ -1,0 +1,59 @@
+{
+  "mcpServers": {
+    "browser-tools-mcp": {
+      "type": "stdio",
+      "enabled": false,
+      "command": "npx",
+      "args": [
+        "-y",
+        "browser-tools-mcp"
+      ],
+      "notes": "AgentDeskAI/browser-tools-mcp"
+    },
+    "browsermcp": {
+      "type": "stdio",
+      "enabled": false,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@browsermcp/mcp"
+      ],
+      "notes": "BrowserMCP/mcp"
+    },
+    "n8n-mcp": {
+      "type": "stdio",
+      "enabled": false,
+      "command": "npx",
+      "args": [
+        "-y",
+        "n8n-mcp"
+      ],
+      "env": {
+        "N8N_BASE_URL": "http://localhost:5678",
+        "N8N_API_KEY": "${N8N_API_KEY}"
+      }
+    },
+    "openmemory": {
+      "type": "stdio",
+      "enabled": false,
+      "command": "npx",
+      "args": [
+        "-y",
+        "@openmemory/mcp"
+      ]
+    },
+    "mempalace": {
+      "type": "stdio",
+      "enabled": false,
+      "command": "python",
+      "args": [
+        "-m",
+        "mempalace.mcp"
+      ]
+    }
+  },
+  "policies": {
+    "externalMcpDefault": "manual_approval",
+    "captureAuditTrail": true
+  }
+}

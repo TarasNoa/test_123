@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Libr4.Tasks.Application</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Libr4.Tasks.Domain\Libr4.Tasks.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\AI\Libr4.AI.Infrastructure\Libr4.AI.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\AI\Libr4.AI.Domain.TaskRecommendations.Algorithms\Libr4.AI.Domain.TaskRecommendations.Algorithms.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FSharp.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+  </ItemGroup>
+</Project>

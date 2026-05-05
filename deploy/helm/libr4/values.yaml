@@ -1,0 +1,176 @@
+global:
+  image:
+    registry: ghcr.io/libr4
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  environment: development
+  
+  postgresql:
+    host: libr4-postgresql
+    port: 5432
+    username: postgres
+    password: changeme
+    database: libr4
+  
+  redis:
+    host: libr4-redis-master
+    port: 6379
+    password: ""
+  
+  rabbitmq:
+    host: libr4-rabbitmq
+    port: 5672
+    username: user
+    password: changeme
+  
+  jwt:
+    authority: ""
+    audience: ""
+
+# Infrastructure
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: changeme
+    database: libr4
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 5Gi
+
+rabbitmq:
+  enabled: true
+  auth:
+    username: user
+    password: changeme
+  persistence:
+    enabled: true
+    size: 5Gi
+
+minio:
+  enabled: true
+  auth:
+    rootUser: minioadmin
+    rootPassword: minioadmin
+  persistence:
+    enabled: true
+    size: 10Gi
+
+# Services
+services:
+  gateway:
+    enabled: true
+    replicaCount: 2
+    service:
+      type: LoadBalancer
+      port: 80
+      targetPort: 8080
+    ingress:
+      enabled: false
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    hpa:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+
+  auth:
+    enabled: true
+    replicaCount: 2
+    service:
+      port: 5001
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  tasks:
+    enabled: true
+    replicaCount: 2
+    service:
+      port: 5002
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  payments:
+    enabled: true
+    replicaCount: 2
+    service:
+      port: 5003
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  chat:
+    enabled: true
+    replicaCount: 2
+    service:
+      port: 5004
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+
+  trading:
+    enabled: true
+    replicaCount: 2
+    service:
+      port: 5005
+    resources:
+      limits:
+        cpu: 500m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+  ai:
+    enabled: true
+    replicaCount: 2
+    service:
+      port: 5006
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 512Mi
+      requests:
+        cpu: 200m
+        memory: 256Mi
+
+# Monitoring
+monitoring:
+  enabled: false
+  serviceMonitor:
+    enabled: false

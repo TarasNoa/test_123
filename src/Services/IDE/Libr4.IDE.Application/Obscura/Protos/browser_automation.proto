@@ -1,0 +1,336 @@
+syntax = "proto3";
+
+package browser_automation;
+
+option csharp_namespace = "BrowserAutomation";
+
+service BrowserAutomation {
+  // Browser lifecycle
+  rpc LaunchBrowser(LaunchBrowserRequest) returns (LaunchBrowserResponse);
+  rpc CloseBrowser(CloseBrowserRequest) returns (CloseBrowserResponse);
+  rpc GetBrowserStatus(GetBrowserStatusRequest) returns (GetBrowserStatusResponse);
+  
+  // Page operations
+  rpc Navigate(NavigateRequest) returns (NavigateResponse);
+  rpc GetPageSource(GetPageSourceRequest) returns (GetPageSourceResponse);
+  rpc GetPageText(GetPageTextRequest) returns (GetPageTextResponse);
+  rpc TakeScreenshot(TakeScreenshotRequest) returns (TakeScreenshotResponse);
+  rpc WaitForElement(WaitForElementRequest) returns (WaitForElementResponse);
+  rpc WaitForNavigation(WaitForNavigationRequest) returns (WaitForNavigationResponse);
+  
+  // DOM extraction
+  rpc ExtractElement(ExtractElementRequest) returns (ExtractElementResponse);
+  rpc ExtractMultiple(ExtractMultipleRequest) returns (ExtractMultipleResponse);
+  rpc ExecuteJavaScript(ExecuteJavaScriptRequest) returns (ExecuteJavaScriptResponse);
+  
+  // Actions
+  rpc ClickElement(ClickElementRequest) returns (ClickElementResponse);
+  rpc TypeText(TypeTextRequest) returns (TypeTextResponse);
+  rpc SelectOption(SelectOptionRequest) returns (SelectOptionResponse);
+  rpc ScrollToElement(ScrollToElementRequest) returns (ScrollToElementResponse);
+  rpc HoverElement(HoverElementRequest) returns (HoverElementResponse);
+  
+  // Obscura-specific
+  rpc ObscuraCrawl(ObscuraCrawlRequest) returns (stream ObscuraCrawlEvent);
+  rpc ConvertToMarkdown(ConvertToMarkdownRequest) returns (ConvertToMarkdownResponse);
+}
+
+// Browser lifecycle
+message LaunchBrowserRequest {
+  string browser_id = 1;
+  bool headless = 2;
+  string user_agent = 3;
+  Viewport viewport = 4;
+  repeated string args = 5;
+  ProxyConfig proxy = 6;
+}
+
+message Viewport {
+  int32 width = 1;
+  int32 height = 2;
+  double device_scale_factor = 3;
+}
+
+message ProxyConfig {
+  string server = 1;
+  string username = 2;
+  string password = 3;
+}
+
+message LaunchBrowserResponse {
+  string browser_id = 1;
+  bool success = 2;
+  string error = 3;
+  string ws_endpoint = 4;
+}
+
+message CloseBrowserRequest {
+  string browser_id = 1;
+}
+
+message CloseBrowserResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message GetBrowserStatusRequest {
+  string browser_id = 1;
+}
+
+message GetBrowserStatusResponse {
+  string browser_id = 1;
+  string state = 2;  // idle, navigating, extracting, closed
+  string current_url = 3;
+  string page_title = 4;
+}
+
+// Navigation
+message NavigateRequest {
+  string browser_id = 1;
+  string url = 2;
+  int32 timeout_ms = 3;
+  bool wait_until_network_idle = 4;
+}
+
+message NavigateResponse {
+  bool success = 1;
+  string error = 2;
+  int32 status_code = 3;
+  string final_url = 4;
+}
+
+// Page content
+message GetPageSourceRequest {
+  string browser_id = 1;
+}
+
+message GetPageSourceResponse {
+  bool success = 1;
+  string html = 2;
+  string error = 3;
+}
+
+message GetPageTextRequest {
+  string browser_id = 1;
+}
+
+message GetPageTextResponse {
+  bool success = 1;
+  string text = 2;
+  string error = 3;
+}
+
+message TakeScreenshotRequest {
+  string browser_id = 1;
+  string selector = 2;  // optional element selector
+  ScreenshotOptions options = 3;
+}
+
+message ScreenshotOptions {
+  string format = 1;  // png, jpeg, webp
+  int32 quality = 2;  // 0-100 for jpeg/webp
+  bool full_page = 3;
+  ClipRegion clip = 4;
+}
+
+message ClipRegion {
+  int32 x = 1;
+  int32 y = 2;
+  int32 width = 3;
+  int32 height = 4;
+}
+
+message TakeScreenshotResponse {
+  bool success = 1;
+  bytes image_data = 2;
+  string base64_data = 3;
+  string error = 4;
+}
+
+// Waiting
+message WaitForElementRequest {
+  string browser_id = 1;
+  string selector = 2;
+  int32 timeout_ms = 3;
+  string state = 4;  // visible, hidden, attached, detached
+}
+
+message WaitForElementResponse {
+  bool success = 1;
+  bool found = 2;
+  string error = 3;
+}
+
+message WaitForNavigationRequest {
+  string browser_id = 1;
+  int32 timeout_ms = 2;
+  string wait_until = 3;  // load, domcontentloaded, networkidle
+}
+
+message WaitForNavigationResponse {
+  bool success = 1;
+  string url = 2;
+  string error = 3;
+}
+
+// DOM extraction
+message ExtractElementRequest {
+  string browser_id = 1;
+  string selector = 2;
+  ExtractionType extraction_type = 3;
+  string attribute_name = 4;  // for Attribute extraction
+}
+
+enum ExtractionType {
+  TEXT = 0;
+  HTML = 1;
+  ATTRIBUTE = 2;
+  VALUE = 3;
+  HREF = 4;
+  SRC = 5;
+}
+
+message ExtractElementResponse {
+  bool success = 1;
+  string value = 2;
+  string error = 3;
+}
+
+message ExtractMultipleRequest {
+  string browser_id = 1;
+  string selector = 2;
+  ExtractionType extraction_type = 3;
+  string attribute_name = 4;
+}
+
+message ExtractMultipleResponse {
+  bool success = 1;
+  repeated string values = 2;
+  int32 count = 3;
+  string error = 4;
+}
+
+message ExecuteJavaScriptRequest {
+  string browser_id = 1;
+  string script = 2;
+  string args_json = 3;  // JSON array of arguments
+}
+
+message ExecuteJavaScriptResponse {
+  bool success = 1;
+  string result_json = 2;
+  string error = 3;
+}
+
+// Actions
+message ClickElementRequest {
+  string browser_id = 1;
+  string selector = 2;
+  int32 timeout_ms = 3;
+  bool force = 4;
+}
+
+message ClickElementResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message TypeTextRequest {
+  string browser_id = 1;
+  string selector = 2;
+  string text = 3;
+  bool clear_first = 4;
+  int32 delay_ms = 5;  // delay between keystrokes
+  int32 timeout_ms = 6;
+}
+
+message TypeTextResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message SelectOptionRequest {
+  string browser_id = 1;
+  string selector = 2;
+  string value = 3;
+  string label = 4;
+  int32 index = 5;
+}
+
+message SelectOptionResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message ScrollToElementRequest {
+  string browser_id = 1;
+  string selector = 2;
+  string behavior = 3;  // auto, smooth
+  string block = 4;     // start, center, end, nearest
+}
+
+message ScrollToElementResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message HoverElementRequest {
+  string browser_id = 1;
+  string selector = 2;
+}
+
+message HoverElementResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+// Obscura-specific
+message ObscuraCrawlRequest {
+  string browser_id = 1;
+  string start_url = 2;
+  int32 max_pages = 3;
+  int32 max_depth = 4;
+  repeated string url_patterns = 5;  // regex patterns to follow
+  repeated string exclude_patterns = 6;
+  bool same_domain_only = 7;
+}
+
+message ObscuraCrawlEvent {
+  oneof event {
+    PageCrawled page_crawled = 1;
+    CrawlError crawl_error = 2;
+    CrawlComplete crawl_complete = 3;
+  }
+}
+
+message PageCrawled {
+  string url = 1;
+  int32 depth = 2;
+  string title = 3;
+  int32 links_found = 4;
+  int32 links_followed = 5;
+}
+
+message CrawlError {
+  string url = 1;
+  string error = 2;
+}
+
+message CrawlComplete {
+  int32 pages_crawled = 1;
+  int32 errors = 2;
+  double duration_seconds = 3;
+}
+
+message ConvertToMarkdownRequest {
+  string browser_id = 1;
+  bool include_images = 2;
+  bool include_links = 3;
+}
+
+message ConvertToMarkdownResponse {
+  bool success = 1;
+  string markdown = 2;
+  string title = 3;
+  string error = 4;
+}

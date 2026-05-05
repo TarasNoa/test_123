@@ -1,0 +1,155 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: otel-collector-config
+  namespace: observability
+data:
+  otel-collector-config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      prometheus:
+        config:
+          scrape_configs:
+            - job_name: 'kubernetes-pods'
+              kubernetes_sd_configs:
+                - role: pod
+              relabel_configs:
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+                  action: keep
+                  regex: true
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+                  action: replace
+                  target_label: __metrics_path__
+                  regex: (.+)
+                - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+                  action: replace
+                  regex: ([^:]+)(?::\d+)?;(\d+)
+                  replacement: $1:$2
+                  target_label: __address__
+
+    processors:
+      batch:
+        timeout: 1s
+        send_batch_size: 1024
+      resource:
+        attributes:
+          - key: environment
+            value: production
+            action: upsert
+      tail_sampling:
+        decision_wait: 10s
+        num_traces: 100
+        expected_new_traces_per_sec: 10
+        policies:
+          - name: errors
+            type: status_code
+            status_code: {status_codes: [ERROR]}
+          - name: slow_requests
+            type: latency
+            latency: {threshold_ms: 1000}
+
+    exporters:
+      jaeger:
+        endpoint: jaeger-collector:14250
+        tls:
+          insecure: true
+      prometheusremotewrite:
+        endpoint: http://prometheus:9090/api/v1/write
+      loki:
+        endpoint: http://loki:3100/loki/api/v1/push
+      otlp/seq:
+        endpoint: http://seq:5341/ingest/otlp
+        tls:
+          insecure: true
+      otlp/honeycomb:
+        endpoint: api.honeycomb.io:443
+        headers:
+          x-honeycomb-team: ${HONEYCOMB_API_KEY}
+      otlp/newrelic:
+        endpoint: otlp.nr-data.net:4317
+        headers:
+          api-key: ${NEW_RELIC_LICENSE_KEY}
+      logging:
+        loglevel: info
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch, tail_sampling]
+          exporters: [jaeger, otlp/seq, logging]
+        metrics:
+          receivers: [otlp, prometheus]
+          processors: [batch, resource]
+          exporters: [prometheusremotewrite, logging]
+        logs:
+          receivers: [otlp]
+          processors: [batch, resource]
+          exporters: [loki, logging]
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: observability
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+        - name: otel-collector
+          image: otel/opentelemetry-collector-contrib:0.95.0
+          args: ["--config=/conf/otel-collector-config.yaml"]
+          ports:
+            - containerPort: 4317  # OTLP gRPC
+            - containerPort: 4318  # OTLP HTTP
+            - containerPort: 8888  # Prometheus metrics
+            - containerPort: 8889  # Prometheus exporter
+          volumeMounts:
+            - name: config
+              mountPath: /conf
+          resources:
+            limits:
+              cpu: 1000m
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              memory: 256Mi
+      volumes:
+        - name: config
+          configMap:
+            name: otel-collector-config
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: otel-collector
+  namespace: observability
+  labels:
+    app: otel-collector
+spec:
+  ports:
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+    - name: metrics
+      port: 8888
+      targetPort: 8888
+  selector:
+    app: otel-collector

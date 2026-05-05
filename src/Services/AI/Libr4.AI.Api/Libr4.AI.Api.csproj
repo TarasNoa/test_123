@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Libr4.AI.Api</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Web\Libr4.Shared.Web.csproj" />
+    <ProjectReference Include="..\Libr4.AI.Application\Libr4.AI.Application.csproj" />
+    <ProjectReference Include="..\Libr4.AI.Infrastructure\Libr4.AI.Infrastructure.csproj" />
+    <ProjectReference Include="..\Libr4.AI.Domain\Libr4.AI.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="Endpoints\SessionTrackingEndpoints.cs" />
+    <Compile Remove="Endpoints/MemoryEndpoints.cs" />
+  </ItemGroup>
+</Project>

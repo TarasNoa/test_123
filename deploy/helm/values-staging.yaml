@@ -1,0 +1,49 @@
+global:
+  environment: staging
+  image:
+    tag: staging
+  
+  jwt:
+    authority: "https://staging.libr4.io"
+
+# Infrastructure
+postgresql:
+  persistence:
+    size: 20Gi
+
+redis:
+  persistence:
+    size: 10Gi
+
+# Services with staging-specific settings
+services:
+  gateway:
+    ingress:
+      enabled: true
+      className: nginx
+      host: staging.libr4.io
+    hpa:
+      minReplicas: 2
+      maxReplicas: 5
+
+  auth:
+    replicaCount: 2
+
+  tasks:
+    replicaCount: 2
+
+  payments:
+    replicaCount: 2
+
+  chat:
+    replicaCount: 2
+
+  trading:
+    replicaCount: 2
+
+  ai:
+    replicaCount: 2
+
+# Enable monitoring
+monitoring:
+  enabled: true

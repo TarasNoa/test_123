@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.collector">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.RabbitMq" />
+    <PackageReference Include="Testcontainers.Redis" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="WireMock.Net" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Services\Auth\Libr4.Auth.Api\Libr4.Auth.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\Tasks\Libr4.Tasks.Api\Libr4.Tasks.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.AutonomousAppGeneration\Libr4.IDE.AutonomousAppGeneration.csproj" />
+    <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.AutonomousAppGeneration.Host\Libr4.IDE.AutonomousAppGeneration.Host.csproj" />
+    <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.AutonomousAppGeneration.Persistence\Libr4.IDE.AutonomousAppGeneration.Persistence.csproj" />
+  </ItemGroup>
+
+</Project>

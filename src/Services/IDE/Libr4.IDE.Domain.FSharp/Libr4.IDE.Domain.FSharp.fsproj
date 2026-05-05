@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Phase 1: State Machine -->
+    <Compile Include="AgentStateMachine.fs" />
+    
+    <!-- Golden Stack: Container Lifecycle (The Brain) -->
+    <Compile Include="ContainerLifecycle.fs" />
+    
+    <!-- Phase 2: Consensus & AST -->
+    <Compile Include="ConsensusLogic.fs" />
+    <Compile Include="AstTransform.fs" />
+    
+    <!-- Phase 4: Semantic Index & Symbol Graph (SocratiCode equivalent) -->
+    <Compile Include="SymbolGraph.fs" />
+    
+    <!-- Phase 3: Neural Context & Memory -->
+    <Compile Include="NeuralContextMemory.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
+  </ItemGroup>
+
+</Project>

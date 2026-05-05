@@ -1,0 +1,62 @@
+# Data Science & ML
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+seaborn
+plotly
+
+# Deep Learning
+# torch
+# tensorflow
+# keras
+
+# Web frameworks
+fastapi
+flask
+django
+uvicorn
+httpx
+requests
+
+# Database
+sqlalchemy
+psycopg2-binary
+pymongo
+redis
+
+# Utilities
+pydantic
+python-dotenv
+typer
+rich
+click
+
+# Testing
+pytest
+pytest-asyncio
+hypothesis
+
+# Code quality
+black
+flake8
+mypy
+isort
+pylint
+
+# Documentation
+mkdocs
+sphinx
+
+# Async
+asyncio
+aiohttp
+aioredis
+
+# Other useful packages
+openai
+anthropic
+langchain
+streamlit
+gradio
