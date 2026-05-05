@@ -15,31 +15,36 @@ module StatePersistence =
         | Failed reason -> sprintf "Failed:%s" reason
 
     /// Deserialize string from database to F# AgentState
+    /// Handles empty strings, nulls, and invalid formats gracefully
     let deserializeState (serialized: string) =
-        if String.IsNullOrEmpty(serialized) then
+        if String.IsNullOrEmpty(serialized) || String.IsNullOrWhiteSpace(serialized) then
             Idle
         else
-            let parts = serialized.Split(':')
-            if parts.Length = 0 then
+            let trimmed = serialized.Trim()
+            if String.IsNullOrEmpty(trimmed) then
                 Idle
             else
-                match parts.[0] with
-                | "Idle" -> Idle
-                | "Processing" -> 
-                    if parts.Length > 1 then
-                        try 
-                            Processing(Guid.Parse(parts.[1]))
-                        with _ -> Idle
-                    else Idle
-                | "Validating" -> 
-                    if parts.Length > 1 then
-                        Validating(String.Join(":", parts.[1..]))
-                    else Validating ""
-                | "Failed" -> 
-                    if parts.Length > 1 then
-                        Failed(String.Join(":", parts.[1..]))
-                    else Failed "Unknown error"
-                | _ -> Idle
+                let parts = trimmed.Split(':')
+                if parts.Length = 0 || String.IsNullOrEmpty(parts.[0]) then
+                    Idle
+                else
+                    match parts.[0].Trim() with
+                    | "Idle" -> Idle
+                    | "Processing" -> 
+                        if parts.Length > 1 && not (String.IsNullOrWhiteSpace(parts.[1])) then
+                            try 
+                                Processing(Guid.Parse(parts.[1].Trim()))
+                            with _ -> Idle
+                        else Idle
+                    | "Validating" -> 
+                        if parts.Length > 1 then
+                            Validating(String.Join(":", parts.[1..]).Trim())
+                        else Validating ""
+                    | "Failed" -> 
+                        if parts.Length > 1 then
+                            Failed(String.Join(":", parts.[1..]).Trim())
+                        else Failed "Unknown error"
+                    | _ -> Idle
 
     /// Serialize F# AgentEvent to string for database storage
     let serializeEvent (event: AgentEvent) =
