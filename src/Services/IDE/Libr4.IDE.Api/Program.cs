@@ -178,6 +178,12 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<Libr4.IDE.Application.Orchestration.ResilientOrchestrator>();
 builder.Services.AddScoped<Libr4.IDE.Infrastructure.Clients.ISandboxClient, Libr4.IDE.Infrastructure.Clients.GrpcSandboxClient>();
 
+// Code Guardian for validation before Rust execution
+builder.Services.AddScoped<Libr4.IDE.Application.Security.ICodeValidator, Libr4.IDE.Application.Security.CodeGuardian>();
+
+// Execution Cache for memoization (SHA-256 based)
+builder.Services.AddSingleton<Libr4.IDE.Application.Caching.IExecutionCache, Libr4.IDE.Application.Caching.ExecutionCache>();
+
 // Shadow workspace services already registered above
 builder.Services.AddScoped<ISelfHealingBuildPipeline, SelfHealingBuildPipeline>();
 builder.Services.AddScoped<ISecurityTestingService, SecurityTestingService>();
