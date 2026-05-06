@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 5s 
+
+scrape_configs:
+  - job_name: 'csharp-api'
+    static_configs:
+      - targets: ['ide-service:80']
+
+  - job_name: 'rust-sandbox'
+    static_configs:
+      - targets: ['sandbox-api:9091']
