@@ -45,3 +45,6 @@ redisdata/
 rabbitdata/
 prometheusdata/
 grafanadata/
+
+## Submodules
+obscura/
