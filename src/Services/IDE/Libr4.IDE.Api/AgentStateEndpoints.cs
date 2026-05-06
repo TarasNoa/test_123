@@ -73,10 +73,10 @@ public static class AgentStateEndpoints
         .WithSummary("Get events for specific run");
 
         // Run code - activates full chain: Frontend → C# → F# → Rust
-        // Production-ready: health check, cancellation, termination reason handling
+        // Production-ready: health check, cancellation, termination reason handling, transactions
         group.MapPost("/run", async (
             [FromBody] RunCodeRequest request,
-            SandboxOrchestrator orchestrator,
+            ResilientOrchestrator orchestrator,
             ISandboxClient sandbox,
             CancellationToken ct) =>
         {
@@ -90,14 +90,14 @@ public static class AgentStateEndpoints
                 );
             }
 
-            // Run task securely with cancellation support
+            // Run task securely with transaction support and cancellation
             var agentId = Guid.NewGuid(); // TODO: Get actual agent ID from request or context
-            await orchestrator.RunTaskSecurely(agentId, request.Code, ct);
+            await orchestrator.RunSecurelyAsync(agentId, request.Code, ct);
 
             return Results.Ok(new { agentId, status = "TaskAssigned" });
         })
         .WithName("RunCode")
-        .WithSummary("Run code through full chain: C# → F# → Rust with health check and cancellation");
+        .WithSummary("Run code through full chain: C# → F# → Rust with health check, cancellation, and transactions");
     }
 }
 
