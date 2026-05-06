@@ -131,6 +131,10 @@ builder.Services.AddHttpClient();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Sandbox Orchestrator for production-ready task execution
+builder.Services.AddScoped<Libr4.IDE.Application.Orchestration.SandboxOrchestrator>();
+builder.Services.AddScoped<Libr4.IDE.Infrastructure.Clients.ISandboxClient, Libr4.IDE.Infrastructure.Clients.GrpcSandboxClient>();
+
 // Shadow workspace services already registered above
 builder.Services.AddScoped<ISelfHealingBuildPipeline, SelfHealingBuildPipeline>();
 builder.Services.AddScoped<ISecurityTestingService, SecurityTestingService>();

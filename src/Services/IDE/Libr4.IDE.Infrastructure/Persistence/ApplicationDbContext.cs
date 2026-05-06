@@ -30,6 +30,13 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<AgentEvent>(entity =>
         {
             entity.HasKey(e => e.Id);
+            
+            // Optimistic Concurrency: Configure RowVersion
+            entity.Property(e => e.RowVersion)
+                .IsRowVersion();
+            
+            // Index on RunId for performance with 10,000+ events
+            entity.HasIndex(e => e.RunId);
         });
     }
 }

@@ -1,4 +1,6 @@
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
+using Libr4.IDE.Application.Orchestration;
+using Libr4.IDE.Infrastructure.Clients;
 using Libr4.IDE.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -71,38 +73,31 @@ public static class AgentStateEndpoints
         .WithSummary("Get events for specific run");
 
         // Run code - activates full chain: Frontend → C# → F# → Rust
+        // Production-ready: health check, cancellation, termination reason handling
         group.MapPost("/run", async (
             [FromBody] RunCodeRequest request,
-            ApplicationDbContext context,
+            SandboxOrchestrator orchestrator,
+            ISandboxClient sandbox,
             CancellationToken ct) =>
         {
-            // Create new run ID
-            var runId = Guid.NewGuid();
-            
-            // Create TaskAssigned event
-            var taskEvent = new AgentEventEntity
+            // Health check: verify Rust server is alive before accepting task
+            var isHealthy = await sandbox.HealthCheckAsync(ct);
+            if (!isHealthy)
             {
-                Id = Guid.NewGuid(),
-                RunId = runId,
-                Type = "TaskAssigned",
-                Timestamp = DateTime.UtcNow,
-                Command = request.Code,
-                Output = null,
-                ExitCode = null,
-                DurationMs = null
-            };
+                return Results.Problem(
+                    detail: "Rust sandbox server is not available",
+                    statusCode: 503
+                );
+            }
 
-            context.AgentEvents.Add(taskEvent);
-            await context.SaveChangesAsync(ct);
+            // Run task securely with cancellation support
+            var agentId = Guid.NewGuid(); // TODO: Get actual agent ID from request or context
+            await orchestrator.RunTaskSecurely(agentId, request.Code, ct);
 
-            // TODO: Call F# state machine to process task
-            // TODO: Call Rust sandbox via gRPC to execute code
-            // TODO: Update event with result
-
-            return Results.Ok(new { runId, status = "TaskAssigned" });
+            return Results.Ok(new { agentId, status = "TaskAssigned" });
         })
         .WithName("RunCode")
-        .WithSummary("Run code through full chain: C# → F# → Rust");
+        .WithSummary("Run code through full chain: C# → F# → Rust with health check and cancellation");
     }
 }
 

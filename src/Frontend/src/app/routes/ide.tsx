@@ -5,9 +5,11 @@ const IDE: Component = () => {
   const [code, setCode] = createSignal("// Welcome to Libr4 IDE\n// Write your code here\n\nconsole.log('Hello, Golden Stack!');");
   const [output, setOutput] = createSignal("");
   const [isExecuting, setIsExecuting] = createSignal(false);
+  const [isAgentBusy, setIsAgentBusy] = createSignal(false);
 
   const executeCode = async () => {
     setIsExecuting(true);
+    setIsAgentBusy(true);
     setOutput("Executing in Rust sandbox...");
 
     // Placeholder for gRPC call to Rust sandbox
@@ -17,10 +19,12 @@ const IDE: Component = () => {
       setTimeout(() => {
         setOutput("Hello, Golden Stack!\n\n[Demo: gRPC call to Rust sandbox]");
         setIsExecuting(false);
+        setIsAgentBusy(false);
       }, 1000);
     } catch (error) {
       setOutput(`Error: ${error}`);
       setIsExecuting(false);
+      setIsAgentBusy(false);
     }
   };
 
@@ -38,9 +42,9 @@ const IDE: Component = () => {
           <button
             class="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90 disabled:opacity-50"
             onClick={executeCode}
-            disabled={isExecuting()}
+            disabled={isExecuting() || isAgentBusy()}
           >
-            {isExecuting() ? "Running..." : "Run"}
+            {isExecuting() ? "Running..." : isAgentBusy() ? "Agent Busy" : "Run"}
           </button>
         </div>
       </header>

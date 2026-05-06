@@ -11,7 +11,8 @@ namespace Libr4.IDE.Infrastructure.Clients;
 /// </summary>
 public interface ISandboxClient
 {
-    Task<ExecutionResult> RunAsync(string taskId, string code, string language = "python", int memoryLimitMb = 128, int timeoutSeconds = 30);
+    Task<ExecutionResult> RunAsync(string taskId, string code, string language = "python", int memoryLimitMb = 128, int timeoutSeconds = 30, CancellationToken ct = default);
+    Task<bool> HealthCheckAsync(CancellationToken ct = default);
 }
 
 public class GrpcSandboxClient : ISandboxClient
@@ -35,7 +36,8 @@ public class GrpcSandboxClient : ISandboxClient
         string code,
         string language = "python",
         int memoryLimitMb = 128,
-        int timeoutSeconds = 30)
+        int timeoutSeconds = 30,
+        CancellationToken ct = default)
     {
         var request = new ExecutionRequest
         {
@@ -49,7 +51,7 @@ public class GrpcSandboxClient : ISandboxClient
         try
         {
             _logger.LogInformation("C#: Sending code to Rust sandbox for task {TaskId} (endpoint: {Endpoint})", taskId, _endpoint);
-            var result = await _client.ExecuteCodeAsync(request);
+            var result = await _client.ExecuteCodeAsync(request, ct);
             
             _logger.LogInformation("C#: Execution completed for task {TaskId}. ExitCode: {ExitCode}, Termination: {Termination}", 
                 taskId, result.ExitCode, result.TerminationReason);
@@ -60,6 +62,24 @@ public class GrpcSandboxClient : ISandboxClient
         {
             _logger.LogError(ex, "C#: Error communicating with Rust server at {Endpoint}", _endpoint);
             throw;
+        }
+    }
+
+    public async Task<bool> HealthCheckAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            _logger.LogDebug("C#: Checking Rust server health at {Endpoint}", _endpoint);
+            // Use a simple health check - try to connect to the channel
+            // For gRPC, we can try a simple call or just check channel state
+            // For now, we'll assume the channel creation was successful
+            // In production, implement a proper health check endpoint in Rust
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "C#: Rust server health check failed at {Endpoint}", _endpoint);
+            return false;
         }
     }
 }

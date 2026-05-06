@@ -12,6 +12,9 @@ public class AgentEventEntity
     public int? ExitCode { get; set; }
     public long? DurationMs { get; set; }
     public DateTimeOffset Timestamp { get; set; }
+    
+    // Optimistic Concurrency: RowVersion for race condition prevention
+    public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 
     public static AgentEventEntity FromDomain(AgentEvent evt)
     {
