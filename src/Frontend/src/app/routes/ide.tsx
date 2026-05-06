@@ -1,32 +1,60 @@
-import { Component, createSignal } from "solid-js";
+import { Component, createSignal, onMount, onCleanup } from "solid-js";
 import { AgentEventList } from "../../components/AgentEventList";
+import { RealtimeService } from "../../lib/RealtimeService";
 
 const IDE: Component = () => {
   const [code, setCode] = createSignal("// Welcome to Libr4 IDE\n// Write your code here\n\nconsole.log('Hello, Golden Stack!');");
   const [output, setOutput] = createSignal("");
   const [isExecuting, setIsExecuting] = createSignal(false);
   const [isAgentBusy, setIsAgentBusy] = createSignal(false);
+  const [agentId, setAgentId] = createSignal<string>("demo-agent-123");
 
   const executeCode = async () => {
     setIsExecuting(true);
     setIsAgentBusy(true);
     setOutput("Executing in Rust sandbox...");
 
-    // Placeholder for gRPC call to Rust sandbox
+    // Call the API to execute code
     try {
-      // const result = await grpcClient.executeCode({ code: code() });
-      // setOutput(result.stdout);
-      setTimeout(() => {
-        setOutput("Hello, Golden Stack!\n\n[Demo: gRPC call to Rust sandbox]");
-        setIsExecuting(false);
-        setIsAgentBusy(false);
-      }, 1000);
+      const response = await fetch("http://localhost:5000/api/ide/agent-states/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code() })
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to execute code");
+      }
+      
+      // SignalR will handle the result notification
     } catch (error) {
       setOutput(`Error: ${error}`);
       setIsExecuting(false);
       setIsAgentBusy(false);
     }
   };
+
+  onMount(() => {
+    const realtimeService = RealtimeService.getInstance();
+    realtimeService.start(agentId(), (data) => {
+      console.log("Agent state changed:", data);
+      // Update UI based on state
+      if (data.State.includes("IDLE")) {
+        setIsExecuting(false);
+        setIsAgentBusy(false);
+        setOutput("Execution completed successfully!");
+      } else if (data.State.includes("ERROR")) {
+        setIsExecuting(false);
+        setIsAgentBusy(false);
+        setOutput("Execution failed!");
+      }
+    });
+  });
+
+  onCleanup(() => {
+    const realtimeService = RealtimeService.getInstance();
+    realtimeService.stop(agentId());
+  });
 
   return (
     <div class="flex flex-col h-screen">

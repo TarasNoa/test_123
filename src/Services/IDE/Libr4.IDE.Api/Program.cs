@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Text;
+using System.IdentityModel.Tokens.Jwt;
 using Libr4.IDE.Application.Commands;
 using Libr4.IDE.Application.Queries;
 using Libr4.IDE.Application.DTOs;
@@ -95,7 +98,47 @@ builder.Services.AddSingleton<IAgentDebateService, AgentDebateService>();
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options => {});
-builder.Services.AddSignalR();
+
+// SignalR with JWT authentication and F# serialization
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = true;
+}).AddJsonProtocol(options =>
+{
+    // Configure JSON serialization for F# Discriminated Unions
+    options.PayloadSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    options.PayloadSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+});
+
+// JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+
+        // Allow JWT token in SignalR QueryString (WebSocket doesn't support headers)
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
+    });
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(CreateCodeSessionCommand).Assembly));
 // AI command handlers - commented out due to missing ChatCommand
 // builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.AI.Commands.ChatCommand).Assembly));
@@ -153,6 +196,8 @@ builder.Services.AddScoped<IAIAlgorithmService, AIAlgorithmServiceWrapper>();
 var app = builder.Build();
 
 app.UseCors();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseSwagger();
 app.UseSwaggerUI(options => {});
 app.MapControllers();
@@ -234,6 +279,9 @@ app.MapSecurityTestingEndpoints();
 
 // Golden Stack: Agent State endpoints for Frontend synchronization
 app.MapAgentStateEndpoints();
+
+// SignalR Hub for real-time agent updates
+app.MapHub<Libr4.IDE.Api.Hubs.AgentHub>("/hubs/agents");
 
 // F# Interop demo endpoint - Agent State Machine - commented out due to missing IAgentStateMachineBridge
 /*

@@ -42,7 +42,7 @@ services:
       - ConnectionStrings__DefaultConnection=Host=db;Database=libr4_ide;Username=libr4_user;Password=libr4_password
       - RustSandboxUrl=http://sandbox-api:50051
     ports:
-      - "5000:80"
+      - "5000:80" # HTTP + WebSocket (SignalR) support
     depends_on:
       db:
         condition: service_healthy

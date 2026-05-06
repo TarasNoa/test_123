@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@microsoft/signalr": "^8.0.0",
     "@solidjs/router": "^0.13.3",
     "@tanstack/ai-core": "^0.1.0",
     "@tanstack/db": "^0.1.0",

@@ -1,7 +1,9 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using Libr4.IDE.Domain.FSharp;
 using Libr4.IDE.Infrastructure.Persistence;
 using Libr4.IDE.Infrastructure.Clients;
+using Libr4.IDE.Api.Hubs;
 
 namespace Libr4.IDE.Application.Orchestration;
 
@@ -9,11 +11,13 @@ public class ResilientOrchestrator
 {
     private readonly ApplicationDbContext _db;
     private readonly ISandboxClient _rust;
+    private readonly IHubContext<AgentHub> _hub;
 
-    public ResilientOrchestrator(ApplicationDbContext db, ISandboxClient rust)
+    public ResilientOrchestrator(ApplicationDbContext db, ISandboxClient rust, IHubContext<AgentHub> hub)
     {
         _db = db;
         _rust = rust;
+        _hub = hub;
     }
 
     public async Task RunSecurelyAsync(Guid agentId, string code, CancellationToken ct)
@@ -67,11 +71,19 @@ public class ResilientOrchestrator
         {
             agent.State = StatePersistence.deserializeState(
                 StateMachine.transition(
-                    StatePersistence.serializeState(agent.State), 
+                    StatePersistence.serializeState(agent.State),
                     StatePersistence.serializeEvent(ev)
                 )
             );
             await _db.SaveChangesAsync(ct);
+
+            // Send real-time notification via SignalR
+            await _hub.Clients.Group(agentId.ToString()).SendAsync("OnAgentStateUpdated", new
+            {
+                AgentId = agentId,
+                State = StatePersistence.serializeState(agent.State),
+                Timestamp = DateTime.UtcNow
+            }, ct);
         }
     }
 }
