@@ -1,16 +1,21 @@
-import { GrpcWebClient } from "grpc-web";
-import { SandboxServiceClient } from "../generated/sandbox_pb";
+// gRPC клиент отключён: папка generated/ отсутствует (stubs не сгенерированы из .proto).
+// Вместо этого используем REST API через gateway.
+// TODO: когда появятся .proto файлы — сгенерировать stubs и подключить настоящий gRPC-web клиент.
 
-// gRPC-web client for communicating with Rust sandbox
+import { config } from "./config";
+
+export interface ExecutionResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+  terminationReason: string;
+}
+
 export class GrpcSandboxClient {
-  private client: SandboxServiceClient;
+  private baseUrl: string;
 
-  constructor(endpoint: string = "http://localhost:50051") {
-    const grpcClient = new GrpcWebClient({
-      format: "text",
-    });
-
-    this.client = new SandboxServiceClient(endpoint, null, grpcClient);
+  constructor(baseUrl: string = config.apiBaseUrl) {
+    this.baseUrl = baseUrl;
   }
 
   async executeCode(request: {
@@ -19,29 +24,25 @@ export class GrpcSandboxClient {
     language: string;
     memoryLimitMb: number;
     timeoutSeconds: number;
-  }) {
-    const req = new ExecutionRequest();
-    req.setTaskId(request.taskId);
-    req.setCode(request.code);
-    req.setLanguage(request.language);
-    req.setMemoryLimitMb(request.memoryLimitMb);
-    req.setTimeoutSeconds(request.timeoutSeconds);
-
-    return new Promise((resolve, reject) => {
-      this.client.executeCode(req, {}, (err, response) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve({
-            stdout: response?.getStdout() || "",
-            stderr: response?.getStderr() || "",
-            exitCode: response?.getExitCode() || -1,
-            terminationReason: response?.getTerminationReason() || "Unknown",
-            resources: response?.getResources()?.toObject(),
-          });
-        }
-      });
+  }): Promise<ExecutionResult> {
+    const token = localStorage.getItem("access_token");
+    const response = await fetch(`${this.baseUrl}/api/ide/agent-states/run`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        code: request.code,
+        language: request.language,
+      }),
     });
+
+    if (!response.ok) {
+      throw new Error(`Execution failed: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
   }
 }
 

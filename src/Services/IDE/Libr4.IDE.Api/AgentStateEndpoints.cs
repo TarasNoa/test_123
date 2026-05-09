@@ -96,6 +96,7 @@ public static class AgentStateEndpoints
 
             return Results.Ok(new { agentId, status = "TaskAssigned" });
         })
+        .RequireAuthorization()
         .WithName("RunCode")
         .WithSummary("Run code through full chain: C# → F# → Rust with health check, cancellation, and transactions");
     }

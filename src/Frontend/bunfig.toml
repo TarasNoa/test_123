@@ -14,7 +14,6 @@ preload = "./test/setup.ts"
 
 [run]
 # Use Bun's native script runner
-shell = true
 
 [build]
 # Use Bun's native bundler

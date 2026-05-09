@@ -1,10 +1,11 @@
 {
   "name": "libr4-frontend",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
-    "dev": "bun run --bun dev",
-    "build": "bun run --bun build",
-    "start": "bun run --bun start",
+    "dev": "vinxi dev",
+    "build": "vinxi build",
+    "start": "vinxi start",
     "lint": "biome check src/",
     "lint:fix": "biome check --write src/",
     "typecheck": "tsc --noEmit"
@@ -12,13 +13,13 @@
   "dependencies": {
     "@microsoft/signalr": "^8.0.0",
     "@solidjs/router": "^0.13.3",
-    "@tanstack/ai-core": "^0.1.0",
-    "@tanstack/db": "^0.1.0",
+    "@solidjs/start": "^0.7.7",
     "@tanstack/query-core": "^5.35.1",
     "arktype": "^2.0.0",
+    "google-protobuf": "^3.21.4",
+    "grpc-web": "^1.5.0",
     "motion": "^10.18.0",
-    "solid-js": "^1.8.15",
-    "solid-start": "^0.8.5"
+    "solid-js": "^1.8.15"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.8.3",
@@ -26,15 +27,10 @@
     "@types/node": "^20.11.25",
     "autoprefixer": "^10.4.18",
     "bun-types": "^1.0.31",
-    "grpc-web": "^1.5.0",
-    "google-protobuf": "^3.21.4",
     "lucide-solid": "^0.344.0",
     "postcss": "^8.4.35",
-    "protoc-gen-ts": "^0.8.8",
-    "tailwindcss": "^4.0.0-alpha.26",
-    "typescript": "^5.3.3",
-    "vite": "^5.1.4",
-    "vite-plugin-solid": "^2.10.2"
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3"
   },
   "engines": {
     "node": ">=20.0.0",

@@ -1,8 +1,7 @@
 import { defineConfig } from "@solidjs/start/config";
 
 export default defineConfig({
-  ssr: true,
-  extensions: ["mdx"],
+  ssr: false,
   server: {
     port: 3000,
     preset: "node",
@@ -11,5 +10,6 @@ export default defineConfig({
     build: {
       target: "esnext",
     },
+    envPrefix: "VITE_",
   },
 });

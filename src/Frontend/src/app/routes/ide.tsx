@@ -1,54 +1,108 @@
 import { Component, createSignal, onMount, onCleanup } from "solid-js";
 import { AgentEventList } from "../../components/AgentEventList";
 import { RealtimeService } from "../../lib/RealtimeService";
+import { config } from "../../lib/config";
 
 const IDE: Component = () => {
-  const [code, setCode] = createSignal("// Welcome to Libr4 IDE\n// Write your code here\n\nconsole.log('Hello, Golden Stack!');");
+  const [code, setCode] = createSignal(
+    "// Welcome to Libr4 IDE\n// Write your code here\n\nconsole.log('Hello, Golden Stack!');"
+  );
   const [output, setOutput] = createSignal("");
   const [isExecuting, setIsExecuting] = createSignal(false);
   const [isAgentBusy, setIsAgentBusy] = createSignal(false);
-  const [agentId, setAgentId] = createSignal<string>("demo-agent-123");
+  const [agentId, setAgentId] = createSignal<string>("");
+  const [connectionError, setConnectionError] = createSignal<string | null>(null);
+
+  // Получаем agentId из URL или из API текущего пользователя
+  const initAgent = async () => {
+    const params = new URLSearchParams(window.location.search);
+    const urlAgentId = params.get("agentId");
+    if (urlAgentId) {
+      setAgentId(urlAgentId);
+      return;
+    }
+
+    // Если нет в URL — пробуем получить из API
+    const token = localStorage.getItem("access_token");
+    if (!token) {
+      setConnectionError("Не авторизован. Войдите в систему.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${config.apiBaseUrl}/api/ide/agents/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAgentId(data.agentId ?? data.id ?? "");
+      } else {
+        setConnectionError("Не удалось получить агента. Проверьте авторизацию.");
+      }
+    } catch {
+      setConnectionError("Сервер недоступен.");
+    }
+  };
 
   const executeCode = async () => {
+    if (!agentId()) {
+      setOutput("Ошибка: agentId не инициализирован");
+      return;
+    }
+
     setIsExecuting(true);
     setIsAgentBusy(true);
     setOutput("Executing in Rust sandbox...");
 
-    // Call the API to execute code
+    const token = localStorage.getItem("access_token");
+
     try {
-      const response = await fetch("http://localhost:5000/api/ide/agent-states/run", {
+      const response = await fetch(`${config.apiBaseUrl}/api/ide/agent-states/run`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: code() })
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ code: code(), language: "python" }),
       });
-      
+
       if (!response.ok) {
-        throw new Error("Failed to execute code");
+        const text = await response.text();
+        throw new Error(`HTTP ${response.status}: ${text}`);
       }
-      
-      // SignalR will handle the result notification
+
+      // Результат придёт через SignalR OnAgentStateUpdated
     } catch (error) {
-      setOutput(`Error: ${error}`);
+      setOutput(`Error: ${error instanceof Error ? error.message : String(error)}`);
       setIsExecuting(false);
       setIsAgentBusy(false);
     }
   };
 
-  onMount(() => {
+  onMount(async () => {
+    await initAgent();
+
+    if (!agentId()) return;
+
     const realtimeService = RealtimeService.getInstance();
-    realtimeService.start(agentId(), (data) => {
-      console.log("Agent state changed:", data);
-      // Update UI based on state
-      if (data.State.includes("IDLE")) {
-        setIsExecuting(false);
-        setIsAgentBusy(false);
-        setOutput("Execution completed successfully!");
-      } else if (data.State.includes("ERROR")) {
-        setIsExecuting(false);
-        setIsAgentBusy(false);
-        setOutput("Execution failed!");
-      }
-    });
+    try {
+      await realtimeService.start(agentId(), (data) => {
+        const state = (data as { State?: string }).State ?? "";
+        console.log("Agent state changed:", state);
+
+        if (state.includes("IDLE") || state.includes("Idle") || state.includes("Completed")) {
+          setIsExecuting(false);
+          setIsAgentBusy(false);
+          setOutput("Execution completed successfully!");
+        } else if (state.includes("ERROR") || state.includes("Failed") || state.includes("Error")) {
+          setIsExecuting(false);
+          setIsAgentBusy(false);
+          setOutput(`Execution failed: ${state}`);
+        }
+      });
+    } catch (err) {
+      setConnectionError(`SignalR: ${err instanceof Error ? err.message : String(err)}`);
+    }
   });
 
   onCleanup(() => {
@@ -60,7 +114,10 @@ const IDE: Component = () => {
     <div class="flex flex-col h-screen">
       <header class="border-b p-4 flex items-center justify-between">
         <h1 class="text-xl font-bold">Libr4 IDE</h1>
-        <div class="flex gap-2">
+        <div class="flex gap-2 items-center">
+          {connectionError() && (
+            <span class="text-sm text-red-500 mr-2">{connectionError()}</span>
+          )}
           <button
             class="px-4 py-2 bg-secondary rounded hover:opacity-90"
             onClick={() => setCode("")}
@@ -70,7 +127,7 @@ const IDE: Component = () => {
           <button
             class="px-4 py-2 bg-primary text-primary-foreground rounded hover:opacity-90 disabled:opacity-50"
             onClick={executeCode}
-            disabled={isExecuting() || isAgentBusy()}
+            disabled={isExecuting() || isAgentBusy() || !agentId()}
           >
             {isExecuting() ? "Running..." : isAgentBusy() ? "Agent Busy" : "Run"}
           </button>
@@ -89,10 +146,10 @@ const IDE: Component = () => {
 
         <div class="flex-1 p-4 border-l flex flex-col">
           <h2 class="text-sm font-semibold mb-2">Output</h2>
-          <pre class="flex-1 w-full p-4 font-mono text-sm border rounded bg-muted overflow-auto mb-4">
+          <pre class="flex-1 w-full p-4 font-mono text-sm border rounded bg-muted overflow-auto mb-4 whitespace-pre-wrap">
             {output() || "No output yet"}
           </pre>
-          
+
           <AgentEventList />
         </div>
       </div>

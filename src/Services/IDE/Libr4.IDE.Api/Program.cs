@@ -47,9 +47,15 @@ builder.Services.ConfigureHttpJsonOptions(options => {
 // 2. Configure CORS for Frontend (SolidJS/Next.js)
 builder.Services.AddCors(options => {
     options.AddDefaultPolicy(policy => {
-        policy.WithOrigins("http://localhost:3000") // Frontend port
+        var allowedOrigins = builder.Configuration
+            .GetSection("Cors:AllowedOrigins")
+            .Get<string[]>()
+            ?? new[] { "http://localhost:3000" };
+
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials(); // нужно для SignalR
     });
 });
 
@@ -122,7 +128,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
+                builder.Configuration["Jwt:SigningKey"]
+                ?? builder.Configuration["Jwt:Key"]
+                ?? throw new InvalidOperationException("JWT signing key not configured. Set Jwt__SigningKey environment variable.")
+            ))
         };
 
         // Allow JWT token in SignalR QueryString (WebSocket doesn't support headers)
@@ -171,8 +181,20 @@ builder.Services.AddScoped<IAIService, Libr4.AI.Infrastructure.AI.AIService>();
 builder.Services.AddHttpClient();
 
 // 3. PostgreSQL
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("DefaultConnection is not configured.");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(connectionString));
+
+// Регистрируем IdeDbContext для репозиториев (используют IDbContextFactory)
+builder.Services.AddDbContextFactory<IdeDbContext>(options =>
+    options.UseNpgsql(connectionString));
+
+// Регистрируем репозитории
+builder.Services.AddScoped<IAgentEventRepository, EfAgentEventRepository>();
+builder.Services.AddScoped<IAgentOrchestrationRepository, EfAgentOrchestrationRepository>();
+builder.Services.AddScoped<IAppGenerationRepository, AppGenerationRepository>();
 
 // Sandbox Orchestrator for production-ready task execution
 builder.Services.AddScoped<Libr4.IDE.Application.Orchestration.ResilientOrchestrator>();
@@ -201,6 +223,10 @@ builder.Services.AddScoped<IAIAlgorithmService, AIAlgorithmServiceWrapper>();
 
 var app = builder.Build();
 
+app.UseWebSockets(new WebSocketOptions
+{
+    KeepAliveInterval = TimeSpan.FromMinutes(2),
+});
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();

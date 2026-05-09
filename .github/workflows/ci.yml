@@ -37,3 +37,16 @@ jobs:
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run build
+
+  rust:
+    name: Rust (Sandbox)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build
+        run: cargo build --manifest-path=obscura/Cargo.toml --release
+      - name: Test
+        run: cargo test --manifest-path=obscura/Cargo.toml --release

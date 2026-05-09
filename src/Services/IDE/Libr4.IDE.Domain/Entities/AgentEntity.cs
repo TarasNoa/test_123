@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using Libr4.IDE.Domain.FSharp;
 
 namespace Libr4.IDE.Domain.Entities;
 
@@ -12,8 +11,8 @@ public class AgentEntity
     // For JWT Identity ownership
     public string OwnerId { get; set; } = string.Empty;
     
-    // F# Agent State (serialized as text in DB)
-    public AgentState State { get; set; } = StateMachine.idle();
+    // Agent State (simplified, no F# dependency)
+    public string State { get; set; } = "Idle";
     
     // Optimistic Concurrency
     [Timestamp]

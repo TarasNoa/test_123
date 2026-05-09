@@ -6,13 +6,18 @@ export const AgentEventList = () => {
   const [loading, setLoading] = createSignal(true);
 
   onMount(() => {
-    // Enable "live" data updates
     const unsubscribe = agentApi.subscribeToEvents((data) => {
       setEvents(data);
       setLoading(false);
     });
 
-    onCleanup(() => unsubscribe());
+    // Если за 3 секунды событий нет — скрываем индикатор загрузки
+    const timeout = setTimeout(() => setLoading(false), 3000);
+
+    onCleanup(() => {
+      unsubscribe();
+      clearTimeout(timeout);
+    });
   });
 
   return (
