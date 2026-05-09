@@ -1,0 +1,215 @@
+/**
+ * Interaction Depth
+ * 
+ * Defines interaction patterns:
+ * - Hover intelligence (contextual actions appear on hover)
+ * - Focus states (clear visual feedback)
+ * - Contextual reveal (progressive disclosure)
+ * - Smooth transitions (functional motion)
+ * 
+ * Provides depth to UI interactions for AI-native UX
+ */
+
+/* Hover Intelligence */
+.interaction-hover-reveal {
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--motion-normal) var(--motion-ease),
+              transform var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-hover-trigger:hover .interaction-hover-reveal {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.interaction-hover-glow:hover {
+  box-shadow: 0 0 0 2px var(--color-turquoise-dim);
+}
+
+.interaction-hover-lift {
+  transition: transform var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Focus States */
+.interaction-focus-ring:focus {
+  outline: 2px solid var(--color-turquoise);
+  outline-offset: 2px;
+}
+
+.interaction-focus-ring:focus-visible {
+  outline: 2px solid var(--color-turquoise);
+  outline-offset: 2px;
+}
+
+.interaction-focus-glow:focus {
+  box-shadow: 0 0 0 3px var(--color-turquoise-dim);
+}
+
+/* Contextual Reveal */
+.interaction-contextual {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-contextual.revealed {
+  max-height: 500px;
+}
+
+.interaction-expand {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--motion-slow) var(--motion-ease);
+}
+
+.interaction-expand.expanded {
+  max-height: 1000px;
+}
+
+/* Smooth Transitions */
+.interaction-smooth {
+  transition: all var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-smooth-fast {
+  transition: all var(--motion-fast) var(--motion-ease);
+}
+
+.interaction-smooth-slow {
+  transition: all var(--motion-slow) var(--motion-ease);
+}
+
+/* Button Interactions */
+.interaction-button {
+  transition: background-color var(--motion-normal) var(--motion-ease),
+              color var(--motion-normal) var(--motion-ease),
+              border-color var(--motion-normal) var(--motion-ease),
+              transform var(--motion-fast) var(--motion-ease);
+}
+
+.interaction-button:active {
+  transform: scale(0.98);
+}
+
+/* Card Interactions */
+.interaction-card {
+  transition: box-shadow var(--motion-normal) var(--motion-ease),
+              transform var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Panel Interactions */
+.interaction-panel {
+  transition: width var(--motion-normal) var(--motion-ease),
+              height var(--motion-normal) var(--motion-ease),
+              opacity var(--motion-normal) var(--motion-ease);
+}
+
+/* Tab Interactions */
+.interaction-tab {
+  transition: background-color var(--motion-normal) var(--motion-ease),
+              color var(--motion-normal) var(--motion-ease),
+              border-color var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-tab:hover {
+  background-color: var(--color-surface-2);
+}
+
+.interaction-tab.active {
+  background-color: var(--color-surface-2);
+  border-bottom-color: var(--color-turquoise);
+}
+
+/* Input Interactions */
+.interaction-input {
+  transition: border-color var(--motion-normal) var(--motion-ease),
+              box-shadow var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-input:focus {
+  border-color: var(--color-turquoise);
+  box-shadow: 0 0 0 3px var(--color-turquoise-dim);
+}
+
+/* Modal Interactions */
+.interaction-modal-backdrop {
+  transition: opacity var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-modal-content {
+  transition: transform var(--motion-normal) var(--motion-ease),
+              opacity var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-modal-backdrop.hidden {
+  opacity: 0;
+}
+
+.interaction-modal-content.hidden {
+  transform: scale(0.95);
+  opacity: 0;
+}
+
+/* Tooltip Interactions */
+.interaction-tooltip {
+  transition: opacity var(--motion-fast) var(--motion-ease),
+              transform var(--motion-fast) var(--motion-ease);
+}
+
+.interaction-tooltip.hidden {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+/* Dropdown Interactions */
+.interaction-dropdown {
+  transition: opacity var(--motion-normal) var(--motion-ease),
+              transform var(--motion-normal) var(--motion-ease);
+}
+
+.interaction-dropdown.hidden {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .interaction-hover-reveal,
+  .interaction-hover-lift,
+  .interaction-hover-glow,
+  .interaction-button,
+  .interaction-card,
+  .interaction-panel,
+  .interaction-tab,
+  .interaction-input,
+  .interaction-modal-backdrop,
+  .interaction-modal-content,
+  .interaction-tooltip,
+  .interaction-dropdown,
+  .interaction-contextual,
+  .interaction-expand,
+  .interaction-smooth,
+  .interaction-smooth-fast,
+  .interaction-smooth-slow {
+    transition: none;
+  }
+}
+
+/* Compact Mode - Faster Interactions */
+[data-density="compact"] .interaction-smooth {
+  transition-duration: var(--motion-fast);
+}
+
+/* Comfortable Mode - Slower Interactions */
+[data-density="comfortable"] .interaction-smooth {
+  transition-duration: var(--motion-slow);
+}

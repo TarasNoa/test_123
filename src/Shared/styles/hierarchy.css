@@ -1,0 +1,93 @@
+/**
+ * Visual Hierarchy System
+ * 
+ * Defines visual hierarchy levels:
+ * - Primary: active workspace, current execution, current task
+ * - Secondary: AI recommendations, important information
+ * - Ambient: activity, agents, events
+ * 
+ * Prevents cognitive overload by not making everything equally important
+ */
+
+/* Primary Attention */
+.hierarchy-primary {
+  /* Highest visual priority */
+  opacity: 1;
+  z-index: 50;
+}
+
+.hierarchy-primary * {
+  color: var(--color-text);
+}
+
+/* Secondary Attention */
+.hierarchy-secondary {
+  /* Medium visual priority */
+  opacity: 0.9;
+  z-index: 40;
+}
+
+.hierarchy-secondary * {
+  color: var(--color-text-muted);
+}
+
+/* Ambient Attention */
+.hierarchy-ambient {
+  /* Lowest visual priority */
+  opacity: 0.7;
+  z-index: 30;
+}
+
+.hierarchy-ambient * {
+  color: var(--color-text-subtle);
+}
+
+/* Interactive Elements */
+.hierarchy-interactive {
+  opacity: 1;
+  transition: opacity var(--motion-normal) var(--motion-ease);
+}
+
+.hierarchy-interactive:hover {
+  opacity: 1;
+}
+
+/* Focus States */
+.hierarchy-focusable:focus {
+  outline: 2px solid var(--color-turquoise);
+  outline-offset: 2px;
+  z-index: 100;
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .hierarchy-interactive {
+    transition: none;
+  }
+}
+
+/* Compact Mode - Tighter Visual Hierarchy */
+[data-density="compact"] .hierarchy-primary {
+  opacity: 1;
+}
+
+[data-density="compact"] .hierarchy-secondary {
+  opacity: 0.85;
+}
+
+[data-density="compact"] .hierarchy-ambient {
+  opacity: 0.6;
+}
+
+/* Comfortable Mode - More Relaxed Visual Hierarchy */
+[data-density="comfortable"] .hierarchy-primary {
+  opacity: 1;
+}
+
+[data-density="comfortable"] .hierarchy-secondary {
+  opacity: 0.95;
+}
+
+[data-density="comfortable"] .hierarchy-ambient {
+  opacity: 0.8;
+}
