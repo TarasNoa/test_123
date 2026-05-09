@@ -1,0 +1,377 @@
+/**
+ * Unified Motion System
+ * 
+ * Defines consistent motion across the application:
+ * - Fast: 150ms (for immediate feedback)
+ * - Normal: 200ms (for standard transitions)
+ * - Slow: 300ms (for complex animations)
+ * - Calm: no bounce, no decorative motion
+ * - Functional: motion explains state changes
+ * 
+ * Motion should feel professional, not flashy
+ */
+
+/* Motion Tokens */
+:root {
+  --motion-instant: 100ms;
+  --motion-fast: 150ms;
+  --motion-normal: 200ms;
+  --motion-slow: 300ms;
+  --motion-slower: 500ms;
+  
+  --motion-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --motion-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base Motion Classes */
+.motion-instant {
+  transition-duration: var(--motion-instant);
+  transition-timing-function: var(--motion-ease);
+}
+
+.motion-fast {
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease);
+}
+
+.motion-normal {
+  transition-duration: var(--motion-normal);
+  transition-timing-function: var(--motion-ease);
+}
+
+.motion-slow {
+  transition-duration: var(--motion-slow);
+  transition-timing-function: var(--motion-ease);
+}
+
+/* Fade In */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--motion-normal) var(--motion-ease);
+}
+
+.animate-fade-in-fast {
+  animation: fadeIn var(--motion-fast) var(--motion-ease);
+}
+
+.animate-fade-in-slow {
+  animation: fadeIn var(--motion-slow) var(--motion-ease);
+}
+
+/* Fade Out */
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.animate-fade-out {
+  animation: fadeOut var(--motion-normal) var(--motion-ease);
+}
+
+/* Slide Up */
+@keyframes slideUp {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp var(--motion-normal) var(--motion-ease);
+}
+
+/* Slide Down */
+@keyframes slideDown {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-down {
+  animation: slideDown var(--motion-normal) var(--motion-ease);
+}
+
+/* Scale In */
+@keyframes scaleIn {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn var(--motion-normal) var(--motion-ease);
+}
+
+/* Scale Out */
+@keyframes scaleOut {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+}
+
+.animate-scale-out {
+  animation: scaleOut var(--motion-normal) var(--motion-ease);
+}
+
+/* Pulse (subtle, for active states) */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.animate-pulse {
+  animation: pulse var(--motion-slow) var(--motion-ease-in-out) infinite;
+}
+
+/* Spin (for loading states) */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin var(--motion-slow) var(--motion-ease-linear) infinite;
+}
+
+/* Shimmer (for skeleton loading) */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface) 25%,
+    var(--color-surface-2) 50%,
+    var(--color-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer var(--motion-slower) var(--motion-ease) infinite;
+}
+
+/* Transition Utilities */
+.transition-all {
+  transition-property: all;
+}
+
+.transition-opacity {
+  transition-property: opacity;
+}
+
+.transition-transform {
+  transition-property: transform;
+}
+
+.transition-colors {
+  transition-property: color, background-color, border-color;
+}
+
+.transition-size {
+  transition-property: width, height;
+}
+
+/* Easing Utilities */
+.ease {
+  transition-timing-function: var(--motion-ease);
+}
+
+.ease-in {
+  transition-timing-function: var(--motion-ease-in);
+}
+
+.ease-out {
+  transition-timing-function: var(--motion-ease-out);
+}
+
+.ease-in-out {
+  transition-timing-function: var(--motion-ease-in-out);
+}
+
+/* Duration Utilities */
+.duration-instant {
+  transition-duration: var(--motion-instant);
+}
+
+.duration-fast {
+  transition-duration: var(--motion-fast);
+}
+
+.duration-normal {
+  transition-duration: var(--motion-normal);
+}
+
+.duration-slow {
+  transition-duration: var(--motion-slow);
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Compact Mode - Faster Motion */
+[data-density="compact"] {
+  --motion-instant: 75ms;
+  --motion-fast: 100ms;
+  --motion-normal: 150ms;
+  --motion-slow: 200ms;
+}
+
+/* Comfortable Mode - Slower Motion */
+[data-density="comfortable"] {
+  --motion-instant: 150ms;
+  --motion-fast: 200ms;
+  --motion-normal: 300ms;
+  --motion-slow: 400ms;
+}
+
+/* Hover Motion */
+.hover-lift {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+.hover-scale {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+.hover-glow {
+  transition: box-shadow var(--motion-normal) var(--motion-ease);
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 0 2px var(--color-turquoise-dim);
+}
+
+/* Focus Motion */
+.focus-ring {
+  transition: outline-color var(--motion-fast) var(--motion-ease),
+              outline-offset var(--motion-fast) var(--motion-ease);
+}
+
+.focus-ring:focus {
+  outline-color: var(--color-turquoise);
+  outline-offset: 2px;
+}
+
+/* Button Motion */
+.button-press:active {
+  transform: scale(0.98);
+  transition: transform var(--motion-instant) var(--motion-ease);
+}
+
+/* Modal Motion */
+.modal-enter {
+  animation: fadeIn var(--motion-normal) var(--motion-ease);
+}
+
+.modal-exit {
+  animation: fadeOut var(--motion-normal) var(--motion-ease);
+}
+
+.modal-content-enter {
+  animation: scaleIn var(--motion-normal) var(--motion-ease);
+}
+
+.modal-content-exit {
+  animation: scaleOut var(--motion-normal) var(--motion-ease);
+}
+
+/* Dropdown Motion */
+.dropdown-enter {
+  animation: slideDown var(--motion-fast) var(--motion-ease);
+}
+
+.dropdown-exit {
+  animation: fadeOut var(--motion-fast) var(--motion-ease);
+}
+
+/* Tooltip Motion */
+.tooltip-enter {
+  animation: fadeIn var(--motion-instant) var(--motion-ease);
+}
+
+.tooltip-exit {
+  animation: fadeOut var(--motion-instant) var(--motion-ease);
+}
+
+/* Tab Motion */
+.tab-indicator {
+  transition: transform var(--motion-normal) var(--motion-ease),
+              width var(--motion-normal) var(--motion-ease);
+}
+
+/* Panel Motion */
+.panel-resize {
+  transition: width var(--motion-normal) var(--motion-ease),
+              height var(--motion-normal) var(--motion-ease);
+}
+
+.panel-collapse {
+  transition: width var(--motion-slow) var(--motion-ease),
+              opacity var(--motion-normal) var(--motion-ease);
+}
+
+/* Scroll Motion */
+.smooth-scroll {
+  scroll-behavior: smooth;
+}
