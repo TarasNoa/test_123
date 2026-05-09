@@ -195,6 +195,22 @@ export const ExecutionGraphVisualization: Component<ExecutionGraphVisualizationP
                     {node.label}
                   </text>
 
+                  {/* Semantic Explanation */}
+                  {node.metadata.semanticExplanation && (
+                    <text
+                      x={position.x}
+                      y={position.y + 50}
+                      text-anchor="middle"
+                      font-size="9"
+                      fill={colors.textMuted}
+                      style={{
+                        "max-width": "120px",
+                      }}
+                    >
+                    {node.metadata.semanticExplanation}
+                    </text>
+                  )}
+
                   {/* Status Indicator */}
                   {node.status === "in_progress" && (
                     <circle

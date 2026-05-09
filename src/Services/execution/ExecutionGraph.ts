@@ -25,6 +25,7 @@ export interface GraphNode {
     assignedAgent?: string;
     priority: "low" | "medium" | "high" | "critical";
     riskLevel: "low" | "medium" | "high";
+    semanticExplanation?: string;
   };
 }
 
@@ -69,6 +70,7 @@ export function createDefaultExecutionGraph(projectId: string, projectName: stri
       metadata: {
         priority: "high",
         riskLevel: "low",
+        semanticExplanation: "Define project scope and success criteria",
       },
     },
     {
@@ -81,6 +83,7 @@ export function createDefaultExecutionGraph(projectId: string, projectName: stri
         estimatedDuration: 7,
         priority: "high",
         riskLevel: "low",
+        semanticExplanation: "Architecture and task breakdown",
       },
     },
     {
@@ -93,6 +96,7 @@ export function createDefaultExecutionGraph(projectId: string, projectName: stri
         estimatedDuration: 14,
         priority: "high",
         riskLevel: "medium",
+        semanticExplanation: "UI implementation blocked by API schema",
       },
     },
     {
@@ -105,6 +109,7 @@ export function createDefaultExecutionGraph(projectId: string, projectName: stri
         estimatedDuration: 14,
         priority: "high",
         riskLevel: "medium",
+        semanticExplanation: "API development and database schema",
       },
     },
     {
@@ -117,6 +122,7 @@ export function createDefaultExecutionGraph(projectId: string, projectName: stri
         estimatedDuration: 5,
         priority: "medium",
         riskLevel: "high",
+        semanticExplanation: "Cloud setup and CI/CD pipeline",
       },
     },
     {
@@ -129,6 +135,7 @@ export function createDefaultExecutionGraph(projectId: string, projectName: stri
         estimatedDuration: 2,
         priority: "high",
         riskLevel: "high",
+        semanticExplanation: "Production deployment and monitoring",
       },
     },
   ];
