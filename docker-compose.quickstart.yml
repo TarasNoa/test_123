@@ -1,0 +1,104 @@
+# Быстрый старт Libr4 - только инфраструктура в Docker
+# Бэкенд и фронтенд запускаются локально
+
+name: libr4-quickstart
+
+services:
+  # PostgreSQL - главная БД
+  postgres:
+    image: postgres:16-alpine
+    container_name: libr4-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: libr4
+      POSTGRES_PASSWORD: libr4_dev_password
+      POSTGRES_MULTIPLE_DATABASES: libr4_auth,libr4_ide,libr4_tasks,libr4_payments,libr4_chat
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../infra/postgres/init-multiple-dbs.sh:/docker-entrypoint-initdb.d/init-multiple-dbs.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U libr4"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Redis - кэш и сессии
+  redis:
+    image: redis:7-alpine
+    container_name: libr4-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # RabbitMQ - message broker
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: libr4-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitdata:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # MinIO - S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: libr4-minio
+    restart: unless-stopped
+    command: server --console-address ":9001" /data
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Ollama - локальные LLM (опционально)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: libr4-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollamadata:/root/.ollama
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+    profiles:
+      - ai
+
+volumes:
+  pgdata:
+  redisdata:
+  rabbitdata:
+  miniodata:
+  ollamadata:
+
+networks:
+  default:
+    name: libr4-network

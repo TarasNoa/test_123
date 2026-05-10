@@ -13,6 +13,13 @@
     <ProjectReference Include="..\Libr4.IDE.Domain.Algorithms\Libr4.IDE.Domain.Algorithms.fsproj" />
     <ProjectReference Include="..\Libr4.IDE.Domain.FSharp\Libr4.IDE.Domain.FSharp.fsproj" />
     <ProjectReference Include="..\..\AI\Libr4.AI.Domain.Terminal\Libr4.AI.Domain.Terminal.csproj" />
+    <ProjectReference Include="..\..\AI\Libr4.AI.Infrastructure\Libr4.AI.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Microsoft.Extensions.Logging" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Libr4.AI.Domain.Terminal" />
   </ItemGroup>
 
   <ItemGroup>
