@@ -1,5 +1,4 @@
 import { Component, JSX } from "solid-js";
-import { layout } from "../ui/tokens";
 
 interface WorkspaceLayoutProps {
   topbar?: JSX.Element;
@@ -9,68 +8,57 @@ interface WorkspaceLayoutProps {
 }
 
 /**
- * Workspace Layout
- * 
- * Desktop-first workspace layout with:
- * - Top navigation (64px height)
- * - Left sidebar (72px collapsed / 240px expanded)
- * - Main workspace area
- * - AI panel (280px min / 400px max)
+ * WorkspaceLayout
+ *
+ * Трёхпанельный layout IDE:
+ *   [topbar — 64px]
+ *   [sidebar 240px] [children flex-1] [aiPanel 320px]
+ *
+ * Все цвета через CSS-переменные из app.css / tokens.ts
  */
 export const WorkspaceLayout: Component<WorkspaceLayoutProps> = (props) => {
   return (
-    <div
-      class="flex flex-col h-screen"
-      style={{
-        "background-color": "#07090D",
-        "color": "#F5F7FA",
-        "font-family": "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-      }}
-    >
-      {/* Top Navigation */}
-      <div
-        class="flex-shrink-0 border-b"
-        style={{
-          height: layout.headerHeight,
-          "border-color": "#1D2430",
-          "background-color": "#0F131A",
-        }}
+    <div class="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+
+      {/* ── Topbar ── */}
+      <header
+        class="flex-shrink-0 flex items-center border-b border-surface-3"
+        style={{ height: "64px", "background-color": "hsl(var(--surface))" }}
       >
         {props.topbar}
-      </div>
+      </header>
 
-      {/* Main Content Area */}
+      {/* ── Main row ── */}
       <div class="flex flex-1 overflow-hidden">
-        {/* Left Sidebar */}
-        <div
-          class="flex-shrink-0 border-r"
+
+        {/* ── Sidebar ── */}
+        <aside
+          class="flex-shrink-0 border-r border-surface-3 overflow-y-auto"
           style={{
-            width: layout.sidebarExpanded,
-            "border-color": "#1D2430",
-            "background-color": "#0F131A",
-            transition: layout.sidebarTransition,
+            width: "240px",
+            "background-color": "hsl(var(--surface))",
+            transition: "width 0.2s ease",
           }}
         >
           {props.sidebar}
-        </div>
+        </aside>
 
-        {/* Main Workspace */}
-        <div class="flex-1 overflow-auto">
+        {/* ── Editor / main area ── */}
+        <main class="flex-1 overflow-hidden flex flex-col">
           {props.children}
-        </div>
+        </main>
 
-        {/* AI Panel */}
-        <div
-          class="flex-shrink-0 border-l"
+        {/* ── AI Panel ── */}
+        <aside
+          class="flex-shrink-0 border-l border-surface-3 overflow-y-auto flex flex-col"
           style={{
-            width: layout.panelMin,
-            "border-color": "#1D2430",
-            "background-color": "#0F131A",
-            transition: layout.panelTransition,
+            width: "320px",
+            "background-color": "hsl(var(--surface))",
+            transition: "width 0.2s ease",
           }}
         >
           {props.aiPanel}
-        </div>
+        </aside>
       </div>
     </div>
   );

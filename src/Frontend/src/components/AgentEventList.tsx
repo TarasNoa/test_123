@@ -1,5 +1,18 @@
-import { createSignal, onMount, onCleanup, For } from 'solid-js';
+import { createSignal, onMount, onCleanup, For, Show } from 'solid-js';
 import { agentApi, AgentEvent } from '../lib/api-client';
+
+const statusColor = (status: string): string => {
+  if (status.includes('Success') || status.includes('VAL') || status.includes('Completed') || status.includes('Idle')) {
+    return 'hsl(var(--success))';
+  }
+  if (status.includes('BUSY') || status.includes('Processing') || status.includes('Running')) {
+    return 'hsl(var(--warning))';
+  }
+  if (status.includes('Error') || status.includes('ERR') || status.includes('Failed')) {
+    return 'hsl(var(--error))';
+  }
+  return 'hsl(var(--muted-foreground))';
+};
 
 export const AgentEventList = () => {
   const [events, setEvents] = createSignal<AgentEvent[]>([]);
@@ -11,7 +24,6 @@ export const AgentEventList = () => {
       setLoading(false);
     });
 
-    // Если за 3 секунды событий нет — скрываем индикатор загрузки
     const timeout = setTimeout(() => setLoading(false), 3000);
 
     onCleanup(() => {
@@ -21,28 +33,78 @@ export const AgentEventList = () => {
   });
 
   return (
-    <div class="p-4 bg-card text-card-foreground rounded-lg shadow-xl border border-border">
-      <h2 class="text-xl font-bold mb-4 border-b border-border pb-2">
-        Agent Activity Feed
-        {loading() && <span class="ml-2 text-sm animate-pulse text-primary">●</span>}
-      </h2>
+    <div class="flex flex-col h-full p-3">
+      {/* Заголовок */}
+      <div
+        class="flex items-center justify-between mb-3"
+        style={{ "flex-shrink": "0" }}
+      >
+        <span
+          class="uppercase tracking-wider"
+          style={{ "font-size": "10px", color: "hsl(var(--muted-foreground))" }}
+        >
+          Agent Events
+        </span>
+        <Show when={loading()}>
+          <span
+            class="animate-pulse text-xs"
+            style={{ color: "hsl(var(--primary))" }}
+          >
+            ●
+          </span>
+        </Show>
+      </div>
 
-      <div class="space-y-2 max-h-96 overflow-y-auto">
-        <For each={events()}>{(event) => (
-          <div class="p-3 bg-muted rounded border-l-4"
-               classList={{
-                 'border-green-500': event.status.includes('Success') || event.status.includes('VAL'),
-                 'border-yellow-500': event.status.includes('BUSY'),
-                 'border-red-500': event.status.includes('Error') || event.status.includes('ERR'),
-                 'border-primary': !event.status.includes('Success') && !event.status.includes('VAL') && !event.status.includes('BUSY') && !event.status.includes('Error') && !event.status.includes('ERR')
-               }}>
-            <div class="flex justify-between text-xs text-muted-foreground">
-              <span>{event.status}</span>
-              <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
-            </div>
-            <p class="mt-1 text-sm font-mono text-foreground">{event.data || 'No data payload'}</p>
-          </div>
-        )}</For>
+      {/* Список событий */}
+      <div class="flex-1 overflow-y-auto space-y-1.5">
+        <Show
+          when={events().length > 0}
+          fallback={
+            <p
+              class="text-xs text-center py-6"
+              style={{ color: "hsl(var(--muted-foreground))" }}
+            >
+              {loading() ? "Waiting for events..." : "No events yet"}
+            </p>
+          }
+        >
+          <For each={events()}>
+            {(event) => (
+              <div
+                class="rounded p-2.5"
+                style={{
+                  background: "hsl(var(--surface-2))",
+                  "border-left": `3px solid ${statusColor(event.status)}`,
+                }}
+              >
+                <div
+                  class="flex justify-between items-center mb-1"
+                  style={{ "font-size": "10px", color: "hsl(var(--muted-foreground))" }}
+                >
+                  <span
+                    class="font-medium"
+                    style={{ color: statusColor(event.status) }}
+                  >
+                    {event.status}
+                  </span>
+                  <span>{new Date(event.timestamp).toLocaleTimeString()}</span>
+                </div>
+                <Show when={event.data}>
+                  <p
+                    class="text-xs leading-relaxed"
+                    style={{
+                      color: "hsl(var(--foreground))",
+                      "font-family": "monospace",
+                      "word-break": "break-all",
+                    }}
+                  >
+                    {event.data}
+                  </p>
+                </Show>
+              </div>
+            )}
+          </For>
+        </Show>
       </div>
     </div>
   );

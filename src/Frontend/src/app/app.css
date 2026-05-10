@@ -4,34 +4,104 @@
 
 @layer base {
   :root {
-    --background: 220 20% 6%;       /* #07090D */
-    --foreground: 210 40% 97%;      /* #F5F7FA */
-    --card: 220 18% 9%;            /* #0F131A */
-    --card-foreground: 210 40% 97%; /* #F5F7FA */
-    --popover: 220 18% 9%;        /* #0F131A */
-    --popover-foreground: 210 40% 97%; /* #F5F7FA */
-    --primary: 174 74% 54%;       /* #35E0D0 бирюза */
-    --primary-foreground: 220 20% 6%; /* #07090D */
-    --secondary: 255 100% 74%;    /* #9B7CFF фиолет */
-    --secondary-foreground: 220 20% 6%; /* #07090D */
-    --muted: 220 17% 14%;         /* #1D2430 */
-    --muted-foreground: 215 20% 55%; /* #8A94A6 */
-    --accent: 220 17% 14%;        /* #1D2430 */
-    --accent-foreground: 210 40% 97%; /* #F5F7FA */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 220 17% 14%;        /* #1D2430 */
-    --input: 220 17% 14%;        /* #1D2430 */
-    --ring: 174 74% 54%;         /* #35E0D0 бирюза */
+    /* === Libr4 Dark Theme === */
+    /* Все значения совпадают с tokens.ts — единый источник правды через CSS vars */
+
+    --background:    220 20%  5%;   /* #07090D  основной фон */
+    --foreground:    210 40% 97%;   /* #F5F7FA  основной текст */
+
+    --surface:       220 18%  9%;   /* #0F131A  панели, шапка, сайдбар */
+    --surface-2:     220 17% 11%;   /* #141922  карточки */
+    --surface-3:     220 17% 14%;   /* #1D2430  бордеры, разделители */
+
+    --card:          220 18%  9%;
+    --card-foreground: 210 40% 97%;
+
+    --popover:       220 18%  9%;
+    --popover-foreground: 210 40% 97%;
+
+    /* Бирюзовый акцент — кнопки, активные элементы */
+    --primary:       174 72% 54%;   /* #35E0D0 */
+    --primary-foreground: 220 20% 6%;
+
+    /* Фиолетовый вторичный акцент */
+    --secondary:     255 100% 74%;  /* #9B7CFF */
+    --secondary-foreground: 220 20% 6%;
+
+    --muted:         220 17% 14%;   /* #1D2430 */
+    --muted-foreground: 217 12% 63%; /* #98A2B6 */
+
+    --accent:        174 72% 54%;
+    --accent-foreground: 220 20% 6%;
+
+    --destructive:   0 72% 60%;     /* #EF4444 */
+    --destructive-foreground: 210 40% 97%;
+
+    --border:        220 17% 14%;   /* #1D2430 */
+    --input:         220 17% 14%;
+    --ring:          174 72% 54%;   /* бирюза как focus ring */
+
     --radius: 0.75rem;
+
+    /* Статусные цвета */
+    --success: 142 71% 45%;         /* #22C55E */
+    --warning: 38 92% 50%;          /* #F59E0B */
+    --error:   0 72% 60%;           /* #EF4444 */
+    --info:    217 91% 60%;         /* #3B82F6 */
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
   }
+
+  html, body, #app {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Scrollbars — тонкие, в тему */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--surface-3));
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.4);
+  }
+
+  /* Mono код */
+  textarea, pre, code {
+    font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  }
+}
+
+/* Утилиты для новых переменных (которых нет в дефолтном Tailwind) */
+@layer utilities {
+  .bg-surface   { background-color: hsl(var(--surface)); }
+  .bg-surface-2 { background-color: hsl(var(--surface-2)); }
+  .bg-surface-3 { background-color: hsl(var(--surface-3)); }
+  .border-surface-3 { border-color: hsl(var(--surface-3)); }
+
+  .text-success { color: hsl(var(--success)); }
+  .text-warning { color: hsl(var(--warning)); }
+  .text-error   { color: hsl(var(--error)); }
+  .text-info    { color: hsl(var(--info)); }
+
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+  }
+  .glow-secondary {
+    box-shadow: 0 0 20px hsl(var(--secondary) / 0.3);
   }
 }
