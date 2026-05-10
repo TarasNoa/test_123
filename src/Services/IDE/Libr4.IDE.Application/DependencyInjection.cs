@@ -1,3 +1,4 @@
+using Libr4.IDE.Application.MultiAgentOrchestration;
 using Libr4.IDE.Application.Services;
 using Libr4.IDE.Infrastructure.Persistence;
 using Libr4.IDE.Infrastructure.Sandbox;
@@ -17,6 +18,10 @@ public static class DependencyInjection
     {
         // Register orchestrator (thin bridge between F# and Rust)
         services.AddScoped<AgentOrchestrator>();
+
+        // Register hierarchical multi-agent orchestration
+        services.AddScoped<HierarchicalOrchestrationService>();
+        services.AddScoped<ISubagentDispatcher, SubagentDispatcher>();
 
         return services;
     }
