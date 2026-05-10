@@ -1,11 +1,11 @@
-import { Component } from "solid-js";
+import { Component, JSX } from "solid-js";
 import { layout } from "../ui/tokens";
 
 interface WorkspaceLayoutProps {
-  topbar?: any;
-  sidebar?: any;
-  aiPanel?: any;
-  children?: any;
+  topbar?: JSX.Element;
+  sidebar?: JSX.Element;
+  aiPanel?: JSX.Element;
+  children?: JSX.Element;
 }
 
 /**
@@ -75,9 +75,3 @@ export const WorkspaceLayout: Component<WorkspaceLayoutProps> = (props) => {
     </div>
   );
 };
-
-interface WorkspaceLayoutProps {
-  topbar?: any;
-  sidebar?: any;
-  aiPanel?: any;
-}
