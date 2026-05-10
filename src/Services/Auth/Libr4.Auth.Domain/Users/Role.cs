@@ -1,6 +1,29 @@
+using System;
+
 namespace Libr4.Auth.Domain.Users;
 
-public enum Role
+public class Role
+{
+    public Guid Id { get; private set; }
+    public string Name { get; private set; } = string.Empty;
+    public string Description { get; private set; } = string.Empty;
+    public List<string> Permissions { get; private set; } = new();
+
+    private Role() { }
+
+    public static Role Create(string name, string description, List<string> permissions)
+    {
+        return new Role
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            Description = description,
+            Permissions = permissions ?? new List<string>()
+        };
+    }
+}
+
+public enum RoleType
 {
     User = 0,
     Admin = 1,

@@ -1,35 +1,36 @@
+using System;
+
 namespace Libr4.Auth.Domain.Users;
 
-public sealed class RefreshToken
+public class RefreshToken
 {
-    public Guid Id { get; private set; }
+    public string Id { get; private set; } = string.Empty;
     public Guid UserId { get; private set; }
-    public string TokenHash { get; private set; } = null!;
-    public DateTimeOffset CreatedAt { get; private set; }
+    public string Token { get; private set; } = string.Empty;
     public DateTimeOffset ExpiresAt { get; private set; }
-    public DateTimeOffset? RevokedAt { get; private set; }
-    public string? ReplacedByTokenHash { get; private set; }
-    public string? CreatedByIp { get; private set; }
-    public string? RevokedByIp { get; private set; }
+    public bool IsRevoked { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
 
     private RefreshToken() { }
 
-    public RefreshToken(Guid userId, string tokenHash, DateTimeOffset now, TimeSpan lifetime, string? ip)
+    public static RefreshToken Create(Guid userId, string token, DateTimeOffset expiresAt)
     {
-        Id = Guid.NewGuid();
-        UserId = userId;
-        TokenHash = tokenHash;
-        CreatedAt = now;
-        ExpiresAt = now.Add(lifetime);
-        CreatedByIp = ip;
+        return new RefreshToken
+        {
+            Id = Guid.NewGuid().ToString(),
+            UserId = userId,
+            Token = token,
+            ExpiresAt = expiresAt,
+            IsRevoked = false,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
     }
 
-    public bool IsActive(DateTimeOffset now) => RevokedAt is null && ExpiresAt > now;
-
-    public void Revoke(DateTimeOffset now, string? ip, string? replacedBy = null)
+    public void Revoke()
     {
-        RevokedAt = now;
-        RevokedByIp = ip;
-        ReplacedByTokenHash = replacedBy;
+        IsRevoked = true;
     }
+
+    public bool IsExpired() => DateTimeOffset.UtcNow > ExpiresAt;
+    public bool IsActive() => !IsRevoked && !IsExpired();
 }

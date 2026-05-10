@@ -32,40 +32,24 @@
     </PackageReference>
   </ItemGroup>
 
-  <!-- Protobuf .proto file - pre-generated .cs file included instead -->
-  <!-- <ItemGroup>
-    <Protobuf Include="Protos\sandbox.proto" GrpcServices="Client" />
-  </ItemGroup> -->
-
-  <!-- Exclude gRPC-dependent folders -->
+  <!-- Protobuf - enabled for Docker build -->
   <ItemGroup>
-    <Compile Remove="Protos\**" />
+    <Protobuf Include="Protos\sandbox.proto" GrpcServices="Client" />
   </ItemGroup>
+
+  <!-- gRPC folders enabled for Docker build -->
+  <!-- <ItemGroup>
+    <Compile Remove="Protos\**" />
+  </ItemGroup> -->
 
   <ItemGroup>
     <Using Include="Microsoft.Extensions.Logging" />
     <Using Include="Microsoft.Extensions.Configuration" />
   </ItemGroup>
 
-  <!-- Exclude pre-existing files with unresolved dependencies (tracked in tech-debt backlog) -->
+  <!-- Files excluded for local build - enabled in Docker -->
   <ItemGroup>
-    <Compile Remove="Persistence\AppGenerationRepository.cs" />
-    <Compile Remove="Persistence\EfAgentEventRepository.cs" />
-    <Compile Remove="Persistence\EfAgentOrchestrationRepository.cs" />
-    <Compile Remove="Persistence\AgentEventEntity.cs" />
-    <Compile Remove="Persistence\AgentOrchestrationEntity.cs" />
-    <Compile Remove="Persistence\IAgentEventRepository.cs" />
-    <Compile Remove="Persistence\IAgentOrchestrationRepository.cs" />
-    <Compile Remove="FSharpInterop\AgentStateMachineBridge.cs" />
-    <Compile Remove="FSharpInterop\NeuralContextBridge.cs" />
-    <Compile Remove="FSharpInterop\FSharpInteropExtensions.cs" />
-    <Compile Remove="Containers\ContainerPoolWarmupService.cs" />
-    <Compile Remove="Containers\ContainerConnectionTracker.cs" />
-    <Compile Remove="Containers\ContainerManager.cs" />
-    <Compile Remove="Containers\PreWarmedContainerPool.cs" />
-    <Compile Remove="Obscura\ObscuraBrowserService.cs" />
-    <Compile Remove="Memory\SemanticBlameService.cs" />
-    <Compile Remove="Collaboration\CrdtDocumentService.cs" />
+    <!-- SemanticIndex re-enabled after CodeSearch inclusion -->
   </ItemGroup>
 
 </Project>

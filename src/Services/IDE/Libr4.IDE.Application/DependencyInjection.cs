@@ -1,7 +1,3 @@
-using Libr4.IDE.Application.MultiAgentOrchestration;
-using Libr4.IDE.Application.Services;
-using Libr4.IDE.Infrastructure.Persistence;
-using Libr4.IDE.Infrastructure.Sandbox;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Libr4.IDE.Application;
@@ -16,12 +12,10 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddIdeApplication(this IServiceCollection services)
     {
-        // Register orchestrator (thin bridge between F# and Rust)
-        services.AddScoped<AgentOrchestrator>();
-
-        // Register hierarchical multi-agent orchestration
-        services.AddScoped<HierarchicalOrchestrationService>();
-        services.AddScoped<ISubagentDispatcher, SubagentDispatcher>();
+        // Core services temporarily disabled - require infrastructure dependencies
+        // services.AddScoped<AgentOrchestrator>();
+        // services.AddScoped<HierarchicalOrchestrationService>();
+        // services.AddScoped<ISubagentDispatcher, SubagentDispatcher>();
 
         return services;
     }
@@ -31,8 +25,8 @@ public static class DependencyInjection
     /// </summary>
     public static IServiceCollection AddIdeInfrastructure(this IServiceCollection services)
     {
-        // Register Rust Sandbox client
-        services.AddHttpClient<ISandboxClient, RustSandboxExecutor>();
+        // Rust Sandbox client temporarily disabled
+        // services.AddHttpClient<ISandboxClient, RustSandboxExecutor>();
 
         return services;
     }

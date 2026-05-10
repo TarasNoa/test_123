@@ -97,7 +97,7 @@ public class CodeSearchService : ICodeSearchService
         return Array.Empty<string>();
     }
 
-    private static async Task<SearchResult[]> FilesystemSearchAsync(
+    private async Task<SearchResult[]> FilesystemSearchAsync(
         string query, string[]? filePatterns, CancellationToken ct)
     {
         var extensions = filePatterns?.Length > 0

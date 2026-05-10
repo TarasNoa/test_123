@@ -153,3 +153,131 @@ public static class AuthEndpoints
         return app;
     }
 }
+
+public static class AuthEndpointExtensions
+{
+    public static void MapAuthEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/auth")
+            .WithTags("Authentication");
+
+        group.MapPost("/login", async (
+            [FromBody] LoginRequest request,
+            IAuthService service) =>
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return Results.BadRequest(new { error = "Email and password are required" });
+            }
+
+            try
+            {
+                var response = await service.LoginAsync(request);
+                return Results.Ok(response);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Unauthorized();
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Login failed: {ex.Message}",
+                    statusCode: 500,
+                    title: "Login Error");
+            }
+        })
+        .WithName("Login")
+        .WithSummary("Authenticate user and return tokens");
+
+        group.MapPost("/register", async (
+            [FromBody] RegisterRequest request,
+            IAuthService service) =>
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            {
+                return Results.BadRequest(new { error = "Email, username, and password are required" });
+            }
+
+            if (request.Password.Length < 8)
+            {
+                return Results.BadRequest(new { error = "Password must be at least 8 characters" });
+            }
+
+            try
+            {
+                var response = await service.RegisterAsync(request);
+                return Results.Created("/api/auth/login", response);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Conflict(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Registration failed: {ex.Message}",
+                    statusCode: 500,
+                    title: "Registration Error");
+            }
+        })
+        .WithName("Register")
+        .WithSummary("Register a new user");
+
+        group.MapPost("/refresh", async (
+            [FromBody] RefreshTokenRequest request,
+            IAuthService service) =>
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                return Results.BadRequest(new { error = "Refresh token is required" });
+            }
+
+            try
+            {
+                var response = await service.RefreshTokenAsync(request.RefreshToken);
+                return Results.Ok(response);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Unauthorized();
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Token refresh failed: {ex.Message}",
+                    statusCode: 500,
+                    title: "Token Refresh Error");
+            }
+        })
+        .WithName("RefreshToken")
+        .WithSummary("Refresh access token");
+
+        group.MapPost("/logout", async (
+            [FromBody] RefreshTokenRequest request,
+            IAuthService service) =>
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.RefreshToken))
+            {
+                return Results.BadRequest(new { error = "Refresh token is required" });
+            }
+
+            try
+            {
+                await service.LogoutAsync(request.RefreshToken);
+                return Results.Ok(new { message = "Logged out" });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Logout failed: {ex.Message}",
+                    statusCode: 500,
+                    title: "Logout Error");
+            }
+        })
+        .WithName("Logout")
+        .WithSummary("Logout user by revoking refresh token");
+    }
+}
+
+public record RefreshTokenRequest(string RefreshToken);

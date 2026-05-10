@@ -2,10 +2,47 @@ namespace Libr4.Auth.Domain.Algorithms
 
 open System
 open System.Security.Cryptography
-open System.Text
-open System.Text.Json
-open Libr4.Auth.Domain.ApiKeys
-open Libr4.AI.Infrastructure.AI
+
+[<CLIMutable>]
+type ApiKeyData =
+    { Key: string
+      Secret: string
+      ExpiresAt: DateTimeOffset option
+      Permissions: string list }
+
+module ApiKeyAlgorithms =
+
+    let generateApiKey () =
+        let bytes = Array.zeroCreate<byte> 32
+        RandomNumberGenerator.Fill(bytes)
+        Convert.ToBase64String(bytes)
+
+    let generateSecret () =
+        let bytes = Array.zeroCreate<byte> 64
+        RandomNumberGenerator.Fill(bytes)
+        Convert.ToBase64String(bytes)
+
+    let hashSecret (secret: string) =
+        use sha256 = SHA256.Create()
+        let bytes = System.Text.Encoding.UTF8.GetBytes(secret)
+        let hash = sha256.ComputeHash(bytes)
+        Convert.ToBase64String(hash)
+
+    let validateApiKey (key: ApiKeyData) (providedKey: string) (providedSecret: string) =
+        key.Key = providedKey &&
+        hashSecret providedSecret = key.Secret &&
+        (key.ExpiresAt.IsNone || key.ExpiresAt.Value > DateTimeOffset.UtcNow)
+
+    let hasPermission (key: ApiKeyData) (permission: string) =
+        key.Permissions |> List.contains permission
+
+    // Additional algorithm for rate limiting based on API key usage
+    let calculateRateLimit (usageCount: int) (maxRequests: int) (windowSeconds: int) =
+        let currentTime = DateTimeOffset.UtcNow
+        let windowStart = currentTime.AddSeconds(-windowSeconds)
+        // In real implementation, this would query usage history
+        // For now, simple check
+        usageCount < maxRequests
 
 // API Key Generator
 module ApiKeyGenerator =

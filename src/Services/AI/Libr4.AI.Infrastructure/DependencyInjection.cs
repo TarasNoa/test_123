@@ -24,15 +24,47 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Libr4.AI.Infrastructure.AI;
 using Libr4.AI.Infrastructure.AI.Providers;
+using Libr4.AI.Infrastructure.ML;
+using Libr4.AI.Domain.Agents;
+using Libr4.AI.Infrastructure.Repositories;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace Libr4.AI.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddAIInfrastructure(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    public static IServiceCollection AddAIInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
+        // Database
+        services.AddDbContext<AIDbContext>(options =>
+            options.UseSqlServer(configuration.GetConnectionString("AIDatabase")));
+
+        // Repositories
+        services.AddScoped<IAgentRepository, AgentRepository>();
+
+        // Caching
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = configuration.GetConnectionString("Redis");
+        });
+
+        // Rust Inference Bridge
+        services.AddSingleton<IRustInferenceBridge, RustMLInferenceBridge>();
+
+        // Health Checks
+        services.AddHealthChecks()
+            .AddDbContextCheck<AIDbContext>("AIDatabase")
+            .AddRedis(configuration.GetConnectionString("Redis"), "RedisCache");
+
+        // Metrics (using Prometheus)
+        services.AddOpenTelemetry()
+            .WithMetrics(builder => builder
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddRuntimeInstrumentation()
+                .AddPrometheusExporter());
+
         // EF Core
         services.AddDbContext<AIDbContext>((sp, options) =>
         {
@@ -113,6 +145,48 @@ public static class DependencyInjection
         // Health checks
         services.AddHealthChecks()
             .AddDbContextCheck<AIDbContext>("ai-db");
+
+        return services;
+    }
+
+    public static IServiceCollection AddAIAgentInfrastructure(this IServiceCollection services)
+    {
+        // Router
+        services.AddSingleton<IAgentRouter, AgentRouter>();
+
+        // Register agents
+        services.AddSingleton<OrchestratorAgent>(sp =>
+        {
+            var router = sp.GetRequiredService<IAgentRouter>();
+            var logger = sp.GetRequiredService<ILogger<BaseAgent>>();
+            return new OrchestratorAgent(logger, router);
+        });
+
+        services.AddSingleton<CodeWriterAgent>(sp =>
+        {
+            var generator = sp.GetRequiredService<ICodeGenerationService>();
+            var logger = sp.GetRequiredService<ILogger<BaseAgent>>();
+            return new CodeWriterAgent(logger, generator);
+        });
+
+        services.AddSingleton<CodeReviewerAgent>(sp =>
+        {
+            var analyzer = sp.GetRequiredService<ICodeAnalysisService>();
+            var logger = sp.GetRequiredService<ILogger<BaseAgent>>();
+            return new CodeReviewerAgent(logger, analyzer);
+        });
+
+        services.AddSingleton<DebuggerAgent>(sp =>
+        {
+            var executor = sp.GetRequiredService<ICodeExecutor>();
+            var errorAnalyzer = sp.GetRequiredService<ICodeErrorAnalyzer>();
+            var repairService = sp.GetRequiredService<ICodeRepairService>();
+            var logger = sp.GetRequiredService<ILogger<BaseAgent>>();
+            return new DebuggerAgent(logger, executor, errorAnalyzer, repairService);
+        });
+
+        // Agent initialization
+        services.AddSingleton<IAgentFactory, AgentFactory>();
 
         return services;
     }

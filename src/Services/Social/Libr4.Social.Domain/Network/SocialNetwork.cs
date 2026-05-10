@@ -1,4 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Libr4.Shared.Kernel.Domain;
+using Libr4.Social.Domain.Events;
 
 namespace Libr4.Social.Domain.Network;
 
@@ -244,3 +248,163 @@ public enum InteractionType
     Share,
     Bookmark
 }
+
+public class SocialNetwork : AggregateRoot<Guid>
+{
+    public Guid UserId { get; private set; }
+    public List<SocialConnection> Connections { get; private set; } = new();
+    public List<Guid> Followers { get; private set; } = new();
+    public List<Guid> Following { get; private set; } = new();
+    public UserProfile Profile { get; private set; } = new();
+    public List<UserPost> Posts { get; private set; } = new();
+    public List<UserActivity> ActivityFeed { get; private set; } = new();
+    public DateTime CreatedAt { get; private set; }
+
+    private SocialNetwork() { }
+
+    public static SocialNetwork Create(Guid userId)
+    {
+        var network = new SocialNetwork
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        network.RaiseDomainEvent(new SocialNetworkCreatedEvent(network.Id, userId, network.CreatedAt));
+        return network;
+    }
+
+    public void AddConnection(Guid connectedUserId, ConnectionType type, string? note = null)
+    {
+        if (Connections.Any(c => c.ConnectedUserId == connectedUserId))
+            return;
+
+        var connection = new SocialConnection(Guid.NewGuid(), connectedUserId, type, note, DateTime.UtcNow);
+        Connections.Add(connection);
+
+        if (type == ConnectionType.Following)
+        {
+            Following.Add(connectedUserId);
+        }
+
+        RaiseDomainEvent(new ConnectionAddedEvent(Id, connectedUserId, type));
+    }
+
+    public void RemoveConnection(Guid connectedUserId)
+    {
+        var connection = Connections.FirstOrDefault(c => c.ConnectedUserId == connectedUserId);
+        if (connection != null)
+        {
+            Connections.Remove(connection);
+            Following.Remove(connectedUserId);
+            RaiseDomainEvent(new ConnectionRemovedEvent(Id, connectedUserId));
+        }
+    }
+
+    public void AddFollower(Guid followerId)
+    {
+        if (!Followers.Contains(followerId))
+        {
+            Followers.Add(followerId);
+            RaiseDomainEvent(new FollowerAddedEvent(Id, followerId));
+        }
+    }
+
+    public void RemoveFollower(Guid followerId)
+    {
+        if (Followers.Remove(followerId))
+        {
+            RaiseDomainEvent(new FollowerRemovedEvent(Id, followerId));
+        }
+    }
+
+    public void UpdateProfile(string name, string? bio, string? profileImageUrl, string? location)
+    {
+        Profile = new UserProfile(name, bio, profileImageUrl, location);
+        RaiseDomainEvent(new ProfileUpdatedEvent(Id, name, bio));
+    }
+
+    public void CreatePost(string content, List<string>? tags = null, List<string>? attachmentUrls = null)
+    {
+        var post = new UserPost(
+            Guid.NewGuid(),
+            content,
+            tags ?? new List<string>(),
+            attachmentUrls ?? new List<string>(),
+            DateTime.UtcNow
+        );
+        Posts.Add(post);
+        ActivityFeed.Add(new UserActivity(Guid.NewGuid(), $"Created post: {content.Substring(0, Math.Min(50, content.Length))}", DateTime.UtcNow, ActivityType.PostCreated));
+        RaiseDomainEvent(new PostCreatedEvent(Id, post.Id, content, tags));
+    }
+
+    public void DeletePost(Guid postId)
+    {
+        var post = Posts.FirstOrDefault(p => p.Id == postId);
+        if (post != null)
+        {
+            Posts.Remove(post);
+            ActivityFeed.Add(new UserActivity(Guid.NewGuid(), "Deleted a post", DateTime.UtcNow, ActivityType.PostDeleted));
+            RaiseDomainEvent(new PostDeletedEvent(Id, postId));
+        }
+    }
+
+    public void LikePost(Guid postId, Guid likerUserId)
+    {
+        var post = Posts.FirstOrDefault(p => p.Id == postId);
+        if (post != null && !post.Likes.Contains(likerUserId))
+        {
+            post.Likes.Add(likerUserId);
+            RaiseDomainEvent(new PostLikedEvent(Id, postId, likerUserId));
+        }
+    }
+
+    public void CommentOnPost(Guid postId, Guid commenterUserId, string commentText)
+    {
+        var post = Posts.FirstOrDefault(p => p.Id == postId);
+        if (post != null)
+        {
+            var comment = new PostComment(Guid.NewGuid(), commenterUserId, commentText, DateTime.UtcNow);
+            post.Comments.Add(comment);
+            RaiseDomainEvent(new PostCommentedEvent(Id, postId, commenterUserId, commentText));
+        }
+    }
+
+    public void SharePost(Guid postId, string? personalMessage = null)
+    {
+        var post = Posts.FirstOrDefault(p => p.Id == postId);
+        if (post != null)
+        {
+            post.Shares.Add(new PostShare(Guid.NewGuid(), UserId, personalMessage, DateTime.UtcNow));
+            ActivityFeed.Add(new UserActivity(Guid.NewGuid(), "Shared a post", DateTime.UtcNow, ActivityType.PostShared));
+            RaiseDomainEvent(new PostSharedEvent(Id, postId));
+        }
+    }
+
+    public void AddToActivityFeed(string description, ActivityType activityType)
+    {
+        var activity = new UserActivity(Guid.NewGuid(), description, DateTime.UtcNow, activityType);
+        ActivityFeed.Add(activity);
+    }
+}
+
+public enum ConnectionType { Friend, Following, Colleague, Blocked }
+public enum ActivityType { PostCreated, PostDeleted, PostShared, PostLiked, Follow, Unfollow, CommentedOnPost }
+
+public record SocialConnection(Guid Id, Guid ConnectedUserId, ConnectionType Type, string? Note, DateTime ConnectedAt);
+
+public record UserProfile(string Name, string? Bio, string? ProfileImageUrl, string? Location);
+
+public record UserPost(Guid Id, string Content, List<string> Tags, List<string> AttachmentUrls, DateTime CreatedAt)
+{
+    public List<Guid> Likes { get; set; } = new();
+    public List<PostComment> Comments { get; set; } = new();
+    public List<PostShare> Shares { get; set; } = new();
+}
+
+public record PostComment(Guid Id, Guid AuthorId, string Text, DateTime CreatedAt);
+
+public record PostShare(Guid Id, Guid SharedByUserId, string? PersonalMessage, DateTime SharedAt);
+
+public record UserActivity(Guid Id, string Description, DateTime Timestamp, ActivityType Type);

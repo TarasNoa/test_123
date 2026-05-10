@@ -17,13 +17,29 @@ public class OrderSuggestion : AggregateRoot<Guid>
 
     private OrderSuggestion() { }
 
-    public void Suggest(int budget, int duration, List<string> freelancers, float confidence, DateTimeOffset now)
+    public static OrderSuggestion Create(Guid userId, string taskTitle, string description)
+    {
+        var suggestion = new OrderSuggestion
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TaskTitle = taskTitle,
+            Description = description,
+            SuggestedAt = DateTimeOffset.UtcNow
+        };
+
+        suggestion.RaiseDomainEvent(new OrderSuggestedEvent(suggestion.Id, userId, taskTitle, 0, 1, suggestion.SuggestedAt));
+        return suggestion;
+    }
+
+    public void UpdateSuggestion(int budget, int duration, List<string> freelancers, float confidence, DateTimeOffset now)
     {
         SuggestedBudget = budget;
         SuggestedDuration = duration;
-        RecommendedFreelancers = freelancers;
+        RecommendedFreelancers = freelancers ?? new List<string>();
         ConfidenceScore = confidence;
         SuggestedAt = now;
+
         RaiseDomainEvent(new OrderSuggestedEvent(Id, UserId, TaskTitle, budget, duration, now));
     }
 }

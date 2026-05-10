@@ -158,7 +158,7 @@ public sealed class SubagentDispatcher : ISubagentDispatcher
         {
             // Строим полный промпт с контекстом проекта
             var fullPrompt = BuildPrompt(task, context);
-            var response   = await _ai.GenerateAsync(systemPrompt, fullPrompt, ct);
+            var response   = await _ai.GenerateCompletionAsync(fullPrompt, systemPrompt, null);
 
             var result = new SubagentResult
             {

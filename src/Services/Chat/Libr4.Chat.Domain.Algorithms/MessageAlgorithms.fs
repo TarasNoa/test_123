@@ -293,3 +293,65 @@ module MessageReplyAnalyzer =
             
             return suggestions |> List.sortByDescending (fun s -> s.Confidence)
         }
+
+// Message Data Types
+[<CLIMutable>]
+type MessageData =
+    { Id: Guid
+      ChatId: Guid
+      SenderId: Guid
+      Content: string
+      Timestamp: DateTimeOffset
+      Attachments: MessageAttachment list
+      Reactions: MessageReaction list
+      ThreadId: Guid option
+      IsPinned: bool }
+
+and [<CLIMutable>] MessageAttachment =
+    { FileName: string
+      Url: string
+      Size: int64
+      ContentType: string }
+
+and [<CLIMutable>] MessageReaction =
+    { Emoji: string
+      UserIds: Guid list }
+
+module MessageAlgorithms =
+
+    let filterMessagesByDate (messages: MessageData list) (from: DateTimeOffset) (to_: DateTimeOffset) =
+        messages |> List.filter (fun m -> m.Timestamp >= from && m.Timestamp <= to_)
+
+    let searchMessages (messages: MessageData list) (query: string) =
+        let queryLower = query.ToLower()
+        messages |> List.filter (fun m -> m.Content.ToLower().Contains(queryLower))
+
+    let groupMessagesBySender (messages: MessageData list) =
+        messages |> List.groupBy (fun m -> m.SenderId)
+
+    let calculateMessageStats (messages: MessageData list) =
+        let total = messages.Length
+        let withAttachments = messages |> List.filter (fun m -> not m.Attachments.IsEmpty) |> List.length
+        let avgLength = if total > 0 then messages |> List.averageBy (fun m -> float m.Content.Length) else 0.0
+        let threaded = messages |> List.filter (fun m -> m.ThreadId.IsSome) |> List.length
+        { TotalMessages = total; MessagesWithAttachments = withAttachments; AverageLength = avgLength; ThreadedMessages = threaded }
+
+    let detectSpam (message: MessageData) (spamKeywords: string list) =
+        spamKeywords |> List.exists (fun keyword -> message.Content.ToLower().Contains(keyword.ToLower()))
+
+    let extractMentions (content: string) =
+        let pattern = @"<@(\w+)>"
+        System.Text.RegularExpressions.Regex.Matches(content, pattern)
+        |> Seq.map (fun m -> m.Groups.[1].Value)
+        |> Seq.toList
+
+    let extractCodeBlocks (content: string) =
+        let pattern = @"```(\w+)\n([\s\S]*?)```"
+        System.Text.RegularExpressions.Regex.Matches(content, pattern)
+        |> Seq.map (fun m -> { Language = m.Groups.[1].Value; Code = m.Groups.[2].Value })
+        |> Seq.toList
+
+    let detectModerationIssues (message: MessageData) (bannedWords: string list) =
+        bannedWords |> List.filter (fun word -> message.Content.ToLower().Contains(word.ToLower()))
+
+type CodeBlock = { Language: string; Code: string }

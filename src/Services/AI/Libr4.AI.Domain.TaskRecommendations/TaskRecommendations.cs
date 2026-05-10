@@ -16,12 +16,28 @@ public class TaskRecommendation : AggregateRoot<Guid>
 
     private TaskRecommendation() { }
 
-    public void Recommend(float matchScore, string reason, List<string> matchingSkills, DateTimeOffset now)
+    public static TaskRecommendation Create(Guid userId, Guid taskId, string taskTitle)
+    {
+        var recommendation = new TaskRecommendation
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            TaskId = taskId,
+            TaskTitle = taskTitle,
+            RecommendedAt = DateTimeOffset.UtcNow
+        };
+
+        recommendation.RaiseDomainEvent(new TaskRecommendedEvent(recommendation.Id, userId, taskId, 0.0f, recommendation.RecommendedAt));
+        return recommendation;
+    }
+
+    public void UpdateRecommendation(float matchScore, string reason, List<string> matchingSkills, DateTimeOffset now)
     {
         MatchScore = matchScore;
-        Reason = reason;
-        MatchingSkills = matchingSkills;
+        Reason = reason ?? string.Empty;
+        MatchingSkills = matchingSkills ?? new List<string>();
         RecommendedAt = now;
+
         RaiseDomainEvent(new TaskRecommendedEvent(Id, UserId, TaskId, matchScore, now));
     }
 }

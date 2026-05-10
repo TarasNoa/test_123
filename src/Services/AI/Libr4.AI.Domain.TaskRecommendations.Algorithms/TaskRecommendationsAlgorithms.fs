@@ -1,125 +1,80 @@
 namespace Libr4.AI.Domain.TaskRecommendations.Algorithms
 
 open System
-open System.Text.Json
-open Libr4.AI.Domain.TaskRecommendations
-open Libr4.AI.Infrastructure.AI
 
-// Skill Matcher
-module SkillMatcher =
+[<CLIMutable>]
+type TaskBrief =
+    { TaskId: Guid
+      Title: string
+      Category: string
+      RequiredSkills: string[]
+      EstimatedHours: int
+      Description: string }
 
-    type SkillMatchResult = {
-        MatchScore: float32
-        MatchingSkills: string list
-        MissingSkills: string list
-    }
+[<CLIMutable>]
+type UserProfileSummary =
+    { UserId: Guid
+      Skills: string[]
+      Interests: string[]
+      AverageRating: float
+      CompletedTasks: int }
 
-    let matchSkills (aiService: IAIService) (userSkills: string list) (taskSkills: string list) : Async<SkillMatchResult> =
-        async {
-            let systemPrompt = "You are a skills matching expert. Compare user skills with task requirements and return match in JSON format: {\"matchScore\": number (0-100), \"matchingSkills\": string[], \"missingSkills\": string[]}"
-            let userSkillsText = String.concat ", " userSkills
-            let taskSkillsText = String.concat ", " taskSkills
-            let prompt = sprintf "Match user skills [%s] with task requirements [%s]" userSkillsText taskSkillsText
-            
-            let! aiResponse = aiService.AnalyzeTextAsync(prompt, "skills") |> Async.AwaitTask
-            
-            let jsonDoc = JsonDocument.Parse(aiResponse)
-            let root = jsonDoc.RootElement
-            
-            let matchScore = root.GetProperty("matchScore").GetSingle()
-            let matchingSkills = 
-                root.GetProperty("matchingSkills").EnumerateArray()
-                |> Seq.map (fun s -> s.GetString())
-                |> List.ofSeq
-            let missingSkills = 
-                root.GetProperty("missingSkills").EnumerateArray()
-                |> Seq.map (fun s -> s.GetString())
-                |> List.ofSeq
-            
-            return {
-                MatchScore = matchScore
-                MatchingSkills = matchingSkills
-                MissingSkills = missingSkills
-            }
-        }
+[<CLIMutable>]
+type TaskRecommendationResult =
+    { TaskId: Guid
+      Title: string
+      MatchScore: float32
+      MatchingSkills: string[]
+      Reason: string }
 
-// Interest Scorer
-module InterestScorer =
+module TaskRecommendationAlgorithms =
 
-    type InterestScore = {
-        Score: float32
-        MatchingInterests: string list
-    }
+    let private normalize (values: string[]) =
+        if isNull values then [||]
+        else values |> Array.filter (fun value -> not (String.IsNullOrWhiteSpace value))
 
-    let scoreInterests (aiService: IAIService) (userInterests: string list) (taskCategories: string list) : Async<InterestScore> =
-        async {
-            let systemPrompt = "You are an interest matching expert. Compare user interests with task categories and return match in JSON format: {\"score\": number (0-100), \"matchingInterests\": string[]}"
-            let userInterestsText = String.concat ", " userInterests
-            let taskCategoriesText = String.concat ", " taskCategories
-            let prompt = sprintf "Match user interests [%s] with task categories [%s]" userInterestsText taskCategoriesText
-            
-            let! aiResponse = aiService.AnalyzeTextAsync(prompt, "interests") |> Async.AwaitTask
-            
-            let jsonDoc = JsonDocument.Parse(aiResponse)
-            let root = jsonDoc.RootElement
-            
-            let score = root.GetProperty("score").GetSingle()
-            let matchingInterests = 
-                root.GetProperty("matchingInterests").EnumerateArray()
-                |> Seq.map (fun i -> i.GetString())
-                |> List.ofSeq
-            
-            return {
-                Score = score
-                MatchingInterests = matchingInterests
-            }
-        }
+    let private containsIgnoreCase (text: string) (pattern: string) =
+        not (String.IsNullOrWhiteSpace pattern)
+        && text.IndexOf(pattern, StringComparison.OrdinalIgnoreCase) >= 0
 
-// Recommendation Ranker
-module RecommendationRanker =
+    let recommendTasks
+        (userProfile: UserProfileSummary)
+        (availableTasks: TaskBrief[])
+        : TaskRecommendationResult[] =
 
-    type RankedRecommendation = {
-        TaskId: Guid
-        TaskTitle: string
-        OverallScore: float32
-        SkillMatch: float32
-        InterestScore: float32
-        Reason: string
-    }
+        let userSkills = normalize userProfile.Skills
+        let userInterests = normalize userProfile.Interests
 
-    let rankRecommendations (aiService: IAIService) (tasks: (Guid * string * string list * string list) list) (userSkills: string list) (userInterests: string list) (userRating: float32) : Async<RankedRecommendation list> =
-        async {
-            let systemPrompt = "You are a recommendation ranking expert. Rank tasks based on skill match, interest alignment, and user history. Return ranked list in JSON array format: [{\"taskId\": string, \"taskTitle\": string, \"overallScore\": number, \"skillMatch\": number, \"interestScore\": number, \"reason\": string}]"
-            
-            let! recommendationsArray = 
-                tasks
-                |> List.map (fun (taskId, title, taskSkills, taskCategories) ->
-                    async {
-                        let! skillMatch = SkillMatcher.matchSkills aiService userSkills taskSkills
-                        let! interestScore = InterestScorer.scoreInterests aiService userInterests taskCategories
-                        
-                        let overallScore = skillMatch.MatchScore * 0.6f + interestScore.Score * 0.3f + userRating * 10f * 0.1f |> min 100f
-                        
-                        let reason = 
-                            sprintf "Skill match: %.1f%%, Interest match: %.1f%%, User rating: %.1f" skillMatch.MatchScore interestScore.Score userRating
-                        
-                        return {
-                            TaskId = taskId
-                            TaskTitle = title
-                            OverallScore = overallScore
-                            SkillMatch = skillMatch.MatchScore
-                            InterestScore = interestScore.Score
-                            Reason = reason
-                        }
-                    })
-                |> Async.Parallel
-            
-            let recommendations = Array.toList recommendationsArray
-            
-            let ranked = 
-                recommendations
-                |> List.filter (fun r -> r.OverallScore > 30f)
-                |> List.sortByDescending (fun r -> r.OverallScore)
-            
-            return ranked
-        }
+        availableTasks
+        |> Array.map (fun task ->
+            let requiredSkills = normalize task.RequiredSkills
+
+            let matchingSkills =
+                userSkills
+                |> Array.filter (fun skill ->
+                    requiredSkills
+                    |> Array.exists (fun required -> String.Equals(skill, required, StringComparison.OrdinalIgnoreCase)))
+
+            let interestMatchCount =
+                userInterests
+                |> Array.filter (containsIgnoreCase task.Category)
+                |> Array.length
+
+            let score =
+                float matchingSkills.Length * 2.0
+                + float interestMatchCount * 1.5
+                + min (float userSkills.Length) 20.0 * 0.05
+                + min (float userInterests.Length) 10.0 * 0.05
+
+            let normalizedScore = float32 (min 1.0 (score / 10.0))
+
+            { TaskId = task.TaskId
+              Title = task.Title
+              MatchScore = normalizedScore
+              MatchingSkills = matchingSkills
+              Reason =
+                if matchingSkills.Length > 0 then
+                    "Задача хорошо подходит по навыкам."
+                else
+                    "Задача рекомендуется на основе интересов и категории." })
+        |> Array.sortByDescending (fun r -> r.MatchScore)

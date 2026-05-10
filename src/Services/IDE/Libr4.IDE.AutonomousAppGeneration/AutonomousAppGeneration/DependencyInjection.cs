@@ -1,5 +1,4 @@
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
-using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
 using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
 using Libr4.IDE.Application.AutonomousAppGeneration.Runtime;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Rules;
@@ -102,7 +101,7 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddSingleton<ITriggerAdapterRouter, TriggerAdapterRouter>();
         services.AddSingleton<IRunMiddleware, DeterministicRunLoggingMiddleware>();
         services.AddSingleton<IAutonomousFinalizationHook, EnsureTerminalStateFinalizationHook>();
-        services.AddSingleton<IAgentEventEmitter, AgentEventEmitter>();
+        // services.AddSingleton<IAgentEventEmitter, AgentEventEmitter>(); // Missing dependency
 
         services.AddSingleton<IMcpToolRegistry, DefaultMcpToolRegistry>();
         services.AddSingleton<IMcpExecutionPolicy, DefaultMcpExecutionPolicy>();
@@ -169,7 +168,7 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddSingleton<IWorkspaceSyncService, FileSystemWorkspaceSyncService>();
 
         // Shadow execution = pool + runtime + sync.
-        services.AddSingleton<IShadowExecutionService, IsolatedShadowExecutionService>();
+        // services.AddSingleton<IShadowExecutionService, IsolatedShadowExecutionService>(); // File excluded
 
         // New agent infrastructure - register manually when needed with required parameters
         // services.AddSingleton<HierarchicalSkillLoader>();

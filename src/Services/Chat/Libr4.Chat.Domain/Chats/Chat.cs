@@ -1,3 +1,4 @@
+using System;
 using Libr4.Shared.Kernel.Domain;
 using Libr4.Shared.Kernel.Errors;
 using Libr4.Shared.Kernel.Results;
@@ -47,66 +48,57 @@ public class ChatMember : Entity<Guid>
 
 public class Chat : AggregateRoot<Guid>
 {
-    public string Title { get; private set; } = string.Empty;
+    public string Name { get; private set; } = string.Empty;
     public ChatType Type { get; private set; }
-    public Guid? RelatedTaskId { get; private set; }
-    public DateTime CreatedAt { get; private set; }
-    public DateTime? ArchivedAt { get; private set; }
-    public bool IsArchived => ArchivedAt.HasValue;
+    public Guid CreatorId { get; private set; }
+    public DateTimeOffset CreatedAt { get; private set; }
+    public List<ChatParticipant> Participants { get; private set; } = new();
+    public List<Message> Messages { get; private set; } = new();
 
-    private readonly List<ChatMember> _members = new();
-    public IReadOnlyCollection<ChatMember> Members => _members.AsReadOnly();
+    private Chat() { }
 
-    private Chat() { } // EF Core
-
-    public Chat(Guid id, string title, ChatType type, Guid? relatedTaskId = null) : base(id)
+    public static Chat Create(string name, ChatType type, Guid creatorId)
     {
-        Title = title ?? throw new ArgumentNullException(nameof(title));
-        Type = type;
-        RelatedTaskId = relatedTaskId;
-        CreatedAt = DateTime.UtcNow;
-    }
+        var chat = new Chat
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            Type = type,
+            CreatorId = creatorId,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
 
-    public static Chat CreateDirect(Guid userA, Guid userB)
-    {
-        var chat = new Chat(Guid.NewGuid(), "Direct", ChatType.Direct);
-        chat.AddMember(userA, ChatMemberRole.Owner);
-        chat.AddMember(userB, ChatMemberRole.Owner);
+        chat.RaiseDomainEvent(new ChatCreatedEvent(chat.Id, name, type, creatorId, chat.CreatedAt));
         return chat;
     }
 
-    public static Chat CreateGroup(string title, Guid creatorId, Guid? relatedTaskId = null)
+    public void AddParticipant(Guid userId, ChatRole role = ChatRole.Member)
     {
-        var chat = new Chat(Guid.NewGuid(), title, relatedTaskId.HasValue ? ChatType.TaskRelated : ChatType.Group, relatedTaskId);
-        chat.AddMember(creatorId, ChatMemberRole.Owner);
-        return chat;
+        if (!Participants.Any(p => p.UserId == userId))
+        {
+            Participants.Add(new ChatParticipant(userId, role));
+            RaiseDomainEvent(new ParticipantAddedEvent(Id, userId, role, DateTimeOffset.UtcNow));
+        }
     }
 
-    public void AddMember(Guid userId, ChatMemberRole role = ChatMemberRole.Member)
+    public void RemoveParticipant(Guid userId)
     {
-        if (_members.Any(m => m.UserId == userId))
-            return;
-
-        _members.Add(new ChatMember(Guid.NewGuid(), userId, role));
+        var participant = Participants.FirstOrDefault(p => p.UserId == userId);
+        if (participant != null)
+        {
+            Participants.Remove(participant);
+            RaiseDomainEvent(new ParticipantRemovedEvent(Id, userId, DateTimeOffset.UtcNow));
+        }
     }
 
-    public void RemoveMember(Guid userId)
+    public void AddMessage(Message message)
     {
-        var member = _members.FirstOrDefault(m => m.UserId == userId);
-        if (member != null)
-            _members.Remove(member);
-    }
-
-    public void Archive()
-    {
-        if (!IsArchived)
-            ArchivedAt = DateTime.UtcNow;
-    }
-
-    public void UpdateTitle(string title)
-    {
-        if (string.IsNullOrWhiteSpace(title))
-            throw new ArgumentException("Title cannot be empty", nameof(title));
-        Title = title;
+        Messages.Add(message);
+        RaiseDomainEvent(new MessageSentEvent(Id, message.Id, message.SenderId, message.Content, message.Timestamp));
     }
 }
+
+public enum ChatType { Direct, Group, Channel }
+public enum ChatRole { Member, Admin, Owner }
+
+public record ChatParticipant(Guid UserId, ChatRole Role);

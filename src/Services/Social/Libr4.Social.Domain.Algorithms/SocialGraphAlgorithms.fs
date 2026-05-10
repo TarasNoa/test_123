@@ -1,306 +1,191 @@
 namespace Libr4.Social.Domain.Algorithms
 
 open System
-open System.Text.Json
-open Libr4.AI.Infrastructure.AI
+open System.Collections.Generic
+open System.Linq
 
-// Shared types for social graph
-type GraphEdge = {
-    Source: Guid
-    Target: Guid
-    Weight: float
-}
+[<CLIMutable>]
+type UserNode =
+    { UserId: Guid
+      Name: string
+      ConnectionCount: int
+      FollowerCount: int
+      FollowingCount: int
+      Influence: float
+      LastActiveAt: DateTime }
 
-type SocialGraph = {
-    Nodes: Set<Guid>
-    Edges: GraphEdge list
-}
+[<CLIMutable>]
+type ConnectionEdge =
+    { From: Guid
+      To: Guid
+      Type: string
+      Weight: float
+      ConnectedAt: DateTime }
 
-// Social Graph Analysis Algorithms
-module SocialGraphAnalyzer =
+[<CLIMutable>]
+type CommunityGroup = 
+    { Id: int
+      Members: Guid list
+      Density: float
+      InfluenceScore: float }
 
-    // Calculate degree centrality (number of connections)
-    let calculateDegreeCentrality (graph: SocialGraph) (nodeId: Guid) : int =
-        graph.Edges
-        |> List.filter (fun edge -> edge.Source = nodeId || edge.Target = nodeId)
-        |> List.length
+module SocialGraphAlgorithms =
 
-    // Calculate betweenness centrality (how often a node lies on shortest paths)
-    let calculateBetweennessCentrality (graph: SocialGraph) (nodeId: Guid) : float =
-        // Simplified betweenness centrality calculation
-        let directConnections = 
-            graph.Edges
-            |> List.filter (fun edge -> edge.Source = nodeId || edge.Target = nodeId)
+    /// Calculate influence score based on multiple factors
+    let calculateInfluenceScore (followers: int) (postEngagement: int) (connectionQuality: float) : float =
+        let followerScore = float followers / 100.0 * 0.3
+        let engagementScore = float postEngagement / 50.0 * 0.4
+        let qualityScore = connectionQuality * 0.3
+        followerScore + engagementScore + qualityScore
+
+    /// Find mutual connections between two users
+    let findMutualConnections (user1Connections: Guid list) (user2Connections: Guid list) : Guid list =
+        user1Connections
+        |> List.filter (fun conn -> List.contains conn user2Connections)
+
+    /// Calculate shortest path between two users using BFS
+    let calculateConnectionDistance (adjList: Dictionary<Guid, Guid list>) (start: Guid) (target: Guid) : Option<int> =
+        if start = target then Some 0
+        else
+            let rec bfs queue visited distance =
+                match queue with
+                | [] -> None
+                | node :: rest ->
+                    if node = target then Some distance
+                    else
+                        let neighbors = 
+                            match adjList.TryGetValue node with
+                            | true, n -> n
+                            | false, _ -> []
+                        let unvisited = neighbors |> List.filter (fun n -> not (Set.contains n visited))
+                        let newVisited = unvisited |> List.fold (fun acc x -> Set.add x acc) visited
+                        let newQueue = rest @ unvisited
+                        bfs newQueue newVisited (distance + 1)
+
+            bfs [start] (Set.singleton start) 0
+
+    /// Recommend new connections based on mutual connections (2nd degree)
+    let recommendConnections (userConnections: Guid list) (connectionsMap: Map<Guid, Guid list>) (topN: int) : (Guid * int) list =
+        connectionsMap
+        |> Map.fold (fun acc userId secondDegreeConns ->
+            let recommendations = 
+                secondDegreeConns
+                |> List.filter (fun conn -> not (List.contains conn userConnections) && conn <> userId)
+            if List.length recommendations > 0 then
+                (userId, List.length recommendations) :: acc
+            else
+                acc
+        ) []
+        |> List.sortByDescending (fun (_, count) -> count)
+        |> List.take (min topN (List.length connectionsMap))
+
+    /// Detect influencers in the network
+    let detectInfluencers (users: UserNode list) (threshold: float) : UserNode list =
+        users
+        |> List.filter (fun user -> user.Influence > threshold)
+        |> List.sortByDescending (fun user -> user.Influence * float user.FollowerCount)
+
+    /// Calculate network density (interconnectedness)
+    let calculateNetworkDensity (totalUsers: int) (totalConnections: int) : float =
+        if totalUsers <= 1 then 0.0
+        else
+            let maxConnections = (totalUsers * (totalUsers - 1)) / 2
+            float totalConnections / float maxConnections
+
+    /// Find key influencers with minimum follower threshold
+    let findKeyInfluencers (users: UserNode list) (minFollowers: int) : UserNode list =
+        users
+        |> List.filter (fun user -> user.FollowerCount >= minFollowers)
+        |> List.sortByDescending (fun user -> user.Influence * float user.FollowerCount)
+
+    /// Community detection using simple clustering
+    let detectCommunities (edges: ConnectionEdge list) (users: UserNode list) : CommunityGroup list =
+        let grouped = 
+            users
+            |> List.groupBy (fun user -> user.ConnectionCount / 5)
+            |> List.map (fun (groupId, userGroup) ->
+                let memberIds = userGroup |> List.map (fun u -> u.UserId)
+                let totalInfluence = userGroup |> List.sumBy (fun u -> u.Influence)
+                let density = 
+                    let edgesInGroup = 
+                        edges 
+                        |> List.filter (fun e -> memberIds |> List.contains e.From && memberIds |> List.contains e.To)
+                        |> List.length
+                    float edgesInGroup / float (List.length memberIds)
+
+                { Id = groupId
+                  Members = memberIds
+                  Density = density
+                  InfluenceScore = totalInfluence / float (List.length userGroup) }
+            )
+        grouped
+
+    /// Calculate PageRank-like algorithm for user importance
+    let calculatePageRank (edges: ConnectionEdge list) (damping: float) (iterations: int) : Map<Guid, float> =
+        let users = 
+            edges
+            |> List.collect (fun e -> [e.From; e.To])
+            |> List.distinct
+
+        let mutable ranks = Map.ofList (users |> List.map (fun u -> (u, 1.0 / float users.Length)))
+
+        for _ = 1 to iterations do
+            let newRanks = ref (Map.ofList (users |> List.map (fun u -> (u, 0.0))))
+            
+            for user in users do
+                let incoming = edges |> List.filter (fun e -> e.To = user)
+                let contribution = 
+                    if List.isEmpty incoming then 0.0
+                    else
+                        incoming
+                        |> List.sumBy (fun e -> 
+                            let outgoing = edges |> List.filter (fun x -> x.From = e.From)
+                            ranks.[e.From] / float (List.length outgoing + 1)
+                        )
+                
+                let newRank = (1.0 - damping) / float users.Length + damping * contribution
+                newRanks := Map.add user newRank !newRanks
+
+            ranks <- !newRanks
+
+        ranks
+
+    /// Find densest subgraph (core group)
+    let findDensestSubgraph (edges: ConnectionEdge list) : Guid list =
+        let users = 
+            edges
+            |> List.collect (fun e -> [e.From; e.To])
+            |> List.distinct
+
+        users
+        |> List.sortByDescending (fun user ->
+            edges
+            |> List.filter (fun e -> e.From = user || e.To = user)
             |> List.length
-        
-        let totalConnections = List.length graph.Edges
-        if totalConnections = 0 then 0.0
-        else float directConnections / float totalConnections
+        )
+        |> List.take (max 1 (List.length users / 3))
 
-    // Detect communities using simple clustering
-    let detectCommunities (graph: SocialGraph) : (Guid list) list =
-        // Simplified community detection using connected components
-        let mutable visited = Set.empty
-        let mutable communities = []
-        
-        for node in graph.Nodes do
-            if not (Set.contains node visited) then
-                let mutable cluster = []
-                let mutable queue = [node]
-                let mutable visitedInCluster = Set.add node visited
-                
-                while queue <> [] do
-                    let current = List.head queue
-                    queue <- List.tail queue
-                    cluster <- current :: cluster
-                    
-                    // Find neighbors
-                    let neighbors = 
-                        graph.Edges
-                        |> List.filter (fun edge -> edge.Source = current)
-                        |> List.map (fun edge -> edge.Target)
-                    
-                    for neighbor in neighbors do
-                        if not (Set.contains neighbor visitedInCluster) then
-                            queue <- queue @ [neighbor]
-                            visitedInCluster <- Set.add neighbor visitedInCluster
-                
-                visited <- Set.union visited visitedInCluster
-                communities <- cluster :: communities
-        
-        communities
-
-    // Find mutual friends between two users
-    let findMutualFriends (graph: SocialGraph) (user1: Guid) (user2: Guid) : Guid list =
-        let user1Connections = 
-            graph.Edges
-            |> List.filter (fun edge -> edge.Source = user1)
-            |> List.map (fun edge -> edge.Target)
-            |> Set.ofList
-        
-        let user2Connections = 
-            graph.Edges
-            |> List.filter (fun edge -> edge.Source = user2)
-            |> List.map (fun edge -> edge.Target)
-            |> Set.ofList
-        
-        Set.intersect user1Connections user2Connections
-        |> Set.toList
-
-    // Detect communities using AI for intelligent community detection
-    let detectCommunitiesWithAI (aiService: IAIService) (graph: SocialGraph) (communityContext: string) : Async<(Guid list) list> =
-        async {
-            let nodesText = graph.Nodes |> Set.toList |> List.map string |> String.concat "; "
-            let edgesText = graph.Edges |> List.map (fun e -> sprintf "%s->%s" (string e.Source) (string e.Target)) |> String.concat "; "
-            
-            let prompt = sprintf "Detect communities from nodes [%s] and edges [%s], context '%s'. Return JSON: {\"communities\": [[string]]}" nodesText edgesText communityContext
-            
-            let! aiResponse = aiService.AnalyzeTextAsync(prompt, "social") |> Async.AwaitTask
-            
-            let jsonDoc = JsonDocument.Parse(aiResponse)
-            let root = jsonDoc.RootElement
-            
-            let communities = try root.GetProperty("communities").EnumerateArray() |> Seq.map (fun community -> community.EnumerateArray() |> Seq.map (fun id -> Guid(id.GetString())) |> List.ofSeq) |> List.ofSeq with _ -> []
-            
-            if communities.IsEmpty then
-                return detectCommunities graph
-            else
-                return communities
-        }
-
-// Recommendation Algorithms
-module SocialRecommender =
-
-    type UserProfile = {
-        Id: Guid
-        Interests: string list
-        Connections: Guid list
-        ActivityScore: float
-    }
-
-    // Recommend friends based on mutual connections and interests
-    let recommendFriends (currentUser: UserProfile) (allUsers: UserProfile list) (graph: SocialGraph) : (Guid * float) list =
-        allUsers
-        |> List.filter (fun user -> user.Id <> currentUser.Id)
-        |> List.map (fun user ->
-            let mutualCount = 
-                SocialGraphAnalyzer.findMutualFriends graph currentUser.Id user.Id
+    /// Similarity between two users (0.0 - 1.0)
+    let calculateUserSimilarity (user1Connections: Guid list) (user2Connections: Guid list) : float =
+        if List.isEmpty user1Connections && List.isEmpty user2Connections then 1.0
+        else
+            let intersection = 
+                user1Connections
+                |> List.filter (fun c -> List.contains c user2Connections)
                 |> List.length
-            
-            let commonInterests = 
-                Set.intersect (Set.ofList currentUser.Interests) (Set.ofList user.Interests)
-                |> Set.toList
+
+            let union = 
+                (user1Connections @ user2Connections)
+                |> List.distinct
                 |> List.length
-            
-            let activityScore = user.ActivityScore
-            
-            // Calculate recommendation score
-            let score = float mutualCount * 0.5 + float commonInterests * 0.3 + activityScore * 0.2
-            (user.Id, score))
-        |> List.filter (fun (_, score) -> score > 0.5)
-        |> List.sortByDescending snd
-        |> List.take 10
 
-    // Recommend content based on interests and social graph
-    let recommendContent (currentUser: UserProfile) (friends: UserProfile list) (content: (Guid * string list) list) : (Guid * float) list =
-        let friendInterests = 
-            friends
-            |> List.collect (fun friend -> friend.Interests)
-        
-        let userInterests = currentUser.Interests @ friendInterests
-        
-        content
-        |> List.map (fun (contentId, contentTags) ->
-            let matchCount = 
-                Set.intersect (Set.ofList userInterests) (Set.ofList contentTags)
-                |> Set.toList
-                |> List.length
-            
-            let score = float matchCount / float (List.length contentTags + 1)
-            (contentId, score))
-        |> List.filter (fun (_, score) -> score > 0.0)
-        |> List.sortByDescending snd
-        |> List.take 20
+            float intersection / float union
 
-    // Recommend friends using AI for intelligent matching
-    let recommendFriendsWithAI (aiService: IAIService) (currentUser: UserProfile) (allUsers: UserProfile list) (graph: SocialGraph) (recommendationContext: string) : Async<(Guid * float) list> =
-        async {
-            let userInterestsText = currentUser.Interests |> String.concat ", "
-            let allUsersText = allUsers |> List.map (fun u -> sprintf "%s: %s" (string u.Id) (String.concat ", " u.Interests)) |> String.concat "; "
-            
-            let prompt = sprintf "Recommend friends for user with interests [%s] from users [%s], context '%s'. Return JSON: {\"recommendedUserIds\": [string]}" userInterestsText allUsersText recommendationContext
-            
-            let! aiResponse = aiService.AnalyzeTextAsync(prompt, "social") |> Async.AwaitTask
-            
-            let jsonDoc = JsonDocument.Parse(aiResponse)
-            let root = jsonDoc.RootElement
-            
-            let recommendedIds = try root.GetProperty("recommendedUserIds").EnumerateArray() |> Seq.map (fun id -> Guid(id.GetString())) |> Set.ofSeq with _ -> Set.empty
-            
-            if recommendedIds.IsEmpty then
-                return recommendFriends currentUser allUsers graph
-            else
-                return allUsers
-                    |> List.filter (fun user -> Set.contains user.Id recommendedIds)
-                    |> List.map (fun user -> (user.Id, 0.8))
-                    |> List.sortByDescending snd
-                    |> List.take 10
-        }
+    /// Viral potential score
+    let calculateViralPotential (likes: int) (shares: int) (comments: int) (followers: int) : float =
+        let engagementRate = float (likes + shares + comments) / float (max 1 followers)
+        let shareWeight = float shares * 2.0 // Shares are more valuable
+        let commentWeight = float comments * 1.5
+        let likeWeight = float likes * 1.0
 
-    // Recommend content using AI for intelligent content matching
-    let recommendContentWithAI (aiService: IAIService) (currentUser: UserProfile) (friends: UserProfile list) (content: (Guid * string list) list) (contentContext: string) : Async<(Guid * float) list> =
-        async {
-            let userInterestsText = currentUser.Interests |> String.concat ", "
-            let friendInterestsText = friends |> List.collect (fun f -> f.Interests) |> String.concat ", "
-            let contentText = content |> List.map (fun (id, tags) -> sprintf "%s: %s" (string id) (String.concat ", " tags)) |> String.concat "; "
-            
-            let prompt = sprintf "Recommend content for user with interests [%s] and friend interests [%s] from content [%s], context '%s'. Return JSON: {\"recommendedContentIds\": [string]}" userInterestsText friendInterestsText contentText contentContext
-            
-            let! aiResponse = aiService.AnalyzeTextAsync(prompt, "social") |> Async.AwaitTask
-            
-            let jsonDoc = JsonDocument.Parse(aiResponse)
-            let root = jsonDoc.RootElement
-            
-            let recommendedIds = try root.GetProperty("recommendedContentIds").EnumerateArray() |> Seq.map (fun id -> Guid(id.GetString())) |> Set.ofSeq with _ -> Set.empty
-            
-            if recommendedIds.IsEmpty then
-                return recommendContent currentUser friends content
-            else
-                return content
-                    |> List.filter (fun (id, _) -> Set.contains id recommendedIds)
-                    |> List.map (fun (id, _) -> (id, 0.8))
-                    |> List.sortByDescending snd
-                    |> List.take 20
-        }
-
-// Influence Analysis Algorithms
-module InfluenceAnalyzer =
-
-    type InfluenceMetrics = {
-        Reach: int
-        EngagementRate: float
-        ViralCoefficient: float
-    }
-
-    // Calculate influence score based on network position
-    let calculateInfluenceScore (graph: SocialGraph) (nodeId: Guid) (followersCount: int) (engagementRate: float) : float =
-        let centrality = SocialGraphAnalyzer.calculateDegreeCentrality graph nodeId
-        let betweenness = SocialGraphAnalyzer.calculateBetweennessCentrality graph nodeId
-        
-        // Weighted influence score
-        let networkScore = float centrality * 0.4 + betweenness * 0.3
-        let engagementScore = engagementRate * 0.3
-        
-        networkScore + engagementScore
-
-    // Identify influencers in the network
-    let identifyInfluencers (graph: SocialGraph) (userMetrics: Map<Guid, InfluenceMetrics>) : (Guid * float) list =
-        userMetrics
-        |> Map.toList
-        |> List.map (fun (userId, metrics) ->
-            let influenceScore = calculateInfluenceScore graph userId metrics.Reach metrics.EngagementRate
-            (userId, influenceScore))
-        |> List.filter (fun (_, score) -> score > 0.5)
-        |> List.sortByDescending snd
-        |> List.take 10
-
-    // Identify influencers using AI for intelligent influence detection
-    let identifyInfluencersWithAI (aiService: IAIService) (graph: SocialGraph) (userMetrics: Map<Guid, InfluenceMetrics>) (influenceContext: string) : Async<(Guid * float) list> =
-        async {
-            let metricsText = userMetrics |> Map.toList |> List.map (fun (id, m) -> sprintf "%s: reach %d, engagement %.1f%%" (string id) m.Reach m.EngagementRate) |> String.concat "; "
-            
-            let prompt = sprintf "Identify top influencers from metrics [%s], context '%s'. Return JSON: {\"influencerIds\": [string]}" metricsText influenceContext
-            
-            let! aiResponse = aiService.AnalyzeTextAsync(prompt, "social") |> Async.AwaitTask
-            
-            let jsonDoc = JsonDocument.Parse(aiResponse)
-            let root = jsonDoc.RootElement
-            
-            let influencerIds = try root.GetProperty("influencerIds").EnumerateArray() |> Seq.map (fun id -> Guid(id.GetString())) |> Set.ofSeq with _ -> Set.empty
-            
-            if influencerIds.IsEmpty then
-                return identifyInfluencers graph userMetrics
-            else
-                return userMetrics
-                    |> Map.toList
-                    |> List.filter (fun (id, _) -> Set.contains id influencerIds)
-                    |> List.map (fun (id, _) -> (id, 0.9))
-                    |> List.sortByDescending snd
-                    |> List.take 10
-        }
-
-// Activity Analysis Algorithms
-module ActivityAnalyzer =
-
-    type ActivityEvent = {
-        UserId: Guid
-        Timestamp: DateTime
-        EventType: string
-    }
-
-    // Calculate user activity level over time period
-    let calculateActivityLevel (events: ActivityEvent list) (days: int) : float =
-        let now = DateTime.UtcNow
-        let cutoff = now.AddDays(-float days)
-        
-        let recentEvents = 
-            events
-            |> List.filter (fun event -> event.Timestamp >= cutoff)
-        
-        if recentEvents.IsEmpty then 0.0
-        else float recentEvents.Length / float days
-
-    // Detect activity patterns (e.g., most active time of day)
-    let detectActivityPatterns (events: ActivityEvent list) : Map<int, int> list =
-        let hourlyActivity = 
-            events
-            |> List.groupBy (fun event -> event.Timestamp.Hour)
-            |> List.map (fun (hour, events) -> hour, List.length events)
-            |> Map.ofList
-        
-        [hourlyActivity]
-
-    // Calculate engagement rate
-    let calculateEngagementRate (likes: int) (comments: int) (views: int) : float =
-        if views = 0 then 0.0
-        else float (likes + comments * 2) / float views * 100.0
+        (shareWeight + commentWeight + likeWeight) * engagementRate

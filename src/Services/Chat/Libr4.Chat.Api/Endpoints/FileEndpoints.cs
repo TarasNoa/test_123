@@ -6,25 +6,36 @@ namespace Libr4.Chat.Api.Endpoints;
 
 public static class FileEndpoints
 {
-    public static IEndpointRouteBuilder MapFileEndpoints(this IEndpointRouteBuilder app)
+    public static void MapFileEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/files")
+        var group = app.MapGroup("/api/chat/files")
             .WithTags("Files")
-            .WithOpenApi()
             .RequireAuthorization();
 
-        group.MapPost("/upload-url", async (
-            [FromBody] GetUploadUrlRequest request,
-            ISender sender,
-            CancellationToken ct) =>
+        group.MapPost("/upload", async (
+            IFormFile file,
+            IFileStorageService storageService) =>
         {
-            var result = await sender.Send(
-                new GetUploadUrlCommand(request.FileName, request.ContentType, request.FileSize), ct);
-            return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
-        });
+            if (file == null || file.Length == 0)
+            {
+                return Results.BadRequest(new { error = "File is required" });
+            }
 
-        return app;
+            try
+            {
+                var fileUrl = await storageService.UploadFileAsync(file);
+                return Results.Ok(new { url = fileUrl, fileName = file.FileName, size = file.Length, contentType = file.ContentType });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Failed to upload file: {ex.Message}",
+                    statusCode: 500,
+                    title: "File Upload Error");
+            }
+        })
+        .WithName("UploadFile")
+        .WithSummary("Upload a file for chat messages")
+        .DisableRateLimiting(); // Allow larger uploads
     }
 }
-
-public record GetUploadUrlRequest(string FileName, string ContentType, long FileSize);

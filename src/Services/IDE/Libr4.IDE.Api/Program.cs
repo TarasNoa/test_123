@@ -8,27 +8,27 @@ using Libr4.IDE.Application.DTOs;
 // using Libr4.IDE.Domain.Algorithms;
 using Libr4.AI.Infrastructure.AI;
 // using Libr4.IDE.Application.AI.Algorithms;
-using Libr4.IDE.Application.Translation;
-using Libr4.IDE.Application.Terminal;
-using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
-using Libr4.IDE.Application.AutonomousAppGeneration.AgentOrchestration;
+// using Libr4.IDE.Application.Translation;
+// using Libr4.IDE.Application.Terminal;
+// using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
+// using Libr4.IDE.Application.AutonomousAppGeneration.AgentOrchestration;
 using Microsoft.Extensions.DependencyInjection;
 using MediatR;
 using Microsoft.FSharp.Control;
-using Libr4.IDE.Api;
+// using Libr4.IDE.Api; // Self-referencing namespace - files excluded
 using Libr4.IDE.Application.Obscura;
 // using Libr4.IDE.Infrastructure.FSharpInterop;  // F# interop not yet implemented
 using Libr4.IDE.Application.GitAutomation;
 using Libr4.IDE.Application.CodeSearch;
 using Libr4.IDE.Application.PromptOptimization;
-using Libr4.IDE.Infrastructure.SemanticIndex;
-using Libr4.IDE.Infrastructure.Persistence;
-using Libr4.IDE.Application.SecurityTesting;
-using Libr4.IDE.Application.CodeReview;
-using Libr4.IDE.Application.Escrow;
-using Libr4.IDE.Application.Gateway;
+// using Libr4.IDE.Infrastructure.SemanticIndex;
+// using Libr4.IDE.Infrastructure.Persistence;
+// using Libr4.IDE.Application.SecurityTesting;
+// using Libr4.IDE.Application.CodeReview;
+// using Libr4.IDE.Application.Escrow;
+// using Libr4.IDE.Application.Gateway;
 using Libr4.IDE.Application.AI;
-using Libr4.IDE.Application.ShadowWorkspace;
+// using Libr4.IDE.Application.ShadowWorkspace;
 using Libr4.IDE.Application.MultiAgentOrchestration;
 using Libr4.IDE.Application.DesignContext;
 using Libr4.IDE.Application.DesignSkills;
@@ -60,21 +60,18 @@ builder.Services.AddCors(options => {
 });
 
 // Add services
-builder.Services.AddSingleton<TerminalWebSocketHandler>();
-builder.Services.AddSingleton<AgentEventWebSocketHandler>();
-builder.Services.AddScoped<IDockerService, ProcessDockerService>();
-builder.Services.AddScoped<ITranslationService, OpenAITranslationService>();
-builder.Services.AddScoped<ITerminalService, DockerTerminalService>();
+// builder.Services.AddSingleton<TerminalWebSocketHandler>(); // Excluded
+// builder.Services.AddSingleton<AgentEventWebSocketHandler>(); // Excluded
+// builder.Services.AddScoped<IDockerService, ProcessDockerService>(); // Excluded
+// builder.Services.AddScoped<ITranslationService, OpenAITranslationService>(); // Excluded
+// builder.Services.AddScoped<ITerminalService, DockerTerminalService>(); // Excluded
 builder.Services.AddScoped<IAgentEventEmitter, AgentEventEmitter>();
 builder.Services.AddScoped<IAgentOrchestrationTracker, AgentOrchestrationTracker>();
-// Shadow Workspace - Golden Stack Architecture
-// Rust (obscura/crates/container-runtime) handles low-level Docker operations
-// F# (Libr4.IDE.Domain.FSharp) provides domain logic (state machine, resource allocation)
-// C# provides thin orchestration layer
-builder.Services.AddSingleton<IContainerManager, ContainerRuntimeGrpcClient>();
-builder.Services.AddSingleton<IPreWarmedContainerPool, NullPreWarmedContainerPool>();
-builder.Services.AddSingleton<IContainerLifecycleService, ContainerLifecycleBridge>();
-builder.Services.AddHostedService<ContainerPoolWarmupService>();
+// Shadow Workspace - Golden Stack Architecture - commented out due to missing dependencies
+// builder.Services.AddSingleton<IContainerManager, ContainerRuntimeGrpcClient>();
+// builder.Services.AddSingleton<IPreWarmedContainerPool, NullPreWarmedContainerPool>();
+// builder.Services.AddSingleton<IContainerLifecycleService, ContainerLifecycleBridge>();
+// builder.Services.AddHostedService<ContainerPoolWarmupService>();
 
 // Obscura Browser Automation - Golden Stack: Rust chromiumoxide via gRPC
 builder.Services.AddSingleton<IBrowserAutomationService, BrowserAutomationGrpcClient>();
@@ -83,7 +80,7 @@ builder.Services.AddSingleton<IDomToMarkdownConverter, DomToMarkdownConverter>()
 builder.Services.AddSingleton<ISubagentObscuraIntegration, SubagentObscuraIntegration>();
 
 // Semantic Code Index (SocratiCode analog) - Ollama embeddings + Qdrant vector store + BM25 RRF
-builder.Services.AddSemanticCodeIndex(builder.Configuration);
+// builder.Services.AddSemanticCodeIndex(builder.Configuration); // Excluded - SemanticIndex folder disabled
 
 // Git Automation - LibGit2Sharp
 builder.Services.AddScoped<IGitAutomationService, LibGit2SharpService>();
@@ -196,8 +193,8 @@ builder.Services.AddScoped<IAgentEventRepository, EfAgentEventRepository>();
 builder.Services.AddScoped<IAgentOrchestrationRepository, EfAgentOrchestrationRepository>();
 builder.Services.AddScoped<IAppGenerationRepository, AppGenerationRepository>();
 
-// Sandbox Orchestrator for production-ready task execution
-builder.Services.AddScoped<Libr4.IDE.Application.Orchestration.ResilientOrchestrator>();
+// Sandbox Orchestrator for production-ready task execution - moved to Infrastructure
+builder.Services.AddScoped<Libr4.IDE.Infrastructure.Orchestration.ResilientOrchestrator>();
 builder.Services.AddScoped<Libr4.IDE.Infrastructure.Clients.ISandboxClient, Libr4.IDE.Infrastructure.Clients.GrpcSandboxClient>();
 
 // Code Guardian for validation before Rust execution
@@ -439,17 +436,17 @@ app.MapPost("/api/ide/ai/explain", async (ExplainCodeRequest request, IAIService
 });
 */
 
-// WebSocket for terminal real-time output
-app.MapGet("/ws/terminal/{sessionId}", async (string sessionId, TerminalWebSocketHandler handler, HttpContext context) =>
-{
-    await handler.HandleWebSocketAsync(context, sessionId);
-});
+// WebSocket for terminal real-time output - commented out due to missing TerminalWebSocketHandler
+// app.MapGet("/ws/terminal/{sessionId}", async (string sessionId, TerminalWebSocketHandler handler, HttpContext context) =>
+// {
+//     await handler.HandleWebSocketAsync(context, sessionId);
+// });
 
-// WebSocket for agent events real-time delivery
-app.MapGet("/ws/events/{runId}", async (string runId, AgentEventWebSocketHandler handler, HttpContext context) =>
-{
-    await handler.HandleWebSocketAsync(context, runId);
-});
+// WebSocket for agent events real-time delivery - commented out due to missing AgentEventWebSocketHandler
+// app.MapGet("/ws/events/{runId}", async (string runId, AgentEventWebSocketHandler handler, HttpContext context) =>
+// {
+//     await handler.HandleWebSocketAsync(context, runId);
+// });
 
 // SignalR Hub for Shadow Workspace real-time collaboration - commented out due to missing ShadowWorkspaceHub
 // app.MapHub<ShadowWorkspaceHub>("/hubs/shadow-workspace");

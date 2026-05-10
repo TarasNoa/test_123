@@ -1,6 +1,8 @@
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using System.Reflection;
+using Libr4.AI.Application.Abstractions;
+using Libr4.AI.Application.Agents;
 
 namespace Libr4.AI.Application;
 
@@ -12,6 +14,10 @@ public static class DependencyInjection
 
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
         services.AddValidatorsFromAssembly(assembly);
+
+        services.AddSingleton<IAgentService, AgentService>();
+        services.AddSingleton<IOrderAssistantService, OrderAssistantService>();
+        services.AddSingleton<ITaskRecommendationService, TaskRecommendationService>();
 
         return services;
     }

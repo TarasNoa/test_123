@@ -1,49 +1,73 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Libr4.Chat.Api.Endpoints;
-using Libr4.Chat.Infrastructure.Hubs;
+using Libr4.Chat.Api.Hubs;
 using Libr4.Chat.Application;
+using Libr4.Chat.Application.Abstractions;
 using Libr4.Chat.Infrastructure;
-using Libr4.Shared.Infrastructure.Observability;
 using Libr4.Shared.Web.Auth;
-using Libr4.Shared.Web.CurrentUser;
 using Libr4.Shared.Web.HealthChecks;
 using Libr4.Shared.Web.Logging;
-using Libr4.Shared.Web.Middleware;
 using Libr4.Shared.Web.Swagger;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Cors;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.AddLibr4Serilog("chat");
 
-// Application & Infrastructure
+builder.Services.AddLibr4Logging();
 builder.Services.AddChatApplication();
 builder.Services.AddChatInfrastructure(builder.Configuration);
 
 builder.Services.AddLibr4JwtAuth(builder.Configuration);
-builder.Services.AddLibr4CurrentUser();
-builder.Services.AddLibr4Telemetry("chat");
-builder.Services.AddLibr4Swagger("chat");
+builder.Services.AddHealthChecks();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// CORS for frontend
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000", "https://libr4-frontend.com")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
+    });
+});
+
+// Rate Limiting
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("chat", opt =>
+    {
+        opt.PermitLimit = 150;
+        opt.Window = TimeSpan.FromMinutes(1);
+        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+        opt.QueueLimit = 20;
+    });
+});
+
+// SignalR
+builder.Services.AddSignalR();
 
 var app = builder.Build();
-
-app.UseAuthentication();
-app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-app.MapLibr4HealthChecks();
-app.MapLibr4Metrics();
 
-// SignalR Hubs
-app.MapHub<ChatHub>("/hubs/chat");
-app.MapHub<NotificationsHub>("/hubs/notifications");
+app.UseCors("AllowFrontend");
+app.UseRateLimiter();
+app.UseAuthentication();
+app.UseAuthorization();
 
-// REST Endpoints
+app.MapHealthChecks("/health");
 app.MapChatEndpoints();
-app.MapMessageEndpoints();
-app.MapNotificationEndpoints();
+app.MapServerEndpoints();
+app.MapCodeShareEndpoints();
 app.MapFileEndpoints();
+app.MapHub<ChatHub>("/chatHub");
 
 app.Run();

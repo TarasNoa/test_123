@@ -1,55 +1,119 @@
-using Libr4.AI.Application.Agents.Commands;
-using Libr4.AI.Application.Agents.Queries;
-using Libr4.AI.Domain.Agents;
-using MediatR;
+using Libr4.AI.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Libr4.AI.Api.Endpoints;
 
 public static class AgentEndpoints
 {
-    public static IEndpointRouteBuilder MapAgentEndpoints(this IEndpointRouteBuilder app)
+    public static void MapAgentEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/ai/agents")
+        var group = app.MapGroup("/api/ai/agents")
             .WithTags("AI Agents")
-            .WithOpenApi();
+            .RequireAuthorization();
 
-        // Get all agents (public)
-        group.MapGet("/", async (
-            [FromQuery] AgentType? type,
-            [FromQuery] bool activeOnly = true,
-            ISender sender = null!,
-            CancellationToken ct = default) =>
+        group.MapGet("/", async (IAgentService agentService) =>
         {
-            var result = await sender.Send(new GetAgentsQuery(type, activeOnly), ct);
-            return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
-        });
+            var agents = await agentService.GetAgentsAsync();
+            return Results.Ok(new { agents });
+        })
+        .WithName("GetAgents")
+        .WithSummary("Get all available AI agents");
 
-        // Create agent (admin only)
-        group.MapPost("/create", async (
+        group.MapPost("/", async (
             [FromBody] CreateAgentRequest request,
-            ISender sender,
-            CancellationToken ct) =>
+            IAgentService agentService) =>
         {
-            var result = await sender.Send(new CreateAgentCommand(
-                request.Name,
-                request.Description,
-                request.Type,
-                request.Model,
-                request.SystemPrompt), ct);
+            if (request == null || string.IsNullOrWhiteSpace(request.Name))
+            {
+                return Results.BadRequest(new { error = "Agent name is required" });
+            }
 
-            return result.IsSuccess
-                ? Results.Created($"/api/v1/ai/agents/{result.Value}", result.Value)
-                : Results.BadRequest(result.Error);
-        }).RequireAuthorization("Admin");
+            try
+            {
+                var agent = await agentService.CreateAgentAsync(request);
+                return Results.Created($"/api/ai/agents/{agent.Id}", new { agent });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Failed to create agent: {ex.Message}",
+                    statusCode: 500,
+                    title: "Agent Creation Error");
+            }
+        })
+        .WithName("CreateAgent")
+        .WithSummary("Create a new AI agent");
 
-        return app;
+        group.MapGet("/{id}", async (
+            Guid id,
+            IAgentService agentService) =>
+        {
+            try
+            {
+                var agent = await agentService.GetAgentByIdAsync(id);
+                if (agent == null)
+                {
+                    return Results.NotFound(new { error = "Agent not found" });
+                }
+                return Results.Ok(new { agent });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Failed to get agent: {ex.Message}",
+                    statusCode: 500,
+                    title: "Agent Retrieval Error");
+            }
+        })
+        .WithName("GetAgentById")
+        .WithSummary("Get a specific AI agent by ID");
+
+        group.MapPut("/{id}/activate", async (
+            Guid id,
+            IAgentService agentService) =>
+        {
+            try
+            {
+                await agentService.ActivateAgentAsync(id);
+                return Results.Ok(new { message = "Agent activated" });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Failed to activate agent: {ex.Message}",
+                    statusCode: 500,
+                    title: "Agent Activation Error");
+            }
+        })
+        .WithName("ActivateAgent")
+        .WithSummary("Activate an AI agent");
+
+        group.MapPut("/{id}/deactivate", async (
+            Guid id,
+            IAgentService agentService) =>
+        {
+            try
+            {
+                await agentService.DeactivateAgentAsync(id);
+                return Results.Ok(new { message = "Agent deactivated" });
+            }
+            catch (Exception ex)
+            {
+                return Results.Problem(
+                    detail: $"Failed to deactivate agent: {ex.Message}",
+                    statusCode: 500,
+                    title: "Agent Deactivation Error");
+            }
+        })
+        .WithName("DeactivateAgent")
+        .WithSummary("Deactivate an AI agent");
+
+        group.MapGet("/health", () => Results.Ok(new { status = "AI Agents is healthy", timestamp = DateTimeOffset.UtcNow }))
+            .WithName("AgentsHealth")
+            .WithSummary("Health check for AI Agents service");
     }
 }
 
-public record CreateAgentRequest(
-    string Name,
-    string Description,
-    AgentType Type,
-    string Model,
-    string SystemPrompt);
+// Request/Response DTOs for agents
+public record CreateAgentRequest(string Name, string Role, string Prompt);
+public record AgentResponse(Guid Id, string Name, string Role, string Status, DateTimeOffset CreatedAt);
