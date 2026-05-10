@@ -32,8 +32,14 @@
     </PackageReference>
   </ItemGroup>
 
-  <ItemGroup>
+  <!-- Protobuf .proto file - pre-generated .cs file included instead -->
+  <!-- <ItemGroup>
     <Protobuf Include="Protos\sandbox.proto" GrpcServices="Client" />
+  </ItemGroup> -->
+
+  <!-- Exclude gRPC-dependent folders -->
+  <ItemGroup>
+    <Compile Remove="Protos\**" />
   </ItemGroup>
 
   <ItemGroup>

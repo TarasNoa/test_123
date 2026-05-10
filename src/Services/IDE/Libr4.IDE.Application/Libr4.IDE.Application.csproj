@@ -41,9 +41,18 @@
     <PackageReference Include="FSharp.Core" Version="8.0.100" />
   </ItemGroup>
   
-  <ItemGroup>
+  <!-- Protobuf - pre-generated .cs files included for local build -->
+  <!-- <ItemGroup>
     <Protobuf Include="ShadowWorkspace\Protos\container_runtime.proto" GrpcServices="Client" />
     <Protobuf Include="Obscura\Protos\browser_automation.proto" GrpcServices="Client" />
+  </ItemGroup> -->
+
+  <!-- Exclude gRPC-dependent folders (stubs used instead) -->
+  <ItemGroup>
+    <Compile Remove="ShadowWorkspace\Protos\**" />
+    <Compile Remove="ShadowWorkspace\ContainerRuntimeGrpcClient.cs" />
+    <Compile Remove="Obscura\Protos\**" />
+    <Compile Remove="Obscura\BrowserAutomationGrpcClient.cs" />
   </ItemGroup>
 
 </Project>
