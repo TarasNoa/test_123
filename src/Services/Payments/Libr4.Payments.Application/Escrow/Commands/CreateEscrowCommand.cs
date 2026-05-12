@@ -48,7 +48,7 @@ public class CreateEscrowHandler : IRequestHandler<CreateEscrowCommand, Result<E
 
     public async Task<Result<EscrowDto>> Handle(CreateEscrowCommand request, CancellationToken ct)
     {
-        // Get or create client wallet (include entries for change tracking)
+        // Get or create client wallet (include entries so EF Core tracks the collection)
         var clientWallet = await _dbContext.Wallets
             .Include(w => w.Entries)
             .FirstOrDefaultAsync(w => w.UserId == request.ClientId, ct);
@@ -62,28 +62,14 @@ public class CreateEscrowHandler : IRequestHandler<CreateEscrowCommand, Result<E
         // Auto-credit for E2E / development if balance is insufficient
         if (clientWallet.Balance < request.Amount)
         {
-            var entry = WalletEntry.Create(
-                Guid.NewGuid(),
-                clientWallet.Id,
+            clientWallet.Credit(
+                request.Amount,
                 Guid.Empty,
-                request.Amount,
-                0,
-                request.Amount,
                 "Auto-deposit for escrow creation");
-            _dbContext.WalletEntries.Add(entry);
-
-            var walletEntry = _dbContext.Entry(clientWallet);
-            walletEntry.Property(nameof(Wallet.Balance)).CurrentValue = request.Amount;
-            walletEntry.Property(nameof(Wallet.UpdatedAt)).CurrentValue = DateTime.UtcNow;
         }
 
         // Hold funds from client wallet
-        {
-            var walletEntry = _dbContext.Entry(clientWallet);
-            walletEntry.Property(nameof(Wallet.Balance)).CurrentValue = 0m;
-            walletEntry.Property(nameof(Wallet.HeldBalance)).CurrentValue = request.Amount;
-            walletEntry.Property(nameof(Wallet.UpdatedAt)).CurrentValue = DateTime.UtcNow;
-        }
+        clientWallet.Hold(request.Amount);
 
         // Create Stripe PaymentIntent with manual capture for escrow
         var (_, paymentIntentId) = await _stripeService.CreatePaymentIntentAsync(

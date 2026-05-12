@@ -1,7 +1,10 @@
 using Libr4.Chat.Application.Abstractions;
+using Libr4.Chat.Application.CodeSnippets;
 using Libr4.Chat.Application.Files.Commands;
+using Libr4.Chat.Application.Servers;
 using Libr4.Chat.Infrastructure.Hubs;
 using Libr4.Chat.Infrastructure.Persistence;
+using Libr4.Chat.Infrastructure.Repositories;
 using Libr4.Chat.Infrastructure.Storage;
 using Libr4.Shared.Infrastructure.Messaging;
 using MassTransit;
@@ -47,6 +50,16 @@ public static class DependencyInjection
 
         // Storage service (S3/MinIO)
         services.AddSingleton<IStorageService, S3StorageService>();
+
+        // Server feature
+        services.AddScoped<IServerRepository, ServerRepository>();
+        services.AddScoped<IServerService, ServerService>();
+
+        // Code snippets
+        services.AddScoped<ICodeSnippetService, CodeSnippetService>();
+
+        // File storage (local disk for dev)
+        services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 
         // Health checks
         services.AddHealthChecks()

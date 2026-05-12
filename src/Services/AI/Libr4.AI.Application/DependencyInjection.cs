@@ -16,10 +16,10 @@ public static class DependencyInjection
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(assembly));
         services.AddValidatorsFromAssembly(assembly);
 
-        // services.AddSingleton<IAgentService, AgentService>(); // depends on scoped DbContextOptions
-        // services.AddSingleton<IOrderAssistantService, OrderAssistantService>();
-        // services.AddSingleton<ITaskRecommendationService, TaskRecommendationService>();
-        services.AddSingleton<ICVAnalysisService, CVAnalysisService>();
+        services.AddScoped<IAgentService, AgentService>();
+        services.AddScoped<IOrderAssistantService, OrderAssistantService>();
+        services.AddScoped<ITaskRecommendationService, TaskRecommendationService>();
+        services.AddScoped<ICVAnalysisService, CVAnalysisService>();
 
         return services;
     }

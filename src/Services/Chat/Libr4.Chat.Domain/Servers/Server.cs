@@ -99,15 +99,17 @@ public record Role(Guid Id, string Name, List<string> Permissions);
 
 public record ServerMember
 {
+    public Guid Id { get; set; }
     public Guid UserId { get; set; }
     public ServerRole Role { get; set; }
     public List<string> Permissions { get; set; } = new();
     public DateTimeOffset JoinedAt { get; set; }
     public string? Nickname { get; set; }
 
-    public ServerMember() { }
+    public ServerMember() { Id = Guid.NewGuid(); }
     public ServerMember(Guid userId, ServerRole role)
     {
+        Id = Guid.NewGuid();
         UserId = userId;
         Role = role;
         JoinedAt = DateTimeOffset.UtcNow;

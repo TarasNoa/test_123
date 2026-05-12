@@ -1,6 +1,7 @@
 using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Domain.Agents;
 using Libr4.AI.Domain.Chats;
+using Libr4.AI.Infrastructure.Memory;
 using Microsoft.EntityFrameworkCore;
 
 namespace Libr4.AI.Infrastructure.Persistence;
@@ -11,6 +12,7 @@ public class AIDbContext : DbContext, IAIDbContext
     public DbSet<AIMessage> Messages => Set<AIMessage>();
     public DbSet<Agent> Agents => Set<Agent>();
     public DbSet<AgentTool> AgentTools => Set<AgentTool>();
+    public DbSet<MemoryRecord> MemoryRecords => Set<MemoryRecord>();
 
     public AIDbContext(DbContextOptions<AIDbContext> options) : base(options)
     {
@@ -55,6 +57,16 @@ public class AIDbContext : DbContext, IAIDbContext
             entity.Property(e => e.Name).HasMaxLength(100);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.Parameters).HasColumnType("jsonb");
+        });
+
+        // MemoryRecord
+        modelBuilder.Entity<MemoryRecord>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.UserId).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Content).HasColumnType("text").IsRequired();
+            entity.Property(e => e.Metadata).HasColumnType("jsonb");
+            entity.HasIndex(e => e.UserId);
         });
 
         base.OnModelCreating(modelBuilder);

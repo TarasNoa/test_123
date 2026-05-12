@@ -69,7 +69,7 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ISessionStateManager, SessionStateManager>();
         services.AddScoped<IProjectKnowledgeBase, ProjectKnowledgeBase>();
-        // services.AddScoped<IHarnessEnvironment, HarnessEnvironment>(); // TODO: Uncomment when HarnessEnvironment is available
+        services.AddScoped<IHarnessEnvironment, HarnessEnvironment>();
         services.AddScoped<IExoskeletonProtocol, ExoskeletonProtocol>();
         services.AddScoped<IWorkbenchManager, WorkbenchManager>();
         // services.AddScoped<IEnhancedMemoryWithGraph, EnhancedMemoryWithGraph>(); // depends on IEnhancedMemory
@@ -77,8 +77,9 @@ public static class DependencyInjection
         services.AddScoped<IBackgroundAgentOrchestrator, BackgroundAgentOrchestrator>();
         services.AddScoped<IMultiProviderOrchestrator, MultiProviderOrchestrator>();
         services.AddScoped<IPersonaSystem, PersonaSystem>();
-        // services.AddScoped<IReactionEngine, ReactionEngine>(); // depends on IHarnessEnvironment
+        services.AddScoped<IReactionEngine, ReactionEngine>();
         services.AddScoped<IGitIntegrationService, GitIntegrationService>();
+        services.AddScoped<IEnhancedMemory, PgEnhancedMemory>();
         // services.AddScoped<ICodebaseMapper, CodebaseMapper>(); // depends on CodeExtractor
         services.AddScoped<IAIDbContext>(sp => sp.GetRequiredService<AIDbContext>());
 
@@ -105,7 +106,7 @@ public static class DependencyInjection
         services.AddScoped<HumanizerHook>();
         services.AddScoped<SessionRecoveryHook>();
         services.AddScoped<CompoundingHook>();
-        // services.AddScoped<HarnessHook>(); // depends on IHarnessEnvironment
+        services.AddScoped<HarnessHook>();
         services.AddScoped<ExoskeletonHook>();
         services.AddScoped<WorkbenchHook>();
         services.AddScoped<UserProfileHook>();
@@ -116,8 +117,8 @@ public static class DependencyInjection
         services.AddSingleton<ToolUsageLoggingHook>();
         services.AddSingleton<ContextCompressionHook>();
         services.Configure<HumanizerOptions>(configuration.GetSection("Humanizer"));
-        services.AddSingleton<HumanizerHook>();
-        // services.AddSingleton<GitIntegrationHook>(); // singleton consuming scoped IGitIntegrationService
+        services.AddScoped<HumanizerHook>();
+        services.AddScoped<GitIntegrationHook>();
 
         // Sandbox Executor
         services.Configure<SandboxExecutorOptions>(configuration.GetSection("SandboxExecutor"));

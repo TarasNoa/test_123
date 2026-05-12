@@ -2,6 +2,7 @@ using Libr4.Chat.Application.Abstractions;
 using Libr4.Chat.Domain.Calls;
 using Libr4.Chat.Domain.Chats;
 using ChatEntity = Libr4.Chat.Domain.Chats.Chat;
+using Libr4.Chat.Domain.CodeSnippets;
 using Libr4.Chat.Domain.Messages;
 using Libr4.Chat.Domain.Notifications;
 using Libr4.Chat.Domain.Servers;
@@ -15,6 +16,8 @@ public class ChatDbContext : DbContext, IChatDbContext
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<ChatMember> ChatMembers => Set<ChatMember>();
+    public DbSet<Server> Servers => Set<Server>();
+    public DbSet<CodeSnippet> CodeSnippets => Set<CodeSnippet>();
 
     public ChatDbContext(DbContextOptions<ChatDbContext> options) : base(options)
     {
@@ -27,10 +30,6 @@ public class ChatDbContext : DbContext, IChatDbContext
         modelBuilder.Ignore<MessageAttachment>();
         modelBuilder.Ignore<CallParticipant>();
         modelBuilder.Ignore<CallRecording>();
-        modelBuilder.Ignore<Channel>();
-        modelBuilder.Ignore<Role>();
-        modelBuilder.Ignore<ServerMember>();
-        modelBuilder.Ignore<Domain.Servers.Task>();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ChatDbContext).Assembly);
         base.OnModelCreating(modelBuilder);
     }

@@ -68,11 +68,11 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapChatEndpoints();
-// app.MapServerEndpoints();
-// app.MapCodeShareEndpoints();
+app.MapServerEndpoints();
+app.MapCodeShareEndpoints();
 app.MapMessageEndpoints();
 app.MapNotificationEndpoints();
-// app.MapFileEndpoints();
+app.MapFileEndpoints();
 app.MapHub<ChatHub>("/chatHub");
 
 // Ensure database is created for E2E testing

@@ -21,8 +21,12 @@ public class WalletConfiguration : IEntityTypeConfiguration<Wallet>
 
         builder.HasIndex(w => new { w.UserId, w.Currency }).IsUnique();
 
-        // Wallet entries
-        builder.HasMany(w => w.Entries)
+        // Wallet entries — use backing field directly so EF Core tracks collection changes
+        builder.Metadata
+            .FindNavigation(nameof(Wallet.Entries))!
+            .SetPropertyAccessMode(PropertyAccessMode.Field);
+
+        builder.HasMany(typeof(WalletEntry), "_entries")
             .WithOne()
             .HasForeignKey("WalletId")
             .OnDelete(DeleteBehavior.Cascade);
