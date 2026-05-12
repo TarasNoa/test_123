@@ -1,7 +1,6 @@
 import { createSignal, onMount, onCleanup, For } from 'solid-js';
 import { apiClient, type ChatDto, type MessageDto } from '../../lib/api-client';
 import { HubConnectionBuilder } from '@microsoft/signalr';
-import { createSignal } from 'solid-js';
 
 export default function Chat() {
   const [chats, setChats] = createSignal<ChatDto[]>([]);

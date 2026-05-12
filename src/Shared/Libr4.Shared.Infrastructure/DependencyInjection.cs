@@ -10,7 +10,7 @@ namespace Libr4.Shared.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(
+    public static IServiceCollection AddSharedInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
     {

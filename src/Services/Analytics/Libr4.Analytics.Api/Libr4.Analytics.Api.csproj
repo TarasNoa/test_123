@@ -17,6 +17,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Libr4.Analytics.Application\Libr4.Analytics.Application.csproj" />
+    <ProjectReference Include="..\Libr4.Analytics.Infrastructure\Libr4.Analytics.Infrastructure.csproj" />
     <ProjectReference Include="..\Libr4.Analytics.Domain\Libr4.Analytics.Domain.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Web\Libr4.Shared.Web.csproj" />
   </ItemGroup>
 </Project>

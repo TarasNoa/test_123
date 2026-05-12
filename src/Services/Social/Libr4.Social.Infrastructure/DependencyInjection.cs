@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 using Libr4.Social.Domain.Network;
 using Libr4.Social.Infrastructure.Repositories;
 
@@ -12,7 +13,9 @@ public static class DependencyInjection
         // Database
         services.AddDbContext<SocialDbContext>(options =>
         {
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
+            options.UseNpgsql(
+                configuration.GetConnectionString("Postgres"),
+                npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "social"));
         });
 
         // Repositories

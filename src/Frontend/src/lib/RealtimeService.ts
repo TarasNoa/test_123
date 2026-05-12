@@ -11,7 +11,7 @@ export class RealtimeService {
       .withUrl(`${config.wsBaseUrl.replace("ws://", "http://").replace("wss://", "https://")}/hubs/agents`, {
         // accessTokenFactory передаёт JWT в QueryString (?access_token=...)
         // Backend уже настроен читать токен из QueryString для WebSocket
-        accessTokenFactory: () => localStorage.getItem("access_token") ?? "",
+        accessTokenFactory: () => localStorage.getItem("accessToken") ?? "",
         skipNegotiation: true,
         transport: signalR.HttpTransportType.WebSockets,
       })

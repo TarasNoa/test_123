@@ -170,6 +170,29 @@ export type DashboardDto = z.infer<typeof dashboardDtoSchema>;
 export type ChatDto = z.infer<typeof chatDtoSchema>;
 export type MessageDto = z.infer<typeof messageDtoSchema>;
 
+export const createMetricRequestSchema = z.object({
+  name: z.string().min(1),
+  type: z.string().min(1),
+  value: z.number(),
+  labels: z.record(z.string()).optional().default({}),
+});
+
+export const createDashboardRequestSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().default(''),
+  ownerId: z.string().uuid(),
+});
+
+export const createChatRequestSchema = z.object({
+  name: z.string().min(1),
+  type: z.string().default('Direct'),
+  participantIds: z.array(z.string().uuid()),
+});
+
+export type CreateMetricRequest = z.infer<typeof createMetricRequestSchema>;
+export type CreateDashboardRequest = z.infer<typeof createDashboardRequestSchema>;
+export type CreateChatRequest = z.infer<typeof createChatRequestSchema>;
+
 export const loginRequestSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
