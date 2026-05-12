@@ -37,6 +37,7 @@ impl EmbeddingService for EmbeddingServiceImpl {
         let embedding = self
             .embedder
             .embed(&req.text)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         let dims = embedding.len() as i32;
@@ -59,6 +60,7 @@ impl EmbeddingService for EmbeddingServiceImpl {
         let embeddings = self
             .embedder
             .embed_batch(&texts)
+            .await
             .map_err(|e| Status::internal(e.to_string()))?;
 
         let responses: Vec<EmbedResponse> = embeddings
@@ -94,6 +96,7 @@ impl EmbeddingService for EmbeddingServiceImpl {
             while let Ok(Some(req)) = stream.message().await {
                 let result = embedder
                     .embed(&req.text)
+                    .await
                     .map(|emb| {
                         let dims = emb.len() as i32;
                         EmbedResponse {

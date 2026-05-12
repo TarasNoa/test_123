@@ -265,6 +265,8 @@ services:
       sh -c "
         sleep 10 &&
         echo 'Pulling recommended models...' &&
+        ollama pull nomic-embed-text &&
+        ollama pull nomic-embed-text &&
         ollama pull qwen3-coder-next &&
         ollama pull qwen3:8b &&
         ollama pull stable-code:3b-code &&
@@ -392,9 +394,10 @@ services:
     environment:
       RUST_LOG: info
       GRPC_PORT: "50061"
-      MODEL_PATH: /models
-    volumes:
-      - ./rust/libr4-embeddings/models:/models:ro
+      DMR_URL: ${DMR_URL:-http://host.docker.internal:12434/engines/v1}
+      DMR_EMBEDDING_MODEL: ${DMR_EMBEDDING_MODEL:-docker.io/ai/nomic-embed-text:latest}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - libr4-network
     healthcheck:

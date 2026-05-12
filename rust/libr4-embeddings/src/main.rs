@@ -18,13 +18,14 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let model_dir = std::env::var("MODEL_PATH").unwrap_or_else(|_| "./models".to_string());
-    let model_path = format!("{}/minilm-l6-v2.onnx", model_dir);
-    let tokenizer_path = format!("{}/tokenizer.json", model_dir);
+    let dmr_url = std::env::var("DMR_URL")
+        .unwrap_or_else(|_| "http://host.docker.internal:12434/engines/v1".to_string());
+    let model = std::env::var("DMR_EMBEDDING_MODEL")
+        .unwrap_or_else(|_| "docker.io/ai/nomic-embed-text:latest".to_string());
 
-    info!("Loading embedding model from {}", model_path);
-    let embedder = embedder::Embedder::load(&model_path, &tokenizer_path)?;
-    info!("Model loaded successfully");
+    info!("Connecting to DMR at {} using model {}", dmr_url, model);
+    let embedder = embedder::Embedder::new(dmr_url, model);
+    info!("DMR embedder ready");
 
     let port = std::env::var("GRPC_PORT").unwrap_or_else(|_| "50061".to_string());
     let addr = format!("0.0.0.0:{}", port).parse()?;
