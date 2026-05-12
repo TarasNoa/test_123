@@ -48,9 +48,6 @@ public static class DependencyInjection
             options.Configuration = configuration.GetConnectionString("Redis");
         });
 
-        // Rust Inference Bridge
-        services.AddSingleton<IRustMLInferenceBridge, RustMLInferenceBridge>();
-
         // Health Checks
         services.AddHealthChecks()
             .AddDbContextCheck<AIDbContext>("AIDatabase")

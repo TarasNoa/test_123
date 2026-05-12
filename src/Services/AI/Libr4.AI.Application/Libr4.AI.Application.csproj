@@ -28,10 +28,9 @@
     <Compile Include="..\Libr4.AI.Domain.Agents\**\*.cs" LinkBase="Domain.Agents" Exclude="..\Libr4.AI.Domain.Agents\Agent.cs" />
   </ItemGroup>
 
-  <!-- Exclude AI projects with circular dependencies -->
-  <!-- <ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Libr4.AI.Domain.OrderAssistant.Algorithms\Libr4.AI.Domain.OrderAssistant.Algorithms.fsproj" />
     <ProjectReference Include="..\Libr4.AI.Domain.TaskRecommendations.Algorithms\Libr4.AI.Domain.TaskRecommendations.Algorithms.fsproj" />
-  </ItemGroup> -->
+  </ItemGroup>
 
 </Project>

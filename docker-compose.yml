@@ -364,11 +364,108 @@ services:
     networks:
       - libr4-network
 
+  qdrant:
+    image: qdrant/qdrant:v1.9.0
+    container_name: libr4-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    networks:
+      - libr4-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rust-embeddings:
+    build:
+      context: ./rust/libr4-embeddings
+      dockerfile: Dockerfile
+    container_name: libr4-rust-embeddings
+    ports:
+      - "50061:50061"
+    environment:
+      RUST_LOG: info
+      GRPC_PORT: "50061"
+      MODEL_PATH: /models
+    volumes:
+      - ./rust/libr4-embeddings/models:/models:ro
+    networks:
+      - libr4-network
+    healthcheck:
+      test: ["CMD-SHELL", "grpc_health_probe -addr=:50061 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  rust-crawler:
+    build:
+      context: ./rust/libr4-crawler
+      dockerfile: Dockerfile
+    container_name: libr4-rust-crawler
+    ports:
+      - "50060:50060"
+    environment:
+      RUST_LOG: info,libr4_crawler=debug
+      GRPC_PORT: "50060"
+    networks:
+      - libr4-network
+    healthcheck:
+      test: ["CMD-SHELL", "grpc_health_probe -addr=:50060 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  matching-api:
+    build:
+      context: .
+      dockerfile: src/Services/Matching/Libr4.Matching.Api/Dockerfile
+    container_name: libr4-matching-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      rust-embeddings:
+        condition: service_healthy
+      rust-crawler:
+        condition: service_started
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: >-
+        Host=postgres;Database=libr4_matching;
+        Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4pass}
+      ConnectionStrings__Redis: redis:6379
+      Grpc__EmbeddingsUrl: http://rust-embeddings:50061
+      Grpc__CrawlerUrl: http://rust-crawler:50060
+      Qdrant__Host: qdrant
+      Qdrant__Port: "6334"
+    ports:
+      - "5010:8080"
+    networks:
+      - libr4-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
 volumes:
   ollamadata:
   workspace_source:
   workspace_target:
   binary_uploads:
+  qdrant_data:
 
 networks:
   libr4-network:

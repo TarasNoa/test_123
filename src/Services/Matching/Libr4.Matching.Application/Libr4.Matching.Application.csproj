@@ -1,5 +1,4 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -7,12 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="TaskRecommendationsAlgorithms.fs" />
-  </ItemGroup>
-
-  <ItemGroup>
+    <ProjectReference Include="..\Libr4.Matching.Domain\Libr4.Matching.Domain.csproj" />
+    <ProjectReference Include="..\Libr4.Matching.Domain.Algorithms.FSharp\Libr4.Matching.Domain.Algorithms.FSharp.fsproj" />
     <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
-    <ProjectReference Include="..\Libr4.AI.Domain.TaskRecommendations\Libr4.AI.Domain.TaskRecommendations.csproj" />
   </ItemGroup>
-
 </Project>

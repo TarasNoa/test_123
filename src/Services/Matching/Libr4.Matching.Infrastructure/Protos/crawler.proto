@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+option csharp_namespace = "Libr4.Matching.Infrastructure.Crawling";
+
+package crawler;
+
+service CrawlerService {
+  rpc FetchJobs(FetchJobsRequest) returns (FetchJobsResponse);
+  rpc StreamJobs(FetchJobsRequest) returns (stream JobListing);
+  rpc CheckSource(CheckSourceRequest) returns (CheckSourceResponse);
+  rpc SearchJobs(SearchJobsRequest) returns (stream JobListing);
+}
+
+enum JobType {
+  ANY = 0;
+  FULL_TIME = 1;
+  PART_TIME = 2;
+  CONTRACT = 3;
+  FREELANCE = 4;
+}
+
+message FetchJobsRequest {
+  string source = 1;
+  string query = 2;
+  string location = 3;
+  int32 max_results = 4;
+  repeated string skills = 5;
+  JobType job_type = 6;
+}
+
+message FetchJobsResponse {
+  repeated JobListing jobs = 1;
+  int32 total_found = 2;
+  string source = 3;
+  string error = 4;
+}
+
+message JobListing {
+  string id = 1;
+  string source = 2;
+  string source_url = 3;
+  string title = 4;
+  string company = 5;
+  string location = 6;
+  bool is_remote = 7;
+  string description = 8;
+  string description_clean = 9;
+  repeated string skills = 10;
+  SalaryRange salary = 11;
+  string posted_at = 12;
+  string crawled_at = 13;
+  map<string, string> metadata = 14;
+}
+
+message SalaryRange {
+  int64 min = 1;
+  int64 max = 2;
+  string currency = 3;
+  string period = 4;
+}
+
+message SearchJobsRequest {
+  repeated string sources = 1;
+  string query = 2;
+  string location = 3;
+  int32 max_per_source = 4;
+}
+
+message CheckSourceRequest { string source = 1; }
+message CheckSourceResponse {
+  string source = 1;
+  bool available = 2;
+  int32 rate_limit_remaining = 3;
+  string error = 4;
+}

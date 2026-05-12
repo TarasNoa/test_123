@@ -1,53 +1,53 @@
 using System;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Libr4.AI.Application.Abstractions;
-using Libr4.AI.Application.ML;
+using FSharpAlgorithms = Libr4.AI.Domain.TaskRecommendations.Algorithms;
 
 namespace Libr4.AI.Application;
 
 public class TaskRecommendationService : ITaskRecommendationService
 {
-    private readonly IRustInferenceBridge _rustBridge;
-    private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-
-    public TaskRecommendationService(IRustInferenceBridge rustBridge)
-    {
-        _rustBridge = rustBridge;
-    }
-
-    public async Task<List<TaskRecommendationResult>> RecommendTasksAsync(TaskRecommendationRequest request, CancellationToken cancellationToken = default)
+    public Task<List<TaskRecommendationResult>> RecommendTasksAsync(
+        TaskRecommendationRequest request,
+        CancellationToken cancellationToken = default)
     {
         if (request == null || request.UserProfile == null || request.AvailableTasks == null)
-        {
-            return new List<TaskRecommendationResult>();
-        }
+            return Task.FromResult(new List<TaskRecommendationResult>());
 
-        var payload = new
+        var fsProfile = new FSharpAlgorithms.UserProfileSummary
         {
-            type = "taskRecommendations",
-            request
+            UserId = request.UserProfile.UserId,
+            Skills = request.UserProfile.Skills.ToArray(),
+            Interests = request.UserProfile.Interests.ToArray(),
+            AverageRating = (double)request.UserProfile.AverageRating,
+            CompletedTasks = request.UserProfile.CompletedTasks
         };
 
-        var json = JsonSerializer.Serialize(payload, _jsonOptions);
-        var resultJson = await _rustBridge.RunInferenceAsync(json);
+        var fsTasks = request.AvailableTasks
+            .Select(t => new FSharpAlgorithms.TaskBrief
+            {
+                TaskId = t.TaskId,
+                Title = t.Title,
+                Category = t.Category,
+                RequiredSkills = t.RequiredSkills.ToArray(),
+                EstimatedHours = t.EstimatedHours,
+                Description = t.Description
+            })
+            .ToArray();
 
-        if (string.IsNullOrWhiteSpace(resultJson))
-        {
-            return new List<TaskRecommendationResult>();
-        }
+        var fsResults = FSharpAlgorithms.TaskRecommendationAlgorithms.recommendTasks(fsProfile, fsTasks);
 
-        try
-        {
-            var results = JsonSerializer.Deserialize<List<TaskRecommendationResult>>(resultJson, _jsonOptions);
-            return results ?? new List<TaskRecommendationResult>();
-        }
-        catch (JsonException)
-        {
-            // fallback to empty list if deserialization fails
-            return new List<TaskRecommendationResult>();
-        }
+        var results = fsResults
+            .Select(r => new TaskRecommendationResult(
+                TaskId: r.TaskId,
+                Title: r.Title,
+                MatchScore: r.MatchScore,
+                MatchingSkills: r.MatchingSkills.ToList(),
+                Reason: r.Reason))
+            .ToList();
+
+        return Task.FromResult(results);
     }
 }

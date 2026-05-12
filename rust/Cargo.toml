@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "libr4-crawler",
+    "libr4-embeddings",
+    "shared",
+]
+resolver = "2"

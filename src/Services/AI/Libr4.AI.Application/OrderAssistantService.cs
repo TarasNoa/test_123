@@ -1,72 +1,55 @@
 using System;
 using System.Linq;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Libr4.AI.Application.Abstractions;
-using Libr4.AI.Application.ML;
+using FSharpAlgorithms = Libr4.AI.Domain.OrderAssistant.Algorithms;
 
 namespace Libr4.AI.Application;
 
 public class OrderAssistantService : IOrderAssistantService
 {
-    private readonly IRustInferenceBridge _rustBridge;
-    private readonly JsonSerializerOptions _jsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-
-    public OrderAssistantService(IRustInferenceBridge rustBridge)
-    {
-        _rustBridge = rustBridge;
-    }
-
-    public async Task<OrderAssistantResult> SuggestOrderAsync(OrderAssistantRequest request, CancellationToken cancellationToken = default)
+    public Task<OrderAssistantResult> SuggestOrderAsync(
+        OrderAssistantRequest request,
+        CancellationToken cancellationToken = default)
     {
         if (request == null || string.IsNullOrWhiteSpace(request.TaskTitle))
         {
-            return new OrderAssistantResult(
+            return Task.FromResult(new OrderAssistantResult(
                 SuggestedBudget: 0,
                 SuggestedDuration: 1,
                 RecommendedFreelancers: new List<string>(),
                 Confidence: 0.0f,
-                Reason: "Недостаточно данных для анализа.");
+                Reason: "Недостаточно данных для анализа."));
         }
 
-        var payload = new
-        {
-            type = "orderAssistant",
-            request
-        };
+        var fsProfiles = (request.CandidateFreelancers ?? new List<FreelancerProfile>())
+            .Select(f => new FSharpAlgorithms.FreelancerProfile
+            {
+                Id = f.Id,
+                Name = f.Name,
+                Skills = f.Skills.ToArray(),
+                Rating = (double)f.Rating,
+                CompletedTasks = f.CompletedTasks
+            })
+            .ToArray();
 
-        var json = JsonSerializer.Serialize(payload, _jsonOptions);
-        var resultJson = await _rustBridge.RunInferenceAsync(json);
+        var fsResult = FSharpAlgorithms.OrderAssistantAlgorithms.suggestOrder(
+            request.TaskTitle,
+            request.Description ?? string.Empty,
+            (request.RequiredSkills ?? new List<string>()).ToArray(),
+            request.BudgetMin,
+            request.BudgetMax,
+            request.DurationDays,
+            fsProfiles);
 
-        if (string.IsNullOrWhiteSpace(resultJson))
-        {
-            return new OrderAssistantResult(
-                SuggestedBudget: request.BudgetMin,
-                SuggestedDuration: request.DurationDays,
-                RecommendedFreelancers: new List<string>(),
-                Confidence: 0.0f,
-                Reason: "Ошибка инференса.");
-        }
+        var result = new OrderAssistantResult(
+            SuggestedBudget: fsResult.SuggestedBudget,
+            SuggestedDuration: fsResult.SuggestedDuration,
+            RecommendedFreelancers: fsResult.RecommendedFreelancers.ToList(),
+            Confidence: fsResult.Confidence,
+            Reason: fsResult.Reason);
 
-        try
-        {
-            var result = JsonSerializer.Deserialize<OrderAssistantResult>(resultJson, _jsonOptions);
-            return result ?? new OrderAssistantResult(
-                SuggestedBudget: request.BudgetMin,
-                SuggestedDuration: request.DurationDays,
-                RecommendedFreelancers: new List<string>(),
-                Confidence: 0.0f,
-                Reason: "Ошибка разбора результата.");
-        }
-        catch (JsonException)
-        {
-            return new OrderAssistantResult(
-                SuggestedBudget: request.BudgetMin,
-                SuggestedDuration: request.DurationDays,
-                RecommendedFreelancers: new List<string>(),
-                Confidence: 0.0f,
-                Reason: "Ошибка десериализации.");
-        }
+        return Task.FromResult(result);
     }
 }
