@@ -8,8 +8,7 @@ using Libr4.Matching.Infrastructure.VectorStore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Qdrant.Client;
-
+using Microsoft.Extensions.Hosting;
 namespace Libr4.Matching.Infrastructure;
 
 public static class DependencyInjection
@@ -28,31 +27,36 @@ public static class DependencyInjection
         var qdrantHost    = configuration["Qdrant:Host"]        ?? "localhost";
         var qdrantPort    = int.Parse(configuration["Qdrant:Port"] ?? "6334");
 
-        services.AddSingleton(_ => new QdrantClient(qdrantHost, qdrantPort));
-
         services.AddSingleton<IVectorIndex>(sp =>
         {
-            var client = sp.GetRequiredService<QdrantClient>();
-            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<QdrantVectorIndex>>();
-            return new QdrantVectorIndex(client, logger);
+            var http = new HttpClient { BaseAddress = new Uri($"http://{qdrantHost}:{qdrantPort}") };
+            var logger = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<QdrantRestVectorIndex>>();
+            return new QdrantRestVectorIndex(http, logger);
         });
 
         services.AddSingleton<IEmbeddingService>(sp =>
         {
-            var channel = GrpcChannel.ForAddress(embeddingsUrl);
+            var channel = GrpcChannel.ForAddress(embeddingsUrl, new GrpcChannelOptions
+            {
+                HttpHandler = new System.Net.Http.SocketsHttpHandler { EnableMultipleHttp2Connections = true },
+            });
             var logger  = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<RustEmbeddingsGrpcClient>>();
             return new RustEmbeddingsGrpcClient(channel, logger);
         });
 
         services.AddSingleton<ICrawlerService>(sp =>
         {
-            var channel = GrpcChannel.ForAddress(crawlerUrl);
+            var channel = GrpcChannel.ForAddress(crawlerUrl, new GrpcChannelOptions
+            {
+                HttpHandler = new System.Net.Http.SocketsHttpHandler { EnableMultipleHttp2Connections = true },
+            });
             var logger  = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<RustCrawlerGrpcClient>>();
             return new RustCrawlerGrpcClient(channel, logger);
         });
 
         services.AddScoped<IMatchRepository, MatchRepository>();
         services.AddScoped<IMatchingService, HybridMatchingService>();
+        services.AddHostedService<EnsureCollectionsHostedService>();
 
         return services;
     }

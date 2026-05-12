@@ -178,10 +178,10 @@ public sealed class HybridMatchingService : IMatchingService
 
         var fsFeedback = feedback switch
         {
-            MatchFeedback.Hired    => FeedbackModel.FeedbackSignal.NewHired(),
-            MatchFeedback.Rejected => FeedbackModel.FeedbackSignal.NewRejected(),
-            MatchFeedback.Applied  => FeedbackModel.FeedbackSignal.NewApplied(),
-            _                      => FeedbackModel.FeedbackSignal.NewViewed(),
+            MatchFeedback.Hired    => FeedbackModel.FeedbackSignal.Hired,
+            MatchFeedback.Rejected => FeedbackModel.FeedbackSignal.Rejected,
+            MatchFeedback.Applied  => FeedbackModel.FeedbackSignal.Applied,
+            _                      => FeedbackModel.FeedbackSignal.Viewed,
         };
 
         var newWeights = FeedbackModel.updateWeights(
