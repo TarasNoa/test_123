@@ -2,13 +2,11 @@ use std::sync::Arc;
 use std::time::Instant;
 use tonic::{Request, Response, Status};
 use tokio_stream::wrappers::ReceiverStream;
-use tracing::{info, warn};
 
 use crate::embeddings_proto::{
     embedding_service_server::EmbeddingService,
     EmbedBatchRequest, EmbedBatchResponse,
     EmbedRequest, EmbedResponse,
-    EmbeddingModel,
     SimilarityRequest, SimilarityResponse,
 };
 use crate::embedder::{cosine_similarity, Embedder};
