@@ -41,7 +41,7 @@ public class SecurityTestingService : ISecurityTestingService
 
         if (options.RunSecretsScan && Directory.Exists(targetPath))
         {
-            var secrets = ScanForSecrets(targetPath, options.ExcludePatterns);
+            var secrets = ScanForSecrets(targetPath, options.ExcludePatterns, _logger);
             vulnerabilities.AddRange(secrets);
             logs.Add($"Secrets scan: {secrets.Count} potential secrets found");
         }
@@ -165,7 +165,7 @@ public class SecurityTestingService : ISecurityTestingService
     }
 
     private static List<Vulnerability> ScanForSecrets(
-        string rootPath, string[]? excludePatterns)
+        string rootPath, string[]? excludePatterns, ILogger? logger = null)
     {
         var results = new List<Vulnerability>();
         var extensions = new[] { "*.cs", "*.ts", "*.js", "*.json", "*.yaml", "*.yml", "*.env" };
@@ -203,7 +203,7 @@ public class SecurityTestingService : ISecurityTestingService
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "Failed to read file {File}", file);
+                    logger?.LogDebug(ex, "Failed to read file {File}", file);
                 }
             }
         }

@@ -3,10 +3,13 @@ using Microsoft.AspNetCore.SignalR;
 using Libr4.IDE.Domain.FSharp;
 using Libr4.IDE.Infrastructure.Persistence;
 using Libr4.IDE.Infrastructure.Clients;
-using Libr4.IDE.Infrastructure.Sandbox;
-using Libr4.IDE.Api.Hubs;
+using Libr4.IDE.Infrastructure.Hubs;
+using Libr4.IDE.Infrastructure.Protos;
 using Libr4.IDE.Application.Security;
 using Libr4.IDE.Application.Caching;
+using ISandboxClient = Libr4.IDE.Infrastructure.Clients.ISandboxClient;
+using ExecutionResult = Libr4.IDE.Infrastructure.Protos.ExecutionResult;
+using FSharpAgentEvent = Libr4.IDE.Domain.FSharp.AgentEvent;
 
 namespace Libr4.IDE.Infrastructure.Orchestration;
 
@@ -55,7 +58,7 @@ public class ResilientOrchestrator
         agent.State = StatePersistence.deserializeState(
             StateMachine.transition(
                 StatePersistence.serializeState(agent.State), 
-                StatePersistence.serializeEvent(AgentEvent.NewTaskAssigned(taskId))
+                StatePersistence.serializeEvent(FSharpAgentEvent.NewTaskReceived(taskId))
             )
         );
         
@@ -70,17 +73,17 @@ public class ResilientOrchestrator
         }
         catch (Exception ex)
         {
-            await HandleFinalState(agentId, AgentEvent.NewCriticalError($"Network/Infrastructure failure: {ex.Message}"), ct);
+            await HandleFinalState(agentId, FSharpAgentEvent.NewValidationError($"Network/Infrastructure failure: {ex.Message}"), ct);
             return;
         }
 
         // 3. Map constants instead of "magic strings"
-        AgentEvent finalEvent = result.TerminationReason.Trim() switch
+        FSharpAgentEvent finalEvent = result.TerminationReason.Trim() switch
         {
-            "Success" => AgentEvent.NewExecutionCompleted(result.Stdout ?? ""),
-            "MemoryLimit" => AgentEvent.NewCriticalError("OOM: Sandbox killed the process"),
-            "Timeout" => AgentEvent.NewCriticalError("Timeout: Execution limit reached"),
-            _ => AgentEvent.NewCriticalError($"Runtime Error: {result.Stderr ?? "Unknown error"}")
+            "Success" => FSharpAgentEvent.NewSuccess(result.Stdout ?? ""),
+            "MemoryLimit" => FSharpAgentEvent.NewValidationError("OOM: Sandbox killed the process"),
+            "Timeout" => FSharpAgentEvent.Timeout,
+            _ => FSharpAgentEvent.NewValidationError($"Runtime Error: {result.Stderr ?? "Unknown error"}")
         };
 
         // 3.5. Cache successful results only
@@ -96,7 +99,7 @@ public class ResilientOrchestrator
         await HandleFinalState(agentId, finalEvent, ct);
     }
 
-    private async Task HandleFinalState(Guid agentId, AgentEvent ev, CancellationToken ct)
+    private async Task HandleFinalState(Guid agentId, FSharpAgentEvent ev, CancellationToken ct)
     {
         // Re-capture context for update
         var agent = await _db.Agents.FindAsync([agentId], ct);
@@ -128,7 +131,7 @@ public class ResilientOrchestrator
             agent.State = StatePersistence.deserializeState(
                 StateMachine.transition(
                     StatePersistence.serializeState(agent.State),
-                    StatePersistence.serializeEvent(AgentEvent.NewCriticalError(errorMessage))
+                    StatePersistence.serializeEvent(FSharpAgentEvent.NewValidationError(errorMessage))
                 )
             );
             await _db.SaveChangesAsync(ct);

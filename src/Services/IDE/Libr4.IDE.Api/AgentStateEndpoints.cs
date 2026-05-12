@@ -1,6 +1,6 @@
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
-using Libr4.IDE.Application.Orchestration;
 using Libr4.IDE.Infrastructure.Clients;
+using Libr4.IDE.Infrastructure.Orchestration;
 using Libr4.IDE.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,7 +17,7 @@ public static class AgentStateEndpoints
     {
         var group = app.MapGroup("/api/ide/agent-states")
             .WithTags("AgentStates")
-            .WithOpenApi();
+            ;
 
         // Get all agent events (using AgentEventEntity from persistence)
         group.MapGet("/events", async (
@@ -76,7 +76,7 @@ public static class AgentStateEndpoints
         // Production-ready: health check, cancellation, termination reason handling, transactions
         group.MapPost("/run", async (
             [FromBody] RunCodeRequest request,
-            ResilientOrchestrator orchestrator,
+            AgentOrchestrator orchestrator,
             ISandboxClient sandbox,
             CancellationToken ct) =>
         {
@@ -92,7 +92,7 @@ public static class AgentStateEndpoints
 
             // Run task securely with transaction support and cancellation
             var agentId = Guid.NewGuid(); // TODO: Get actual agent ID from request or context
-            await orchestrator.RunSecurelyAsync(agentId, request.Code, ct);
+            await orchestrator.ProcessTaskAsync(agentId, request.Code, ct);
 
             return Results.Ok(new { agentId, status = "TaskAssigned" });
         })

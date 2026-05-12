@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Libr4.AI.Application.AgentExecution;
 
 namespace Libr4.AI.Domain.Agents.AgentHierarchy;
 

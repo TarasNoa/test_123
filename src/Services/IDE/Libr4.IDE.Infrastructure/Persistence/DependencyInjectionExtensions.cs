@@ -29,7 +29,7 @@ public static class DependencyInjectionExtensions
         // Register EF Core repositories as scoped (not singleton)
         services.AddScoped<IAgentEventRepository, EfAgentEventRepository>();
         services.AddScoped<IAgentOrchestrationRepository, EfAgentOrchestrationRepository>();
-        services.AddScoped<IAppGenerationRepository, AppGenerationRepository>();
+        services.AddScoped<IAppGenerationEntityRepository, AppGenerationRepository>();
 
         return services;
     }
@@ -47,7 +47,7 @@ public static class DependencyInjectionExtensions
 
         services.AddScoped<IAgentEventRepository, EfAgentEventRepository>();
         services.AddScoped<IAgentOrchestrationRepository, EfAgentOrchestrationRepository>();
-        services.AddScoped<IAppGenerationRepository, AppGenerationRepository>();
+        services.AddScoped<IAppGenerationEntityRepository, AppGenerationRepository>();
 
         return services;
     }

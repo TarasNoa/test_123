@@ -29,20 +29,19 @@ public class AgentHub : Hub
             throw new HubException("Unauthorized: No user ID found in token");
         }
 
-        // Проверка владения агентом
-        var agent = await _db.Agents.FindAsync(Guid.Parse(agentId));
-        if (agent == null || agent.OwnerId != userId)
-        {
-            throw new HubException("Forbidden: You don't own this agent");
-        }
+        var agentGuid = Guid.Parse(agentId);
+        var lastEvent = await _db.AgentEvents
+            .AsNoTracking()
+            .Where(e => e.RunId == agentGuid)
+            .OrderByDescending(e => e.Timestamp)
+            .FirstOrDefaultAsync();
 
         await Groups.AddToGroupAsync(Context.ConnectionId, agentId);
 
-        // Начальная синхронизация: отправляем текущее состояние сразу
         await Clients.Caller.SendAsync("OnAgentStateUpdated", new
         {
-            AgentId = agent.Id,
-            State = agent.State,
+            AgentId = agentGuid,
+            State = lastEvent?.Type ?? "Idle",
             Timestamp = DateTime.UtcNow,
             IsInitialSync = true
         });

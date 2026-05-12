@@ -12,6 +12,15 @@ public record AgentDto(
     string Status,
     DateTimeOffset CreatedAt);
 
+public class CreateAgentRequest
+{
+    public string Name { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+    public string Prompt { get; set; } = string.Empty;
+    public string Type { get; set; } = string.Empty;
+    public Dictionary<string, object> Parameters { get; set; } = new();
+}
+
 public interface IAgentService
 {
     Task<List<AgentDto>> GetAgentsAsync(CancellationToken cancellationToken = default);

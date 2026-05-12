@@ -7,22 +7,25 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="FluentValidation" />
-    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
-    <PackageReference Include="MediatR" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageReference Include="MediatR" Version="12.4.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
+    <PackageReference Include="Polly" Version="8.4.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Libr4.AI.Domain\Libr4.AI.Domain.csproj" />
-    <ProjectReference Include="..\Libr4.AI.Infrastructure\Libr4.AI.Infrastructure.csproj" />
     <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Infrastructure\Libr4.Shared.Infrastructure.csproj" />
     <!-- Circular dependency with IDE.Domain - interfaces moved to stub implementations -->
     <!-- <ProjectReference Include="..\..\..\Services\IDE\Libr4.IDE.Domain\Libr4.IDE.Domain.csproj" /> -->
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\Libr4.AI.Domain.Agents\**\*.cs" LinkBase="Domain.Agents" />
+    <Compile Include="..\Libr4.AI.Domain.Agents\**\*.cs" LinkBase="Domain.Agents" Exclude="..\Libr4.AI.Domain.Agents\Agent.cs" />
   </ItemGroup>
 
   <!-- Exclude AI projects with circular dependencies -->

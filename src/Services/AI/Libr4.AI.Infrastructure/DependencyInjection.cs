@@ -26,9 +26,12 @@ using Libr4.AI.Infrastructure.AI;
 using Libr4.AI.Infrastructure.AI.Providers;
 using Libr4.AI.Infrastructure.ML;
 using Libr4.AI.Domain.Agents;
+using Libr4.AI.Domain.Agents.AgentHierarchy;
+using Libr4.AI.Application.AgentExecution;
 using Libr4.AI.Infrastructure.Repositories;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using OpenTelemetry.Metrics;
 
 namespace Libr4.AI.Infrastructure;
 
@@ -36,10 +39,6 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddAIInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
-        // Database
-        services.AddDbContext<AIDbContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("AIDatabase")));
-
         // Repositories
         services.AddScoped<IAgentRepository, AgentRepository>();
 
@@ -50,7 +49,7 @@ public static class DependencyInjection
         });
 
         // Rust Inference Bridge
-        services.AddSingleton<IRustInferenceBridge, RustMLInferenceBridge>();
+        services.AddSingleton<IRustMLInferenceBridge, RustMLInferenceBridge>();
 
         // Health Checks
         services.AddHealthChecks()
@@ -60,9 +59,6 @@ public static class DependencyInjection
         // Metrics (using Prometheus)
         services.AddOpenTelemetry()
             .WithMetrics(builder => builder
-                .AddAspNetCoreInstrumentation()
-                .AddHttpClientInstrumentation()
-                .AddRuntimeInstrumentation()
                 .AddPrometheusExporter());
 
         // EF Core

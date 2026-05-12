@@ -13,19 +13,19 @@ public interface IEventHandler<in TEvent> where TEvent : DomainEvent
     Task Handle(TEvent @event);
 }
 
-public interface IEventBus
+public interface IDomainEventBus
 {
     void Subscribe<TEvent>(IEventHandler<TEvent> handler) where TEvent : DomainEvent;
     Task PublishAsync<TEvent>(TEvent @event) where TEvent : DomainEvent;
     Task PublishAsync(DomainEvent @event);
 }
 
-public class EventBus : IEventBus
+public class DomainEventBus : IDomainEventBus
 {
     private readonly ConcurrentDictionary<string, List<Delegate>> _handlers = new();
-    private readonly ILogger<EventBus> _logger;
+    private readonly ILogger<DomainEventBus> _logger;
 
-    public EventBus(ILogger<EventBus> logger)
+    public DomainEventBus(ILogger<DomainEventBus> logger)
     {
         _logger = logger;
     }

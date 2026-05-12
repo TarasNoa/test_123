@@ -133,7 +133,7 @@ public class CodeErrorAnalyzer : ICodeErrorAnalyzer
         {
             var errorCode = match.Groups[1].Value;
             var lineMatch = Regex.Match(errorMessage, @"line (\d+)");
-            var lineNumber = lineMatch.Success ? int.Parse(lineMatch.Groups[1].Value) : null;
+            int? lineNumber = lineMatch.Success ? int.Parse(lineMatch.Groups[1].Value) : null;
 
             return new ErrorAnalysis
             {

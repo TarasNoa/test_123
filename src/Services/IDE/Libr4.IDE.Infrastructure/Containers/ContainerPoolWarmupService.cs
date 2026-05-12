@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Hosting;
+
 namespace Libr4.IDE.Infrastructure.Containers;
 
 /// <summary>

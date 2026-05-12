@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
+using Libr4.IDE.Infrastructure.Persistence;
+using Libr4.IDE.Infrastructure.Orchestration;
 using Libr4.IDE.Application.Commands;
 using Libr4.IDE.Application.Queries;
 using Libr4.IDE.Application.DTOs;
@@ -15,7 +18,7 @@ using Libr4.AI.Infrastructure.AI;
 using Microsoft.Extensions.DependencyInjection;
 using MediatR;
 using Microsoft.FSharp.Control;
-// using Libr4.IDE.Api; // Self-referencing namespace - files excluded
+using Libr4.IDE.Api;
 using Libr4.IDE.Application.Obscura;
 // using Libr4.IDE.Infrastructure.FSharpInterop;  // F# interop not yet implemented
 using Libr4.IDE.Application.GitAutomation;
@@ -65,8 +68,8 @@ builder.Services.AddCors(options => {
 // builder.Services.AddScoped<IDockerService, ProcessDockerService>(); // Excluded
 // builder.Services.AddScoped<ITranslationService, OpenAITranslationService>(); // Excluded
 // builder.Services.AddScoped<ITerminalService, DockerTerminalService>(); // Excluded
-builder.Services.AddScoped<IAgentEventEmitter, AgentEventEmitter>();
-builder.Services.AddScoped<IAgentOrchestrationTracker, AgentOrchestrationTracker>();
+// builder.Services.AddScoped<IAgentEventEmitter, AgentEventEmitter>(); // Not implemented
+// builder.Services.AddScoped<IAgentOrchestrationTracker, AgentOrchestrationTracker>(); // Not implemented
 // Shadow Workspace - Golden Stack Architecture - commented out due to missing dependencies
 // builder.Services.AddSingleton<IContainerManager, ContainerRuntimeGrpcClient>();
 // builder.Services.AddSingleton<IPreWarmedContainerPool, NullPreWarmedContainerPool>();
@@ -191,10 +194,10 @@ builder.Services.AddDbContextFactory<IdeDbContext>(options =>
 // Регистрируем репозитории
 builder.Services.AddScoped<IAgentEventRepository, EfAgentEventRepository>();
 builder.Services.AddScoped<IAgentOrchestrationRepository, EfAgentOrchestrationRepository>();
-builder.Services.AddScoped<IAppGenerationRepository, AppGenerationRepository>();
+builder.Services.AddScoped<IAppGenerationEntityRepository, AppGenerationRepository>();
 
 // Sandbox Orchestrator for production-ready task execution - moved to Infrastructure
-builder.Services.AddScoped<Libr4.IDE.Infrastructure.Orchestration.ResilientOrchestrator>();
+builder.Services.AddScoped<AgentOrchestrator>();
 builder.Services.AddScoped<Libr4.IDE.Infrastructure.Clients.ISandboxClient, Libr4.IDE.Infrastructure.Clients.GrpcSandboxClient>();
 
 // Code Guardian for validation before Rust execution
@@ -204,11 +207,11 @@ builder.Services.AddScoped<Libr4.IDE.Application.Security.ICodeValidator, Libr4.
 builder.Services.AddSingleton<Libr4.IDE.Application.Caching.IExecutionCache, Libr4.IDE.Application.Caching.ExecutionCache>();
 
 // Shadow workspace services already registered above
-builder.Services.AddScoped<ISelfHealingBuildPipeline, SelfHealingBuildPipeline>();
-builder.Services.AddScoped<ISecurityTestingService, SecurityTestingService>();
-builder.Services.AddScoped<ICodeReviewService, CodeReviewService>();
-builder.Services.AddScoped<IEscrowCodeService, EscrowCodeService>();
-builder.Services.AddScoped<IGatewayPreviewIntegration, GatewayPreviewIntegration>();
+// builder.Services.AddScoped<ISelfHealingBuildPipeline, SelfHealingBuildPipeline>(); // Not implemented
+// builder.Services.AddScoped<ISecurityTestingService, SecurityTestingService>(); // Not implemented
+// builder.Services.AddScoped<ICodeReviewService, CodeReviewService>(); // Not implemented
+// builder.Services.AddScoped<IEscrowCodeService, EscrowCodeService>(); // Not implemented
+// builder.Services.AddScoped<IGatewayPreviewIntegration, GatewayPreviewIntegration>(); // Not implemented
 
 // AutonomousAppGeneration orchestrator lives in its own project
 // (Libr4.IDE.AutonomousAppGeneration) and is exposed via Libr4.IDE.AutonomousAppGeneration.Host,
@@ -232,7 +235,7 @@ app.UseSwaggerUI(options => {});
 app.MapControllers();
 
 // Obscura browser endpoints (external integration)
-app.MapObscuraEndpoints();
+// app.MapObscuraEndpoints(); // Endpoint not defined
 
 // AI Assistant endpoints - commented out due to missing endpoint file
 // app.MapAIEndpoints();
@@ -241,31 +244,31 @@ app.MapObscuraEndpoints();
 // app.MapTaskDecompositionEndpoints();
 
 // Senior Role Prompts
-app.MapSeniorRolePromptsEndpoints();
+// app.MapSeniorRolePromptsEndpoints(); // Endpoint not defined
 
 // Intelligence Router
-app.MapIntelligenceRouterEndpoints();
+// app.MapIntelligenceRouterEndpoints(); // Endpoint not defined
 
 // Cascade planning endpoint
-app.MapCascadeEndpoints();
+// app.MapCascadeEndpoints(); // Endpoint not defined
 
 // Orchestration Run
-app.MapOrchestrationRunEndpoints();
+// app.MapOrchestrationRunEndpoints(); // Endpoint not defined
 
 // Multi-Agent Orchestration endpoints - commented out due to missing endpoint file
 // app.MapMultiAgentOrchestrationEndpoints();
 
 // Autonomous Runtime Policy
-app.MapAutonomousRuntimePolicyEndpoints();
+// app.MapAutonomousRuntimePolicyEndpoints(); // Endpoint not defined
 
 // Shadow Workspace
-app.MapShadowWorkspaceEndpoints();
+// app.MapShadowWorkspaceEndpoints(); // Endpoint not defined
 
 // Code Review endpoints - commented out due to missing endpoint file
 // app.MapCodeReviewEndpoints();
 
 // Semantic Code Graph
-app.MapSemanticCodeGraphEndpoints();
+// app.MapSemanticCodeGraphEndpoints(); // Endpoint not defined
 
 // Agent Memory System endpoints - commented out due to missing endpoint file
 // app.MapAgentMemorySystemEndpoints();
@@ -277,7 +280,7 @@ app.MapSemanticCodeGraphEndpoints();
 // app.MapLLMRouterEndpoints();
 
 // AI Workflow Automation
-app.MapAIWorkflowAutomationEndpoints();
+// app.MapAIWorkflowAutomationEndpoints(); // Endpoint not defined
 
 // AI Workflow endpoints - commented out due to missing endpoint file
 // app.MapAIWorkflowEndpoints();
@@ -292,16 +295,16 @@ app.MapAIWorkflowAutomationEndpoints();
 // app.MapGitHubBootstrapEndpoints();
 
 // Architectural Guardrails
-app.MapArchitecturalGuardrailsEndpoints();
+// app.MapArchitecturalGuardrailsEndpoints(); // Endpoint not defined
 
 // Semantic Blame
-app.MapSemanticBlameEndpoints();
+// app.MapSemanticBlameEndpoints(); // Endpoint not defined
 
 // CodeIntelligence endpoints - commented out due to missing endpoint file
 // app.MapCodeIntelligenceEndpoints();
 
 // Security Testing endpoints
-app.MapSecurityTestingEndpoints();
+// app.MapSecurityTestingEndpoints(); // Endpoint not defined
 
 // HackerAgent endpoints - commented out due to missing endpoint file
 // app.MapHackerAgentEndpoints();

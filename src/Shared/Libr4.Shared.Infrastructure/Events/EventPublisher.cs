@@ -15,11 +15,11 @@ public interface IEventPublisher
 
 public class EventPublisher : IEventPublisher
 {
-    private readonly IEventBus _eventBus;
+    private readonly IDomainEventBus _eventBus;
     private readonly IOutboxService _outboxService;
     private readonly ILogger<EventPublisher> _logger;
 
-    public EventPublisher(IEventBus eventBus, IOutboxService outboxService, ILogger<EventPublisher> logger)
+    public EventPublisher(IDomainEventBus eventBus, IOutboxService outboxService, ILogger<EventPublisher> logger)
     {
         _eventBus = eventBus;
         _outboxService = outboxService;
@@ -45,12 +45,12 @@ public class EventPublisher : IEventPublisher
 public class EventProcessingBackgroundService : BackgroundService
 {
     private readonly IOutboxService _outboxService;
-    private readonly IEventBus _eventBus;
+    private readonly IDomainEventBus _eventBus;
     private readonly ILogger<EventProcessingBackgroundService> _logger;
 
     public EventProcessingBackgroundService(
         IOutboxService outboxService,
-        IEventBus eventBus,
+        IDomainEventBus eventBus,
         ILogger<EventProcessingBackgroundService> logger)
     {
         _outboxService = outboxService;

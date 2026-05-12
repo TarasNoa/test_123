@@ -4,7 +4,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Libr4.AI.Application.Abstractions;
-using Libr4.AI.Infrastructure.ML;
+using Libr4.AI.Application.ML;
 
 namespace Libr4.AI.Application;
 

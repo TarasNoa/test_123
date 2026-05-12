@@ -4,7 +4,6 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="8.0.100" />
+    <PackageReference Include="FSharp.Core" Version="8.0.403" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
@@ -25,11 +24,16 @@
     <PackageReference Include="Neo4j.Driver" Version="5.15.0" />
     <!-- gRPC packages for Rust-C# integration -->
     <PackageReference Include="Grpc.Net.Client" Version="2.60.0" />
-    <PackageReference Include="Google.Protobuf" Version="3.25.2" />
+    <PackageReference Include="Google.Protobuf" Version="3.21.4" />
     <PackageReference Include="Grpc.Tools" Version="2.60.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <!-- Override old transitive dependencies -->
+    <PackageReference Include="YamlDotNet" Version="15.1.0" />
+    <PackageReference Include="Polly" Version="8.4.1" />
+    <PackageReference Include="System.Reflection.Metadata" Version="8.0.0" />
+    <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
   </ItemGroup>
 
   <!-- Protobuf - enabled for Docker build -->
@@ -50,6 +54,14 @@
   <!-- Files excluded for local build - enabled in Docker -->
   <ItemGroup>
     <!-- SemanticIndex re-enabled after CodeSearch inclusion -->
+    <Compile Remove="Orchestration\ResilientOrchestrator.cs" />
+    <Compile Remove="FSharpInterop\**\*.cs" />
+    <Compile Remove="Persistence\Converters\AgentStateConverter.cs" />
+    <Compile Remove="Containers\ContainerManager.cs" />
+    <Compile Remove="Containers\ContainerConnectionTracker.cs" />
+    <Compile Remove="Containers\PreWarmedContainerPool.cs" />
+    <Compile Remove="Containers\ContainerPoolWarmupService.cs" />
+    <Compile Remove="Obscura\ObscuraBrowserService.cs" />
   </ItemGroup>
 
 </Project>

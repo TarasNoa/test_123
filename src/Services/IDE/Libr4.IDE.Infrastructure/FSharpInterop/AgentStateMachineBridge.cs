@@ -90,6 +90,8 @@ public interface IAgentStateMachineBridge
 /// </summary>
 public record FSharpAgentState(object InternalState);
 
+public enum AgentTaskPriority { Low, Normal, High, Critical }
+
 /// <summary>
 /// Agent task for C#
 /// </summary>
@@ -97,7 +99,7 @@ public record AgentTaskBridge(
     string TaskId,
     string TaskType,
     string Description,
-    TaskPriority Priority,
+    AgentTaskPriority Priority,
     TimeSpan? Deadline,
     Dictionary<string, object> Context);
 
@@ -173,9 +175,7 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
     {
         try
         {
-            var fsharpCapabilities = ListModule.OfSeq(capabilities);
-            var idleData = AgentStateModule.createIdleData(agentId, fsharpCapabilities);
-            var state = AgentStateModule.createIdleState(idleData);
+            var state = AgentCSharpInterop.createIdleStateForCSharp(agentId, capabilities);
             
             _logger.LogDebug("Created idle state for agent {AgentId}", agentId);
             return new FSharpAgentState(state);
@@ -195,7 +195,7 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
             
             if (currentState.InternalState is AgentState.Idle idle)
             {
-                var newState = AgentStateModule.initialize(idle, fsharpContext);
+                var newState = AgentStateMachine.initialize(idle, fsharpContext);
                 return new FSharpAgentState(newState);
             }
             
@@ -216,7 +216,7 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
             
             if (currentState.InternalState is AgentState.Initializing init)
             {
-                var newState = AgentStateModule.markReady(init, fsharpTools);
+                var newState = AgentStateMachine.markReady(init, fsharpTools);
                 return new FSharpAgentState(newState);
             }
             
@@ -237,7 +237,7 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
             
             if (currentState.InternalState is AgentState.Ready ready)
             {
-                var newState = AgentStateModule.startThinking(ready, fsharpTask);
+                var newState = AgentStateMachine.startThinking(ready, fsharpTask);
                 return new FSharpAgentState(newState);
             }
             
@@ -258,7 +258,7 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
             {
                 // Convert subtask strings to F# list
                 var fsharpSubtasks = ListModule.OfSeq(subtasks);
-                var newState = AgentStateModule.startExecuting(thinking, fsharpSubtasks);
+                var newState = AgentStateMachine.startExecuting(thinking, fsharpSubtasks);
                 return new FSharpAgentState(newState);
             }
             
@@ -275,8 +275,8 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
     {
         try
         {
-            var name = AgentStateModule.getStateName(state.InternalState);
-            return name;
+            if (state.InternalState is AgentState s) return AgentCSharpInterop.getStateName(s);
+            return "Unknown";
         }
         catch (Exception ex)
         {
@@ -289,7 +289,8 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
     {
         try
         {
-            return AgentStateModule.getAgentId(state.InternalState);
+            if (state.InternalState is AgentState sa) return AgentStateMachine.getAgentId(sa);
+            return "unknown";
         }
         catch (Exception ex)
         {
@@ -302,7 +303,7 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
     {
         try
         {
-            return AgentStateModule.canAcceptTask(state.InternalState);
+            return AgentCSharpInterop.canAcceptTaskForCSharp(state.InternalState);
         }
         catch (Exception ex)
         {
@@ -315,7 +316,8 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
     {
         try
         {
-            return AgentStateModule.isActive(state.InternalState);
+            if (state.InternalState is AgentState si) return AgentStateMachine.isActive(si);
+            return false;
         }
         catch (Exception ex)
         {
@@ -328,7 +330,7 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
     {
         try
         {
-            return AgentStateModule.getProgress(state.InternalState);
+            return AgentCSharpInterop.getProgressForCSharp(state.InternalState);
         }
         catch (Exception ex)
         {
@@ -344,7 +346,7 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
             if (currentState.InternalState is AgentState.Executing executing)
             {
                 var fsharpStatus = ConvertToFSharpSubtaskStatus(status);
-                var updatedExecuting = AgentStateModule.updateSubtask(executing, subtaskId, fsharpStatus);
+                var updatedExecuting = AgentStateMachine.updateSubtask(executing, subtaskId, fsharpStatus);
                 var newState = AgentState.NewExecuting(updatedExecuting);
                 return new FSharpAgentState(newState);
             }
@@ -367,7 +369,7 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
                 var fsharpResult = ConvertToFSharpResult(result);
                 var fsharpRules = ListModule.OfSeq(Array.ConvertAll(rules, ConvertToFSharpRule));
                 
-                var newState = AgentStateModule.completeDirect(validating);
+                var newState = AgentStateMachine.completeDirect(validating);
                 return new FSharpAgentState(newState);
             }
             
@@ -387,8 +389,12 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
             var fsharpError = ConvertToFSharpError(error);
             var fsharpRecovery = ConvertToFSharpRecovery(strategy);
             
-            var newState = AgentStateModule.fail(currentState.InternalState, fsharpError, fsharpRecovery);
-            return new FSharpAgentState(newState);
+            if (currentState.InternalState is AgentState sf)
+            {
+                var newState = AgentStateMachine.fail(sf, fsharpError, fsharpRecovery);
+                return new FSharpAgentState(newState);
+            }
+            throw new InvalidOperationException("Cannot fail from non-agent state");
         }
         catch (Exception ex)
         {
@@ -401,8 +407,12 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
     {
         try
         {
-            var newState = AgentStateModule.dispose(state.InternalState);
-            return new FSharpAgentState(newState);
+            if (state.InternalState is AgentState sd)
+            {
+                var newState = AgentStateMachine.dispose(sd);
+                return new FSharpAgentState(newState);
+            }
+            throw new InvalidOperationException("Cannot dispose non-agent state");
         }
         catch (Exception ex)
         {
@@ -412,9 +422,9 @@ public class AgentStateMachineBridge : IAgentStateMachineBridge
     }
 
     // Conversion helpers
-    private static FSharpMap<string, obj> ConvertToFSharpMap(Dictionary<string, object> dict)
+    private static FSharpMap<string, object> ConvertToFSharpMap(Dictionary<string, object> dict)
     {
-        var list = new List<Tuple<string, obj>>();
+        var list = new List<Tuple<string, object>>();
         foreach (var kvp in dict)
         {
             list.Add(Tuple.Create(kvp.Key, kvp.Value));

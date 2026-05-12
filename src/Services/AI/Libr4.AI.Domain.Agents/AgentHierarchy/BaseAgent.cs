@@ -86,7 +86,8 @@ public abstract class BaseAgent : IAgent
 
         _childAgents[childAgent.Id.ToString()] = childAgent;
         ChildAgentIds.Add(childAgent.Id);
-        childAgent.ParentAgentId = Id;
+        if (childAgent is BaseAgent baseChild)
+            baseChild.ParentAgentId = Id;
 
         _logger.LogInformation($"Child agent {childAgent.Name} registered to {Name}");
         await Task.CompletedTask;

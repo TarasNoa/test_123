@@ -1,4 +1,5 @@
 using Libr4.IDE.Application.AgentExecution;
+using Libr4.IDE.Domain.AgentExecution;
 using Libr4.Shared.Infrastructure.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -91,9 +92,9 @@ public static class AgentExecutionEndpoints
 
     private static async Task<IResult> GetExecutionResults(
         Guid contextId,
+        IAgentExecutionRepository repository,
         [FromQuery] int skip = 0,
-        [FromQuery] int take = 10,
-        IAgentExecutionRepository repository)
+        [FromQuery] int take = 10)
     {
         var context = await repository.GetByIdAsync(contextId);
         if (context == null)

@@ -4,6 +4,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="YamlDotNet" Version="15.1.0" />
   </ItemGroup>
 </Project>

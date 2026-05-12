@@ -1,4 +1,6 @@
 using Libr4.Shared.Infrastructure.Messaging;
+using Libr4.Shared.Infrastructure.Events;
+using Libr4.Shared.Kernel.Domain;
 using Libr4.IDE.Domain.AgentExecution;
 using Microsoft.Extensions.Logging;
 

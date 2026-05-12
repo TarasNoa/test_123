@@ -1,4 +1,5 @@
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentOrchestration;
+using Libr4.IDE.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Libr4.IDE.Infrastructure.Persistence;

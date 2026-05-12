@@ -7,6 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Shared agent types (DU definitions) -->
+    <Compile Include="AgentTypes.fs" />
     <!-- Phase 1: State Machine -->
     <Compile Include="AgentStateMachine.fs" />
     

@@ -1,4 +1,3 @@
-using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,7 +7,7 @@ namespace Libr4.IDE.Infrastructure.Persistence;
 /// EF Core implementation of App Generation Repository.
 /// Replaces InMemoryAppGenerationRepository for production.
 /// </summary>
-public class AppGenerationRepository : IAppGenerationRepository
+public class AppGenerationRepository : IAppGenerationEntityRepository
 {
     private readonly IDbContextFactory<IdeDbContext> _contextFactory;
     private readonly ILogger<AppGenerationRepository> _logger;

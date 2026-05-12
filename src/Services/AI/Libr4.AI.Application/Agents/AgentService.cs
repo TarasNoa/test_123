@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Domain.Agents;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace Libr4.AI.Application.Agents;
@@ -34,7 +35,7 @@ public class AgentService : IAgentService
         }
 
         var agents = await _agentRepository.GetAllAsync(cancellationToken);
-        var result = agents.Select(a => new AgentDto(a.Id, a.Name, a.Role, a.Status.ToString().ToLower(), a.CreatedAt)).ToList();
+        var result = agents.Select(a => new AgentDto(a.Id, a.Name, a.Description, a.Status.ToString().ToLower(), a.CreatedAt)).ToList();
 
         await _cache.SetStringAsync(cacheKey, JsonSerializer.Serialize(result), new DistributedCacheEntryOptions
         {
@@ -52,20 +53,27 @@ public class AgentService : IAgentService
         return new AgentDto(
             agent.Id,
             agent.Name,
-            agent.Role,
+            agent.Description,
             agent.Status.ToString().ToLower(),
             agent.CreatedAt);
     }
 
     public async Task<AgentDto> CreateAgentAsync(CreateAgentRequest request, CancellationToken cancellationToken = default)
     {
-        var agent = Agent.Create(request.Name, request.Role, request.Prompt);
+        var agent = new Agent(
+            Guid.NewGuid(),
+            request.Name,
+            request.Role,
+            AgentType.Chat,
+            request.Prompt,
+            "gpt-4");
+
         await _agentRepository.AddAsync(agent, cancellationToken);
 
         return new AgentDto(
             agent.Id,
             agent.Name,
-            agent.Role,
+            agent.Description,
             agent.Status.ToString().ToLower(),
             agent.CreatedAt);
     }

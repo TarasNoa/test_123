@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.FSharp.Collections;
@@ -290,7 +291,7 @@ public class NeuralContextBridge : INeuralContextBridge
     }
 
     // Conversion helpers
-    private static Libr4.IDE.Domain.FSharp.CodeEntity ConvertToFSharpEntity(CodeEntityBridge entity)
+    private static Libr4.IDE.Domain.FSharp.CodeEntityNode ConvertToFSharpEntity(CodeEntityBridge entity)
     {
         // Simplified conversion - real implementation would be more complete
         var classInfo = new ClassInfo(
@@ -300,7 +301,7 @@ public class NeuralContextBridge : INeuralContextBridge
             ListModule.Empty<string>(),
             entity.IsRepository);
 
-        return new Libr4.IDE.Domain.FSharp.CodeEntity(
+        return new Libr4.IDE.Domain.FSharp.CodeEntityNode(
             entity.Id,
             entity.Name,
             Libr4.IDE.Domain.FSharp.CodeEntityType.NewClass(classInfo),
@@ -309,6 +310,7 @@ public class NeuralContextBridge : INeuralContextBridge
                 entity.Location.StartLine,
                 entity.Location.EndLine,
                 entity.Location.CommitHash),
+            "",
             ConvertToFSharpList(entity.Dependencies),
             DateTime.UtcNow);
     }

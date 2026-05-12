@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Libr4.IDE.Infrastructure.Persistence.Entities;
+using Libr4.IDE.Domain.AutonomousAppGeneration;
 
 namespace Libr4.IDE.Infrastructure.Persistence;
 
@@ -15,7 +17,7 @@ public class IdeDbContext : DbContext
 
     public DbSet<AgentEventEntity> AgentEvents { get; set; }
     public DbSet<AgentOrchestrationEntity> AgentOrchestrations { get; set; }
-    public DbSet<AppGenerationEntity> AppGenerations { get; set; }
+    public DbSet<AppGeneration> AppGenerations { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,7 +43,7 @@ public class IdeDbContext : DbContext
         });
 
         // AppGenerations configuration
-        modelBuilder.Entity<AppGenerationEntity>(entity =>
+        modelBuilder.Entity<AppGeneration>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.UserId);

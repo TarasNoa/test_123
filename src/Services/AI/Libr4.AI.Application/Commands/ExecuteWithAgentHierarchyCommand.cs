@@ -2,6 +2,7 @@ using System;
 using System.Threading.Tasks;
 using Libr4.AI.Domain.Agents.AgentHierarchy;
 using Libr4.Shared.Infrastructure.Messaging;
+using Microsoft.Extensions.Logging;
 
 namespace Libr4.AI.Application.Commands;
 

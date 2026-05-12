@@ -2,6 +2,7 @@ using Grpc.Net.Client;
 using Libr4.IDE.Infrastructure.Protos;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using ExecutionResult = Libr4.IDE.Infrastructure.Protos.ExecutionResult;
 
 namespace Libr4.IDE.Infrastructure.Clients;
 
@@ -51,7 +52,7 @@ public class GrpcSandboxClient : ISandboxClient
         try
         {
             _logger.LogInformation("C#: Sending code to Rust sandbox for task {TaskId} (endpoint: {Endpoint})", taskId, _endpoint);
-            var result = await _client.ExecuteCodeAsync(request, ct);
+            var result = await _client.ExecuteCodeAsync(request, cancellationToken: ct);
             
             _logger.LogInformation("C#: Execution completed for task {TaskId}. ExitCode: {ExitCode}, Termination: {Termination}", 
                 taskId, result.ExitCode, result.TerminationReason);
