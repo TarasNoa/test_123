@@ -1,5 +1,6 @@
 using Libr4.Chat.Application.Abstractions;
 using Libr4.Chat.Application.Dtos;
+using MessageDto = Libr4.Chat.Application.Dtos.MessageDto;
 using Libr4.Chat.Domain;
 using Libr4.Shared.Kernel.Domain;
 using Libr4.Shared.Kernel.Errors;

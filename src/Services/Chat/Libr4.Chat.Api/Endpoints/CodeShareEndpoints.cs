@@ -1,5 +1,6 @@
 using Libr4.Chat.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Libr4.Chat.Api.Endpoints;
 
@@ -64,10 +65,3 @@ public static class CodeShareEndpoints
         .WithSummary("Get code templates for quick sharing");
     }
 }
-
-public record CreateCodeSnippetRequest(
-    Guid ChannelId,
-    string Language,
-    string Code,
-    string Title,
-    string? Description);

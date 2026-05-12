@@ -35,7 +35,7 @@ public sealed class JwtTokenService : IJwtTokenService
             new("display_name", user.DisplayName),
         };
         foreach (var r in user.Roles)
-            claims.Add(new Claim("role", r.Role.ToString()));
+            claims.Add(new Claim("role", r.Name));
 
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,

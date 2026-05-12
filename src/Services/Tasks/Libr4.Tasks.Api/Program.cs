@@ -40,4 +40,11 @@ app.MapLibr4Metrics();
 
 app.MapTaskEndpoints();
 
+// Ensure database is created for E2E testing
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<TasksDbContext>();
+    db.Database.EnsureCreated();
+}
+
 app.Run();

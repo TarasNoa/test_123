@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Libr4.Chat.Domain.Calls;
 
 namespace Libr4.Chat.Application.Abstractions;
 

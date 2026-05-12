@@ -24,23 +24,23 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MediatR" Version="12.4.1" />
-    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
     
     <!-- gRPC for Rust container-runtime communication -->
-    <PackageReference Include="Grpc.Net.Client" Version="2.60.0" />
-    <PackageReference Include="Google.Protobuf" Version="3.21.4" />
-    <PackageReference Include="Grpc.Tools" Version="2.60.0">
+    <PackageReference Include="Grpc.Net.Client" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
     
     <!-- Git automation -->
-    <PackageReference Include="LibGit2Sharp" Version="0.31.0" />
+    <PackageReference Include="LibGit2Sharp" />
   </ItemGroup>
   
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="8.0.403" />
+    <PackageReference Include="FSharp.Core" />
   </ItemGroup>
   
   <!-- Protobuf - enabled for Docker build -->

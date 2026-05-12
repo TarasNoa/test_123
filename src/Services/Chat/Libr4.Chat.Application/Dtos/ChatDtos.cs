@@ -9,7 +9,7 @@ public record ChatDto(
     string Title,
     ChatType Type,
     Guid? RelatedTaskId,
-    DateTime CreatedAt,
+    DateTimeOffset CreatedAt,
     bool IsArchived,
     int MemberCount,
     int UnreadCount,
@@ -18,9 +18,9 @@ public record ChatDto(
 public record ChatMemberDto(
     Guid Id,
     Guid UserId,
-    ChatMemberRole Role,
-    DateTime JoinedAt,
-    DateTime? LastReadAt);
+    ChatRole Role,
+    DateTimeOffset JoinedAt,
+    DateTimeOffset? LastReadAt);
 
 public record MessageDto(
     Guid Id,
@@ -30,8 +30,8 @@ public record MessageDto(
     string Content,
     MessageType Type,
     MessageStatus Status,
-    DateTime SentAt,
-    DateTime? EditedAt,
+    DateTimeOffset SentAt,
+    DateTimeOffset? EditedAt,
     bool IsDeleted,
     string? FileUrl,
     string? FileName,

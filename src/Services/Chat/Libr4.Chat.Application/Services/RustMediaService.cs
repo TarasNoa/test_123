@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Libr4.Chat.Application.Abstractions;
 
 namespace Libr4.Chat.Application.Services;
 

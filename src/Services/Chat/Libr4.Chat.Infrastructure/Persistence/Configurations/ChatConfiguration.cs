@@ -13,9 +13,11 @@ public class ChatConfiguration : IEntityTypeConfiguration<ChatEntity>
 
         builder.HasKey(c => c.Id);
 
-        builder.Property(c => c.Title)
+        builder.Property(c => c.Name)
             .HasMaxLength(200)
             .IsRequired();
+        builder.Ignore(c => c.Title);
+        builder.Ignore(c => c.Participants);
 
         builder.Property(c => c.Type)
             .HasConversion<string>()

@@ -1,5 +1,6 @@
 using System;
 using Libr4.Shared.Kernel.Domain;
+using Libr4.Chat.Domain.Calls;
 using Libr4.Chat.Domain.Servers.Events;
 
 namespace Libr4.Chat.Domain.Servers;

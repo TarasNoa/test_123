@@ -4,7 +4,9 @@ using Libr4.Chat.Api.Hubs;
 using Libr4.Chat.Application;
 using Libr4.Chat.Application.Abstractions;
 using Libr4.Chat.Infrastructure;
+using Libr4.Chat.Infrastructure.Persistence;
 using Libr4.Shared.Web.Auth;
+using Libr4.Shared.Web.CurrentUser;
 using Libr4.Shared.Web.HealthChecks;
 using Libr4.Shared.Web.Logging;
 using Libr4.Shared.Web.Swagger;
@@ -19,6 +21,7 @@ builder.Services.AddChatApplication();
 builder.Services.AddChatInfrastructure(builder.Configuration);
 
 builder.Services.AddLibr4JwtAuth(builder.Configuration);
+builder.Services.AddLibr4CurrentUser();
 builder.Services.AddHealthChecks();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -65,9 +68,18 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapChatEndpoints();
-app.MapServerEndpoints();
-app.MapCodeShareEndpoints();
-app.MapFileEndpoints();
+// app.MapServerEndpoints();
+// app.MapCodeShareEndpoints();
+app.MapMessageEndpoints();
+app.MapNotificationEndpoints();
+// app.MapFileEndpoints();
 app.MapHub<ChatHub>("/chatHub");
+
+// Ensure database is created for E2E testing
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ChatDbContext>();
+    db.Database.EnsureCreated();
+}
 
 app.Run();

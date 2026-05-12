@@ -1,6 +1,8 @@
 using Libr4.Matching.Application;
 using Libr4.Matching.Infrastructure;
 using Libr4.Matching.Api.Endpoints;
+using Libr4.Matching.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
 
@@ -15,5 +17,12 @@ var app = builder.Build();
 
 app.MapMatchingEndpoints();
 app.MapHealthChecks("/health");
+
+// Ensure database is created for E2E testing
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<MatchingDbContext>();
+    db.Database.EnsureCreated();
+}
 
 app.Run();

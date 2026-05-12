@@ -8,13 +8,54 @@ public class User : AggregateRoot<Guid>
 {
     public string Email { get; private set; } = string.Empty;
     public string Username { get; private set; } = string.Empty;
+    public string DisplayName => Username;
     public string PasswordHash { get; private set; } = string.Empty;
     public bool IsEmailVerified { get; private set; }
+    public bool EmailConfirmed => IsEmailVerified;
     public bool IsActive { get; private set; }
+    public bool TwoFactorEnabled { get; private set; }
+    public string? TwoFactorSecretEncrypted { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset? UpdatedAt { get; private set; }
     public DateTimeOffset? LastLoginAt { get; private set; }
     public List<Role> Roles { get; private set; } = new();
     public List<RefreshToken> RefreshTokens { get; private set; } = new();
+    public List<UserToken> Tokens { get; private set; } = new();
+    public int FailedLoginAttempts { get; private set; }
+    public DateTimeOffset? LockoutEnd { get; private set; }
+    public DateTimeOffset? LockedOutUntil => LockoutEnd;
+
+    // Role flags
+    public bool IsFreelancer { get; private set; }
+    public bool IsClient { get; private set; }
+    public bool IsAdmin { get; private set; }
+    public bool IsDeveloper { get; private set; }
+    public bool IsTrader { get; private set; }
+    public bool IsLearner { get; private set; }
+    public bool IsSocialOnly { get; private set; }
+
+    // Profile fields
+    public string? FullName { get; private set; }
+    public string? Bio { get; private set; }
+    public List<string> Skills { get; private set; } = new();
+    public decimal? HourlyRate { get; private set; }
+    public string? AvatarUrl { get; private set; }
+
+    // Stats
+    public decimal? Rating { get; private set; }
+    public decimal? TotalEarnings { get; private set; }
+    public decimal? TotalSpent { get; private set; }
+    public int CompletedTasks { get; private set; }
+
+    // KYC/AML
+    public bool KycVerified { get; private set; }
+    public string? KycStatus { get; private set; }
+    public bool AmlChecked { get; private set; }
+    public bool SanctionsChecked { get; private set; }
+
+    // AI matching
+    public int? Level { get; private set; }
+    public int? SkillScore { get; private set; }
 
     private User() { }
 
@@ -35,6 +76,11 @@ public class User : AggregateRoot<Guid>
         return user;
     }
 
+    public static User Register(string email, string displayName, string passwordHash, DateTimeOffset now)
+    {
+        return Create(email, displayName, passwordHash);
+    }
+
     public void VerifyEmail()
     {
         if (!IsEmailVerified)
@@ -49,6 +95,22 @@ public class User : AggregateRoot<Guid>
         LastLoginAt = DateTimeOffset.UtcNow;
         RaiseDomainEvent(new UserLoggedInEvent(Id, LastLoginAt.Value));
     }
+
+    public void RecordFailedLogin(DateTimeOffset now)
+    {
+        FailedLoginAttempts++;
+        if (FailedLoginAttempts >= 5)
+            LockoutEnd = now.AddMinutes(15);
+    }
+
+    public void RecordSuccessfulLogin(DateTimeOffset now)
+    {
+        FailedLoginAttempts = 0;
+        LockoutEnd = null;
+        UpdateLastLogin();
+    }
+
+    public bool IsLockedOut(DateTimeOffset now) => LockoutEnd.HasValue && LockoutEnd.Value > now;
 
     public void AddRole(Role role)
     {
@@ -73,5 +135,47 @@ public class User : AggregateRoot<Guid>
             token.Revoke();
             RaiseDomainEvent(new RefreshTokenRevokedEvent(Id, tokenId, DateTimeOffset.UtcNow));
         }
+    }
+
+    public void EnableTwoFactor(string encryptedSecret)
+    {
+        TwoFactorEnabled = true;
+        TwoFactorSecretEncrypted = encryptedSecret;
+    }
+
+    public void DisableTwoFactor()
+    {
+        TwoFactorEnabled = false;
+        TwoFactorSecretEncrypted = null;
+    }
+
+    public void IssueToken(UserTokenKind kind, string hash, DateTimeOffset now, TimeSpan lifetime)
+    {
+        Tokens.Add(new UserToken(Id, kind, hash, now, lifetime));
+    }
+
+    public bool ConfirmEmail(string hash, DateTimeOffset now)
+    {
+        var token = Tokens.FirstOrDefault(t => t.TokenHash == hash && t.Kind == UserTokenKind.EmailConfirmation);
+        if (token is null || !token.IsActive(now))
+            return false;
+
+        token.Consume(now);
+        VerifyEmail();
+        return true;
+    }
+
+    public bool ResetPassword(string tokenHash, string newPasswordHash, DateTimeOffset now)
+    {
+        var token = Tokens.FirstOrDefault(t => t.TokenHash == tokenHash && t.Kind == UserTokenKind.PasswordReset);
+        if (token is null || !token.IsActive(now))
+            return false;
+
+        token.Consume(now);
+        PasswordHash = newPasswordHash;
+        // Revoke all existing refresh tokens on password reset
+        foreach (var rt in RefreshTokens.Where(r => r.IsActive()))
+            rt.Revoke();
+        return true;
     }
 }

@@ -1,4 +1,5 @@
 using Libr4.AI.Domain.Memory.Enhanced.FSharp;
+using EnhancedMemoryEntity = Libr4.AI.Domain.Memory.Enhanced.FSharp.EnhancedMemory;
 using Microsoft.Extensions.Logging;
 
 namespace Libr4.AI.Infrastructure.EnhancedMemory;
@@ -21,80 +22,66 @@ public class EnhancedMemoryService
     {
         var now = DateTimeOffset.UtcNow;
         var memory = MemoryOps.createMemory(level, content, now);
-        
-        // Set optional fields
-        if (userId != null)
+        // Apply optional fields if provided
+        if (userId != null || sessionId != null || agentId != null)
         {
-            memory = memory with { userId = Some(userId) };
+            memory = memory with {
+                userId = userId != null ? Microsoft.FSharp.Core.FSharpOption<string>.Some(userId) : memory.userId,
+                sessionId = sessionId != null ? Microsoft.FSharp.Core.FSharpOption<string>.Some(sessionId) : memory.sessionId,
+                agentId = agentId.HasValue ? Microsoft.FSharp.Core.FSharpOption<Guid>.Some(agentId.Value) : memory.agentId
+            };
         }
-        if (sessionId != null)
-        {
-            memory = memory with { sessionId = Some(sessionId) };
-        }
-        if (agentId != null)
-        {
-            memory = memory with { agentId = Some(agentId.Value) };
-        }
-        
         MemoryStoreOps.addMemory(memory);
         _logger.LogInformation("Created memory {MemoryId} with level {Level}", memory.id, level);
-        
         return memory.id;
     }
 
-    public EnhancedMemory? GetMemory(Guid id)
+    public EnhancedMemoryEntity? GetMemory(Guid id)
     {
-        return MemoryStoreOps.getMemory(id);
+        return MemoryStoreOps.getMemory(id) is Microsoft.FSharp.Core.FSharpOption<EnhancedMemoryEntity>.Some m ? m : null;
     }
 
-    public void UpdateMemoryEmbedding(Guid memoryId, float[] embedding)
+    public void AccessMemory(Guid id)
     {
-        var memory = MemoryStoreOps.getMemory(memoryId);
-        if (memory != null)
+        var now = DateTimeOffset.UtcNow;
+        if (MemoryStoreOps.getMemory(id) is Microsoft.FSharp.Core.FSharpOption<EnhancedMemoryEntity>.Some memory)
         {
-            var updated = MemoryOps.updateMemoryEmbedding(embedding, memory.Value);
+            var updated = MemoryOps.accessMemory(now, memory);
             MemoryStoreOps.updateMemory(updated);
-            _logger.LogDebug("Updated embedding for memory {MemoryId}", memoryId);
         }
     }
 
-    public void AccessMemory(Guid memoryId)
+    public void UpdateMemoryEmbedding(Guid id, float[] embedding)
     {
-        var memory = MemoryStoreOps.getMemory(memoryId);
-        if (memory != null)
+        if (MemoryStoreOps.getMemory(id) is Microsoft.FSharp.Core.FSharpOption<EnhancedMemoryEntity>.Some memory)
         {
-            var updated = MemoryOps.accessMemory(DateTimeOffset.UtcNow, memory.Value);
+            var updated = MemoryOps.updateMemoryEmbedding(embedding, memory);
             MemoryStoreOps.updateMemory(updated);
         }
     }
 
     public void ConsolidateMemories(List<Guid> memoryIds)
     {
+        var now = DateTimeOffset.UtcNow;
         var memories = memoryIds
             .Select(id => MemoryStoreOps.getMemory(id))
-            .Where(m => m != null)
-            .Select(m => m.Value)
+            .Where(m => m is Microsoft.FSharp.Core.FSharpOption<EnhancedMemoryEntity>.Some)
+            .Select(m => ((Microsoft.FSharp.Core.FSharpOption<EnhancedMemoryEntity>.Some)m).Value)
             .ToList();
 
-        if (memories.Count == 0)
+        if (memories.Count > 0)
         {
-            _logger.LogWarning("No valid memories to consolidate");
-            return;
+            var consolidated = MemoryOps.consolidateMemories(memories, now);
+            foreach (var id in memoryIds)
+            {
+                MemoryStoreOps.deleteMemory(id);
+            }
+            MemoryStoreOps.addMemory(consolidated);
         }
-
-        var consolidated = MemoryOps.consolidateMemories(memories, DateTimeOffset.UtcNow);
-        MemoryStoreOps.addMemory(consolidated);
-
-        // Mark original memories for deletion (or soft delete)
-        foreach (var memory in memories)
-        {
-            MemoryStoreOps.deleteMemory(memory.id);
-        }
-
         _logger.LogInformation("Consolidated {Count} memories into {ConsolidatedId}", memories.Count, consolidated.id);
     }
 
-    public List<MemorySearchResult> Search(
+    public List<EnhancedMemoryEntity> Search(
         string query,
         float[]? queryEmbedding = null,
         MemoryLevel? level = null,
@@ -104,24 +91,28 @@ public class EnhancedMemoryService
         int topK = 10,
         float? threshold = null)
     {
-        var fsharpQuery = new MemoryQuery(
-            query: query,
-            queryEmbedding: Option<float[]>.FromNullable(queryEmbedding),
-            level: Option<MemoryLevel>.FromNullable(level),
-            userId: Option<string>.FromNullable(userId),
-            sessionId: Option<string>.FromNullable(sessionId),
-            agentId: Option<Guid>.FromNullable(agentId),
-            topK: topK,
-            threshold: Option<float>.FromNullable(threshold)
-        );
+        var memories = MemoryStoreOps.getAllMemories();
+        var queryOpt = queryEmbedding != null ? Microsoft.FSharp.Core.FSharpOption<float[]>.Some(queryEmbedding) : Microsoft.FSharp.Core.FSharpOption<float[]>.None;
+        var levelOpt = level.HasValue ? Microsoft.FSharp.Core.FSharpOption<MemoryLevel>.Some(level.Value) : Microsoft.FSharp.Core.FSharpOption<MemoryLevel>.None;
+        var userOpt = userId != null ? Microsoft.FSharp.Core.FSharpOption<string>.Some(userId) : Microsoft.FSharp.Core.FSharpOption<string>.None;
+        var sessionOpt = sessionId != null ? Microsoft.FSharp.Core.FSharpOption<string>.Some(sessionId) : Microsoft.FSharp.Core.FSharpOption<string>.None;
+        var agentOpt = agentId.HasValue ? Microsoft.FSharp.Core.FSharpOption<Guid>.Some(agentId.Value) : Microsoft.FSharp.Core.FSharpOption<Guid>.None;
 
-        var results = MemoryStoreOps.search(fsharpQuery);
+        var results = MemoryOps.filterByAgent(
+            agentOpt,
+            MemoryOps.filterBySession(
+                sessionOpt,
+                MemoryOps.filterByUser(
+                    userOpt,
+                    MemoryOps.filterByLevel(
+                        levelOpt,
+                        HybridSearchOps.hybridSearch(query, queryOpt, memories, topK)))));
+
         _logger.LogInformation("Search returned {Count} results for query: {Query}", results.Count, query);
-
         return results;
     }
 
-    public List<EnhancedMemory> GetAllMemories()
+    public List<EnhancedMemoryEntity> GetAllMemories()
     {
         return MemoryStoreOps.getAllMemories();
     }
@@ -129,14 +120,13 @@ public class EnhancedMemoryService
     public void CleanupExpiredMemories()
     {
         var now = DateTimeOffset.UtcNow;
-        var allMemories = MemoryStoreOps.getAllMemories();
-        var expired = allMemories.Where(m => MemoryOps.shouldForget(m, now)).ToList();
+        var memories = MemoryStoreOps.getAllMemories();
+        var expired = memories.Where(m => MemoryOps.shouldForget(m, now)).ToList();
 
         foreach (var memory in expired)
         {
             MemoryStoreOps.deleteMemory(memory.id);
         }
-
         _logger.LogInformation("Cleaned up {Count} expired memories", expired.Count);
     }
 }

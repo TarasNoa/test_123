@@ -1,4 +1,5 @@
 using Libr4.AI.Domain.Agents;
+using Libr4.AI.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace Libr4.AI.Infrastructure.Repositories;

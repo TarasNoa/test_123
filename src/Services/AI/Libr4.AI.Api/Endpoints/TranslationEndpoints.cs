@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Libr4.AI.Api.Endpoints;

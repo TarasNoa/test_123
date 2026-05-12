@@ -8,6 +8,9 @@ using Libr4.Shared.Web.HealthChecks;
 using Libr4.Shared.Web.Logging;
 using Libr4.Shared.Web.Swagger;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
+using Microsoft.EntityFrameworkCore;
+using Libr4.Auth.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,6 +54,13 @@ app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapAuthEndpoints();
 app.MapSession1Endpoints();
+
+// Ensure database is created for E2E testing
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
+    db.Database.EnsureCreated();
+}
 
 app.Run();
 

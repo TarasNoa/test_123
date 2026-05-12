@@ -2,6 +2,7 @@
 using Libr4.Payments.Application;
 using Libr4.Payments.Application.Tax;
 using Libr4.Payments.Infrastructure;
+using Libr4.Payments.Infrastructure.Persistence;
 using Libr4.Shared.Infrastructure.Observability;
 using Libr4.Shared.Web.Auth;
 using Libr4.Shared.Web.CurrentUser;
@@ -9,6 +10,7 @@ using Libr4.Shared.Web.HealthChecks;
 using Libr4.Shared.Web.Logging;
 using Libr4.Shared.Web.Middleware;
 using Libr4.Shared.Web.Swagger;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -46,5 +48,12 @@ app.MapLibr4Metrics();
 app.MapPaymentEndpoints();
 app.MapEscrowEndpoints();
 app.MapWalletEndpoints();
+
+// Ensure database is created for E2E testing
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+    db.Database.EnsureCreated();
+}
 
 app.Run();

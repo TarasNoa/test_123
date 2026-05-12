@@ -12,16 +12,16 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
         e.HasKey(x => x.Id);
         e.Property(x => x.Email).IsRequired().HasMaxLength(254);
         e.HasIndex(x => x.Email).IsUnique();
-        e.Property(x => x.DisplayName).IsRequired().HasMaxLength(64);
+        e.Property(x => x.Username).IsRequired().HasMaxLength(64);
         e.Property(x => x.PasswordHash).IsRequired().HasMaxLength(256);
         e.Property(x => x.TwoFactorSecretEncrypted).HasMaxLength(512);
         e.Property(x => x.CreatedAt);
         e.Property(x => x.UpdatedAt);
         e.Property(x => x.LastLoginAt);
-        e.Property(x => x.LockedOutUntil);
+        e.Property(x => x.LockoutEnd);
         e.Property(x => x.FailedLoginAttempts);
         e.Property(x => x.IsActive);
-        e.Property(x => x.EmailConfirmed);
+        e.Property(x => x.IsEmailVerified);
         e.Property(x => x.TwoFactorEnabled);
 
         // Role flags
@@ -76,13 +76,21 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
     }
 }
 
-public sealed class UserRoleConfiguration : IEntityTypeConfiguration<UserRole>
+public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
 {
-    public void Configure(EntityTypeBuilder<UserRole> e)
+    public void Configure(EntityTypeBuilder<Role> e)
     {
-        e.ToTable("user_roles");
-        e.HasKey(x => new { x.UserId, x.Role });
-        e.Property(x => x.Role).HasConversion<string>().HasMaxLength(32);
+        e.ToTable("roles");
+        e.HasKey(x => x.Id);
+        e.Property(x => x.Name).IsRequired().HasMaxLength(32);
+        e.Property(x => x.Description).HasMaxLength(256);
+        e.Property(x => x.Permissions).HasConversion(
+            v => string.Join(",", v),
+            v => v.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList())
+            .Metadata.SetValueComparer(new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<string>>(
+                (c1, c2) => c1.SequenceEqual(c2),
+                c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+                c => c.ToList()));
     }
 }
 
@@ -92,9 +100,9 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
     {
         e.ToTable("refresh_tokens");
         e.HasKey(x => x.Id);
-        e.Property(x => x.TokenHash).IsRequired().HasMaxLength(128);
-        e.HasIndex(x => x.TokenHash).IsUnique();
-        e.Property(x => x.ReplacedByTokenHash).HasMaxLength(128);
+        e.Property(x => x.Token).IsRequired().HasMaxLength(128);
+        e.HasIndex(x => x.Token).IsUnique();
+        e.Property(x => x.ReplacedByHash).HasMaxLength(128);
         e.Property(x => x.CreatedByIp).HasMaxLength(64);
         e.Property(x => x.RevokedByIp).HasMaxLength(64);
     }

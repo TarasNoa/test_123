@@ -3,6 +3,7 @@ using FluentValidation;
 using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
+using Libr4.Auth.Application.Abstractions;
 using Libr4.Auth.Application.Services;
 
 namespace Libr4.Auth.Application;

@@ -1,5 +1,6 @@
 using Libr4.Chat.Application.Abstractions;
 using Libr4.Chat.Domain.Chats;
+using ChatEntity = Libr4.Chat.Domain.Chats.Chat;
 using Libr4.Chat.Domain.Messages;
 using Microsoft.Extensions.Logging;
 
@@ -32,7 +33,7 @@ public class ChatService : IChatService
 
     public async Task<ChatDto> CreateChatAsync(CreateChatRequest request, Guid creatorId, CancellationToken cancellationToken = default)
     {
-        var chat = Chat.Create(request.Name, request.Type, creatorId);
+        var chat = ChatEntity.Create(request.Name, request.Type, creatorId);
         foreach (var participantId in request.ParticipantIds)
         {
             chat.AddParticipant(participantId);
@@ -59,7 +60,7 @@ public class ChatService : IChatService
         {
             foreach (var attachment in request.Attachments)
             {
-                message.AddAttachment(new MessageAttachment(attachment.FileName, attachment.Url, attachment.Size));
+                message.AddAttachment(new MessageAttachment(attachment.FileName, attachment.Url, attachment.Size, "application/octet-stream"));
             }
         }
 

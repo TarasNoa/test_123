@@ -114,6 +114,3 @@ public static class AgentEndpoints
     }
 }
 
-// Request/Response DTOs for agents
-public record CreateAgentRequest(string Name, string Role, string Prompt);
-public record AgentResponse(Guid Id, string Name, string Role, string Status, DateTimeOffset CreatedAt);

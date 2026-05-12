@@ -9,4 +9,10 @@ public interface IJwtTokenService
     string HashRefreshToken(string plain);
 }
 
+public static class JwtTokenServiceExtensions
+{
+    public static string GenerateAccessToken(this IJwtTokenService jwt, User user) => jwt.CreateAccessToken(user).Token;
+    public static string GenerateRefreshToken(this IJwtTokenService jwt) => jwt.CreateRefreshToken().plain;
+}
+
 public sealed record AccessTokenResult(string Token, DateTimeOffset ExpiresAt);

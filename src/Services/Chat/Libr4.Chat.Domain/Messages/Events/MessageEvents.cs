@@ -10,21 +10,28 @@ public sealed record MessageSent(
     Guid SenderId,
     string Content,
     MessageType Type,
-    DateTime SentAt)  : DomainEvent;
+    DateTimeOffset SentAt)  : DomainEvent;
 
 public sealed record MessageEdited(
     Guid MessageId,
     Guid ChatId,
     string NewContent,
-    DateTime EditedAt)  : DomainEvent;
+    DateTimeOffset EditedAt)  : DomainEvent;
 
 public sealed record MessageDeleted(
     Guid MessageId,
     Guid ChatId,
-    DateTime DeletedAt)  : DomainEvent;
+    DateTimeOffset DeletedAt)  : DomainEvent;
 
 public sealed record MessageRead(
     Guid MessageId,
     Guid ChatId,
     Guid UserId,
-    DateTime ReadAt)  : DomainEvent;
+    DateTimeOffset ReadAt)  : DomainEvent;
+
+public sealed record MessageSentEvent(
+    Guid ChatId,
+    Guid MessageId,
+    Guid SenderId,
+    string Content,
+    DateTimeOffset Timestamp)  : DomainEvent;

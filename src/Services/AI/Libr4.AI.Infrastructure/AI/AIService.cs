@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Infrastructure.Hooks;
 using Libr4.AI.Infrastructure.LLM;
 using Libr4.AI.Domain.Memory.Enhanced.FSharp;

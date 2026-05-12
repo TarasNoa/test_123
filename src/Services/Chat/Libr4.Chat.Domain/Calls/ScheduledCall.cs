@@ -63,6 +63,4 @@ public class ScheduledCall : Entity<Guid>
     }
 }
 
-public enum CallStatus { Scheduled, Ringing, InProgress, Ended }
-
 public record CallRecording(Guid Id, string Url, long Size, DateTimeOffset RecordedAt);

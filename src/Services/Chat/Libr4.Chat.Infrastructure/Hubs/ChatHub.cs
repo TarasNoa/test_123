@@ -11,7 +11,7 @@ namespace Libr4.Chat.Infrastructure.Hubs;
 public interface IChatClient
 {
     Task ReceiveMessage(MessageDto message);
-    Task MessageEdited(Guid messageId, string newContent, DateTime editedAt);
+    Task MessageEdited(Guid messageId, string newContent, DateTimeOffset editedAt);
     Task MessageDeleted(Guid messageId);
     Task UserJoined(Guid userId, string userName);
     Task UserLeft(Guid userId);
@@ -25,7 +25,7 @@ public record MessageDto(
     string SenderName,
     string Content,
     string Type,
-    DateTime SentAt,
+    DateTimeOffset SentAt,
     string? FileUrl,
     string? FileName,
     Guid? ReplyToMessageId);

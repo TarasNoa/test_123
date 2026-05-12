@@ -18,7 +18,7 @@ public record ChatDetailDto(
     string Title,
     ChatType Type,
     Guid? RelatedTaskId,
-    DateTime CreatedAt,
+    DateTimeOffset CreatedAt,
     bool IsArchived,
     List<ChatMemberDto> Members);
 

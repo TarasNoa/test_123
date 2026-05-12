@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Libr4.Auth.Application.Users.Commands;
 
-public sealed record LoginCommand(LoginRequest Payload, string? IpAddress) : IRequest<Result<AuthTokens>>;
+public sealed record LoginCommand(Dtos.LoginRequest Payload, string? IpAddress) : IRequest<Result<AuthTokens>>;
 
 public sealed class LoginValidator : AbstractValidator<LoginCommand>
 {

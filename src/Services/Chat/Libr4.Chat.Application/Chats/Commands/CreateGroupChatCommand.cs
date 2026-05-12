@@ -54,7 +54,7 @@ public class CreateGroupChatHandler : IRequestHandler<CreateGroupChatCommand, Re
         foreach (var memberId in request.MemberIds.Distinct())
         {
             if (memberId != creatorId)
-                chat.AddMember(memberId, ChatMemberRole.Member);
+                chat.AddMember(memberId, ChatRole.Member);
         }
 
         await _context.Chats.AddAsync(chat, cancellationToken);

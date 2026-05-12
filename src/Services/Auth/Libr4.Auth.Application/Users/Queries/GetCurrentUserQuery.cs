@@ -25,7 +25,7 @@ public sealed class GetCurrentUserHandler : IRequestHandler<GetCurrentUserQuery,
             return Result.Failure<UserDto>(AuthErrors.UserNotFound);
 
         return new UserDto(u.Id, u.Email, u.DisplayName,
-            u.Roles.Select(r => r.Role.ToString()).ToList(),
+            u.Roles.Select(r => r.Name).ToList(),
             u.EmailConfirmed, u.TwoFactorEnabled, u.CreatedAt);
     }
 }

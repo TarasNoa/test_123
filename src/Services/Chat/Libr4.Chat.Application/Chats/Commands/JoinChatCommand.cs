@@ -53,7 +53,7 @@ public class JoinChatHandler : IRequestHandler<JoinChatCommand, Result>
         if (chat.Type == ChatType.Direct)
             return Result.Failure(ChatErrors.NotOwner);
 
-        chat.AddMember(userId, ChatMemberRole.Member);
+        chat.AddMember(userId, ChatRole.Member);
         await _context.SaveChangesAsync(cancellationToken);
 
         return Result.Success();

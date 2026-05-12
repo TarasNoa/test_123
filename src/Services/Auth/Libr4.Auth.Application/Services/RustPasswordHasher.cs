@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Libr4.Auth.Application.Abstractions;
 
 namespace Libr4.Auth.Application.Services;
 

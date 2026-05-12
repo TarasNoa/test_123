@@ -26,7 +26,8 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
             .HasConversion<string>()
             .HasMaxLength(20);
 
-        builder.Property(m => m.SentAt);
+        builder.Property(m => m.Timestamp);
+        builder.Ignore(m => m.SentAt);
         builder.Property(m => m.EditedAt);
         builder.Property(m => m.IsDeleted);
 
@@ -41,7 +42,7 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
 
         builder.HasIndex(m => m.ChatId);
         builder.HasIndex(m => m.SenderId);
-        builder.HasIndex(m => m.SentAt);
-        builder.HasIndex(m => new { m.ChatId, m.SentAt });
+        builder.HasIndex(m => m.Timestamp);
+        builder.HasIndex(m => new { m.ChatId, m.Timestamp });
     }
 }

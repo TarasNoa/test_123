@@ -1,4 +1,5 @@
 ﻿using Libr4.Payments.Application.Abstractions;
+using Libr4.Payments.Application.IntegrationEvents.Consumers;
 using Libr4.Payments.Application.Transactions.Commands;
 using Libr4.Payments.Domain.Invoices;
 using Libr4.Payments.Infrastructure.Messaging;
@@ -44,13 +45,12 @@ public static class DependencyInjection
         // MassTransit with RabbitMQ
         services.AddLibr4MassTransit(configuration, x =>
         {
-            x.AddConsumers(typeof(DependencyInjection).Assembly);
+            x.AddConsumers(typeof(UserRegisteredConsumer).Assembly);
         });
 
         // Health checks
         services.AddHealthChecks()
-            .AddDbContextCheck<PaymentsDbContext>("payments-db")
-            .AddRabbitMQ();
+            .AddDbContextCheck<PaymentsDbContext>("payments-db");
 
         return services;
     }

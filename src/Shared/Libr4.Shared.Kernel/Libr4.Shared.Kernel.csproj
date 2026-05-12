@@ -3,6 +3,6 @@
     <RootNamespace>Libr4.Shared.Kernel</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="MediatR" Version="12.4.1" />
+    <PackageReference Include="MediatR" />
   </ItemGroup>
 </Project>

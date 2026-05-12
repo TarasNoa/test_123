@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Libr4.Auth.Application.Users.Commands;
 
-public sealed record RegisterUserCommand(RegisterRequest Payload) : IRequest<Result<UserDto>>;
+public sealed record RegisterUserCommand(Dtos.RegisterRequest Payload) : IRequest<Result<UserDto>>;
 
 public sealed class RegisterUserValidator : AbstractValidator<RegisterUserCommand>
 {
@@ -59,7 +59,7 @@ public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, R
 
         return new UserDto(
             user.Id, user.Email, user.DisplayName,
-            user.Roles.Select(r => r.Role.ToString()).ToList(),
+            user.Roles.Select(r => r.Name).ToList(),
             user.EmailConfirmed, user.TwoFactorEnabled, user.CreatedAt);
     }
 }

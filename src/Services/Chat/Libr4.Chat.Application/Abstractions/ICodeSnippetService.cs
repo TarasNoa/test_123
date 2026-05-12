@@ -19,6 +19,8 @@ public record CodeTemplateDto(
     string Name,
     string Code);
 
+public record CreateCodeSnippetRequest(Guid ChannelId, string Language, string Code, string Title);
+
 public interface ICodeSnippetService
 {
     Task<CodeSnippetDto> CreateSnippetAsync(CreateCodeSnippetRequest request, Guid creatorId);

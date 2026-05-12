@@ -5,11 +5,18 @@ using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Infrastructure;
 using Libr4.AI.Infrastructure.LLM;
 using Libr4.Shared.Web.Auth;
+using Libr4.Shared.Web.CurrentUser;
 using Libr4.Shared.Web.HealthChecks;
 using Libr4.Shared.Web.Logging;
 using Libr4.Shared.Web.Swagger;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Microsoft.OpenApi.Models;
+using Asp.Versioning;
+using HealthChecks.UI.Client;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.EntityFrameworkCore;
+using Libr4.AI.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -31,6 +38,7 @@ builder.Services.AddRateLimiter(options =>
 
 // Authentication & Authorization
 builder.Services.AddLibr4JwtAuth(builder.Configuration);
+builder.Services.AddLibr4CurrentUser();
 builder.Services.AddAuthorization();
 
 // CORS
@@ -113,9 +121,17 @@ app.MapOrderAssistantEndpoints();
 app.MapTaskRecommendationEndpoints();
 app.MapTranslationEndpoints();
 app.MapVoiceEndpoints();
+app.MapCVAnalysisEndpoints();
 
 // Global Error Handler
 app.UseExceptionHandler("/error");
 app.MapGet("/error", () => Results.Problem("An error occurred.", statusCode: 500));
+
+// Ensure database is created for E2E testing
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AIDbContext>();
+    db.Database.EnsureCreated();
+}
 
 app.Run();

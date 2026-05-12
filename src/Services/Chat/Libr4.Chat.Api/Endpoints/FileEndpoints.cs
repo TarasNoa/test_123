@@ -1,3 +1,4 @@
+using Libr4.Chat.Application.Abstractions;
 using Libr4.Chat.Application.Files.Commands;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -13,7 +14,7 @@ public static class FileEndpoints
             .RequireAuthorization();
 
         group.MapPost("/upload", async (
-            IFormFile file,
+            [FromForm] IFormFile file,
             IFileStorageService storageService) =>
         {
             if (file == null || file.Length == 0)
@@ -23,7 +24,7 @@ public static class FileEndpoints
 
             try
             {
-                var fileUrl = await storageService.UploadFileAsync(file);
+                var fileUrl = await storageService.UploadFileAsync(file.OpenReadStream(), file.FileName, file.ContentType);
                 return Results.Ok(new { url = fileUrl, fileName = file.FileName, size = file.Length, contentType = file.ContentType });
             }
             catch (Exception ex)

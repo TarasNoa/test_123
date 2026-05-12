@@ -49,7 +49,7 @@ public class Call : AggregateRoot<Guid>
 }
 
 public enum CallType { Audio, Video }
-public enum CallStatus { Ringing, Connected, Ended }
+public enum CallStatus { Scheduled, Ringing, Connected, InProgress, Ended }
 
 public record CallParticipant(Guid UserId, CallParticipantStatus Status);
 public enum CallParticipantStatus { Invited, Connected, Disconnected }

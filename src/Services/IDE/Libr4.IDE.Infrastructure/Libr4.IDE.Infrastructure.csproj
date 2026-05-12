@@ -16,24 +16,24 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Core" Version="8.0.403" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageReference Include="FSharp.Core" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <!-- Neo4j for SemanticBlame (Semantic Git Blame feature) -->
-    <PackageReference Include="Neo4j.Driver" Version="5.15.0" />
+    <PackageReference Include="Neo4j.Driver" />
     <!-- gRPC packages for Rust-C# integration -->
-    <PackageReference Include="Grpc.Net.Client" Version="2.60.0" />
-    <PackageReference Include="Google.Protobuf" Version="3.21.4" />
-    <PackageReference Include="Grpc.Tools" Version="2.60.0">
+    <PackageReference Include="Grpc.Net.Client" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <!-- Override old transitive dependencies -->
-    <PackageReference Include="YamlDotNet" Version="15.1.0" />
-    <PackageReference Include="Polly" Version="8.4.1" />
-    <PackageReference Include="System.Reflection.Metadata" Version="8.0.0" />
-    <PackageReference Include="StackExchange.Redis" Version="2.8.16" />
+    <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="Polly" />
+    <PackageReference Include="System.Reflection.Metadata" />
+    <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
 
   <!-- Protobuf - enabled for Docker build -->

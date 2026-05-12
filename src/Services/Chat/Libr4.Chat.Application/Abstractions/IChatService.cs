@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Libr4.Chat.Domain.Chats;
+using Libr4.Chat.Domain.Messages;
 
 namespace Libr4.Chat.Application.Abstractions;
 
