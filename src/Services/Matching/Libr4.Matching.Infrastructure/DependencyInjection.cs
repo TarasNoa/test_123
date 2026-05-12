@@ -25,7 +25,7 @@ public static class DependencyInjection
         var embeddingsUrl = configuration["Grpc:EmbeddingsUrl"] ?? "http://localhost:50061";
         var crawlerUrl    = configuration["Grpc:CrawlerUrl"]    ?? "http://localhost:50060";
         var qdrantHost    = configuration["Qdrant:Host"]        ?? "localhost";
-        var qdrantPort    = int.Parse(configuration["Qdrant:Port"] ?? "6334");
+        var qdrantPort    = int.Parse(configuration["Qdrant:Port"] ?? "6333");
 
         services.AddSingleton<IVectorIndex>(sp =>
         {
