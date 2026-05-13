@@ -21,6 +21,7 @@ public static class DependencyInjection
             options.UseNpgsql(
                 configuration.GetConnectionString("Postgres"),
                 npgsql => npgsql.MigrationsHistoryTable("__EFMigrationsHistory", "trading"));
+            options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         });
 
         services.AddScoped<ITradingDbContext>(sp => sp.GetRequiredService<TradingDbContext>());

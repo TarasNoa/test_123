@@ -2,7 +2,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 using Libr4.Social.Domain.Network;
+using Libr4.Social.Domain.Events;
+using Libr4.Social.Application.Abstractions;
+using Libr4.Social.Application.EventHandlers;
 using Libr4.Social.Infrastructure.Repositories;
+using Libr4.Shared.Infrastructure.Messaging;
 
 namespace Libr4.Social.Infrastructure;
 

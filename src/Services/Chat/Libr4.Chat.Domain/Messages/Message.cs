@@ -21,6 +21,9 @@ public class Message : Entity<Guid>
     public long? FileSize { get; private set; }
     public Guid? ReplyToMessageId { get; private set; }
     public List<MessageAttachment> Attachments { get; private set; } = new();
+    public float? SentimentScore { get; private set; }
+    public bool? IsConflictDetected { get; private set; }
+    public bool? IsSpam { get; private set; }
 
     private Message() { }
 

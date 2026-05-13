@@ -10,7 +10,7 @@ public static class CodeGraphEndpoints
         var group = app.MapGroup("/api/code-graph")
             .WithTags("Code Graph");
 
-        group.MapGet("/", async (CodeGraphService service) =>
+        group.MapGet("/", async ([FromServices] CodeGraphService service) =>
         {
             return Results.Ok(new
             {
@@ -20,39 +20,39 @@ public static class CodeGraphEndpoints
             });
         });
 
-        group.MapGet("/nodes", (CodeGraphService service) =>
+        group.MapGet("/nodes", ([FromServices] CodeGraphService service) =>
         {
             return Results.Ok(service.GetNodes());
         });
 
-        group.MapGet("/nodes/{type}", (string type, CodeGraphService service) =>
+        group.MapGet("/nodes/{type}", (string type, [FromServices] CodeGraphService service) =>
         {
             return Results.Ok(service.FindNodesByType(type));
         });
 
-        group.MapGet("/nodes/label/{label}", (string label, CodeGraphService service) =>
+        group.MapGet("/nodes/label/{label}", (string label, [FromServices] CodeGraphService service) =>
         {
             return Results.Ok(service.FindNodesByLabel(label));
         });
 
-        group.MapGet("/related/{nodeId}", (string nodeId, CodeGraphService service) =>
+        group.MapGet("/related/{nodeId}", (string nodeId, [FromServices] CodeGraphService service) =>
         {
             return Results.Ok(service.GetRelatedNodes(nodeId));
         });
 
-        group.MapPost("/build", async (CodeGraphService service, [FromBody] BuildGraphRequest request) =>
+        group.MapPost("/build", async ([FromServices] CodeGraphService service, [FromBody] BuildGraphRequest request) =>
         {
             await service.BuildGraphFromDirectory(request.DirectoryPath, request.FileExtensions);
             return Results.Ok(new { message = "Graph built successfully" });
         });
 
-        group.MapPost("/build/file", async (CodeGraphService service, [FromBody] BuildFileRequest request) =>
+        group.MapPost("/build/file", async ([FromServices] CodeGraphService service, [FromBody] BuildFileRequest request) =>
         {
             await service.BuildGraphFromFile(request.FilePath);
             return Results.Ok(new { message = "File added to graph successfully" });
         });
 
-        group.MapDelete("/", (CodeGraphService service) =>
+        group.MapDelete("/", ([FromServices] CodeGraphService service) =>
         {
             service.Clear();
             return Results.Ok(new { message = "Graph cleared" });

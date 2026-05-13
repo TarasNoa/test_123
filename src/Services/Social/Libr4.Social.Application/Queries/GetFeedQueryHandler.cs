@@ -1,9 +1,11 @@
 using Libr4.Shared.Infrastructure.Messaging;
 using Libr4.Shared.Infrastructure.Caching;
+using Libr4.Shared.Kernel.Application;
+using Libr4.Social.Application.Abstractions;
 
 namespace Libr4.Social.Application.Queries;
 
-public class GetFeedQuery
+public class GetFeedQuery : IQuery<List<UserPostDto>>
 {
     public Guid UserId { get; set; }
     public int Skip { get; set; } = 0;
@@ -21,13 +23,13 @@ public class GetFeedQueryHandler : IQueryHandler<GetFeedQuery, List<UserPostDto>
         _cache = cache;
     }
 
-    public async Task<List<UserPostDto>> Handle(GetFeedQuery query)
+    public async Task<List<UserPostDto>> HandleAsync(GetFeedQuery query, CancellationToken cancellationToken)
     {
         var cacheKey = $"feed:{query.UserId}:{query.Skip}:{query.Take}";
 
         return await _cache.GetOrSetAsync(cacheKey, async () =>
         {
-            var network = await _repository.GetByUserIdAsync(query.UserId);
+            var network = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
             if (network == null)
                 return new List<UserPostDto>();
 
@@ -42,7 +44,7 @@ public class GetFeedQueryHandler : IQueryHandler<GetFeedQuery, List<UserPostDto>
             // Add posts from following
             foreach (var followingId in network.Following)
             {
-                var followingNetwork = await _repository.GetByUserIdAsync(followingId);
+                var followingNetwork = await _repository.GetByUserIdAsync(followingId, cancellationToken);
                 if (followingNetwork != null)
                 {
                     foreach (var post in followingNetwork.Posts)

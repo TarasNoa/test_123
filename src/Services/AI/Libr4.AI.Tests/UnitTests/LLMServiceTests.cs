@@ -1,18 +1,29 @@
-// Улучшить тесты с NSubstitute
+using Libr4.AI.Application;
+using Libr4.AI.Application.Abstractions;
+using Libr4.Shared.Kernel.Results;
+using Microsoft.Extensions.Configuration;
 using NSubstitute;
+
+namespace Libr4.AI.Tests.UnitTests;
 
 public class LLMServiceTests
 {
     [Fact]
-    public async Task GenerateCodeAsync_RetriesOnFailure()
+    public async Task GenerateCodeAsync_UsesPrimaryProvider()
     {
+        var factoryMock = Substitute.For<ILLMProviderFactory>();
         var providerMock = Substitute.For<ILLMProvider>();
-        providerMock.GenerateTextAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<string>(new Exception("API Error")));
+        factoryMock.GetProvider(Arg.Any<string>()).Returns(providerMock);
 
-        var service = new LLMService(providerMock, Substitute.For<ILLMProvider>());
+        var config = new ConfigurationBuilder().Build();
+        var service = new LLMService(factoryMock, config);
 
-        await Assert.ThrowsAsync<Exception>(() => service.GenerateCodeAsync("test"));
-        await providerMock.Received(3).GenerateTextAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()); // 2 retries + 1 initial
+        providerMock.CompleteAsync(Arg.Any<ChatCompletionRequest>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success(new ChatCompletionResponse("code", 10))));
+
+        var result = await service.GenerateCodeAsync("test");
+
+        Assert.NotNull(result);
+        await providerMock.Received(1).CompleteAsync(Arg.Any<ChatCompletionRequest>(), Arg.Any<CancellationToken>());
     }
 }

@@ -3,7 +3,7 @@ namespace Libr4.AI.Domain.Agents.Algorithms
 open System
 open System.Text.Json
 open Libr4.AI.Domain.Agents
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Agent Capability Matcher
 module AgentCapabilityMatcher =

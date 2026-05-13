@@ -2,7 +2,7 @@ namespace Libr4.Social.Domain.CommunityStats.Algorithms
 
 open System
 open System.Text.Json
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 open Libr4.Social.Domain.CommunityStats
 
 // Engagement Calculator

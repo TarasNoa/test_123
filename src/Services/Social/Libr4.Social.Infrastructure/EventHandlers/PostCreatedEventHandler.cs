@@ -1,3 +1,4 @@
+using Libr4.Social.Domain.Events;
 using Libr4.Social.Domain.Network;
 using Libr4.Shared.Infrastructure.Messaging;
 using Microsoft.Extensions.Logging;
@@ -15,7 +16,7 @@ public class PostCreatedEventHandler : IEventHandler<PostCreatedEvent>
 
     public async Task Handle(PostCreatedEvent @event)
     {
-        _logger.LogInformation($"Post created event handled: {@event.PostId} by user {@event.UserId}");
+        _logger.LogInformation($"Post created event handled: {@event.PostId} in network {@event.NetworkId}");
         // Notify followers, update analytics, etc.
         await Task.CompletedTask;
     }

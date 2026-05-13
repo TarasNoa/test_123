@@ -1,5 +1,7 @@
 using Libr4.Social.Application.Abstractions;
 using Libr4.Social.Application.Commands;
+using Libr4.Social.Application.Queries;
+using Libr4.Shared.Kernel.Application;
 using Libr4.Shared.Infrastructure.Messaging;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -207,10 +209,10 @@ public static class SocialEndpointsV2
     }
 
     private static async Task<IResult> GetFollowers(
-        [FromQuery] int skip = 0,
-        [FromQuery] int take = 50,
         HttpContext context,
-        IQueryBus queryBus)
+        IQueryBus queryBus,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 50)
     {
         var userId = GetUserId(context);
         var query = new GetFollowersQuery { UserId = userId, Skip = skip, Take = take };
@@ -219,10 +221,10 @@ public static class SocialEndpointsV2
     }
 
     private static async Task<IResult> GetFollowing(
-        [FromQuery] int skip = 0,
-        [FromQuery] int take = 50,
         HttpContext context,
-        IQueryBus queryBus)
+        IQueryBus queryBus,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 50)
     {
         var userId = GetUserId(context);
         var query = new GetFollowingQuery { UserId = userId, Skip = skip, Take = take };
@@ -262,10 +264,10 @@ public static class SocialEndpointsV2
     }
 
     private static async Task<IResult> GetUserPosts(
-        [FromQuery] int skip = 0,
-        [FromQuery] int take = 20,
         HttpContext context,
-        IQueryBus queryBus)
+        IQueryBus queryBus,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 20)
     {
         var userId = GetUserId(context);
         var query = new GetUserPostsQuery { UserId = userId, Skip = skip, Take = take };
@@ -354,10 +356,10 @@ public static class SocialEndpointsV2
     }
 
     private static async Task<IResult> GetFeed(
-        [FromQuery] int skip = 0,
-        [FromQuery] int take = 20,
         HttpContext context,
-        IQueryBus queryBus)
+        IQueryBus queryBus,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 20)
     {
         var userId = GetUserId(context);
         var query = new GetFeedQuery { UserId = userId, Skip = skip, Take = take };
@@ -366,10 +368,10 @@ public static class SocialEndpointsV2
     }
 
     private static async Task<IResult> GetActivityFeed(
-        [FromQuery] int skip = 0,
-        [FromQuery] int take = 50,
         HttpContext context,
-        IQueryBus queryBus)
+        IQueryBus queryBus,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 50)
     {
         var userId = GetUserId(context);
         var query = new GetActivityFeedQuery { UserId = userId, Skip = skip, Take = take };
@@ -378,9 +380,9 @@ public static class SocialEndpointsV2
     }
 
     private static async Task<IResult> GetRecommendedConnections(
-        [FromQuery] int topN = 10,
         HttpContext context,
-        IQueryBus queryBus)
+        IQueryBus queryBus,
+        [FromQuery] int topN = 10)
     {
         var userId = GetUserId(context);
         var query = new GetRecommendedConnectionsQuery { UserId = userId, TopN = topN };
@@ -389,11 +391,11 @@ public static class SocialEndpointsV2
     }
 
     private static async Task<IResult> SearchUsers(
+        HttpContext context,
+        IQueryBus queryBus,
         [FromQuery] string q,
         [FromQuery] int skip = 0,
-        [FromQuery] int take = 20,
-        HttpContext context,
-        IQueryBus queryBus)
+        [FromQuery] int take = 20)
     {
         var userId = GetUserId(context);
         var query = new SearchUsersQuery { UserId = userId, SearchTerm = q, Skip = skip, Take = take };
@@ -429,11 +431,3 @@ public static class SocialEndpointsV2
         return Guid.Parse(userIdClaim);
     }
 }
-
-public record CommentRequest(string Text);
-public record ShareRequest(string? PersonalMessage);
-public record CreatePostRequest(string Content, List<string>? Tags, List<string>? AttachmentUrls);
-public record UpdateProfileRequest(string Name, string? Bio, string? ProfileImageUrl, string? Location);
-public record UserSearchResultDto(Guid UserId, string Name, string? ProfileImageUrl, int FollowerCount);
-public record ProfileAnalyticsDto(int PostCount, int FollowerCount, int FollowingCount, double EngagementRate);
-public record PostsAnalyticsDto(int TotalPosts, int TotalLikes, int TotalComments, int TotalShares, double AverageEngagement);

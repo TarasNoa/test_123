@@ -1,4 +1,4 @@
-﻿namespace Libr4.AI.Domain.RAGSearch.FSharp
+namespace Libr4.AI.Domain.RAGSearch.FSharp
 
 open System
 

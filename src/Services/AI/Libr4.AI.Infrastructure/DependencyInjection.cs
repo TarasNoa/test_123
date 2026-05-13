@@ -2,6 +2,7 @@ using MassTransit;
 using Microsoft.Extensions.Logging;
 using Libr4.Shared.Infrastructure.Messaging;
 using Libr4.Shared.Kernel.Application;
+using Libr4.AI.Application;
 using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Application.Agents;
 using Libr4.AI.Infrastructure.LLM;
@@ -101,6 +102,7 @@ public static class DependencyInjection
         services.AddSingleton<AIProviderFactory>();
         services.AddSingleton<LlmCircuitBreaker>();
         services.AddScoped<IAIService, AIService>();
+        services.AddScoped<ILLMService, LLMService>();
 
         // Hooks
         services.AddScoped<HumanizerHook>();

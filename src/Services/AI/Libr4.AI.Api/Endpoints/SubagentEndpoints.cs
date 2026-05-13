@@ -11,42 +11,42 @@ public static class SubagentEndpoints
         var group = app.MapGroup("/api/subagents")
             .WithTags("Subagents");
 
-        group.MapGet("/definitions", (SubagentService service) =>
+        group.MapGet("/definitions", ([FromServices] SubagentService service) =>
         {
             return Results.Ok(service.GetAllSubagents());
         });
 
-        group.MapGet("/definitions/{id}", (string id, SubagentService service) =>
+        group.MapGet("/definitions/{id}", (string id, [FromServices] SubagentService service) =>
         {
             var subagent = service.GetSubagent(id);
             return subagent is not null ? Results.Ok(subagent) : Results.NotFound();
         });
 
-        group.MapGet("/definitions/category/{category}", (SubagentCategory category, SubagentService service) =>
+        group.MapGet("/definitions/category/{category}", (SubagentCategory category, [FromServices] SubagentService service) =>
         {
             return Results.Ok(service.GetSubagentsByCategory(category));
         });
 
         group.MapPost("/instances", (
             [FromBody] CreateInstanceRequest request,
-            SubagentService service) =>
+            [FromServices] SubagentService service) =>
         {
             var instance = service.CreateSubagentInstance(request.SubagentId, request.ParentAgentId);
             return Results.Ok(instance);
         });
 
-        group.MapGet("/instances/{instanceId}", (Guid instanceId, SubagentService service) =>
+        group.MapGet("/instances/{instanceId}", (Guid instanceId, [FromServices] SubagentService service) =>
         {
             var instance = service.GetSubagentInstance(instanceId);
             return instance is not null ? Results.Ok(instance) : Results.NotFound();
         });
 
-        group.MapGet("/instances/parent/{parentAgentId}", (Guid parentAgentId, SubagentService service) =>
+        group.MapGet("/instances/parent/{parentAgentId}", (Guid parentAgentId, [FromServices] SubagentService service) =>
         {
             return Results.Ok(service.GetInstancesByParentAgent(parentAgentId));
         });
 
-        group.MapPost("/instances/{instanceId}/usage", (Guid instanceId, SubagentService service) =>
+        group.MapPost("/instances/{instanceId}/usage", (Guid instanceId, [FromServices] SubagentService service) =>
         {
             service.UpdateInstanceUsage(instanceId);
             return Results.Ok();
@@ -54,7 +54,7 @@ public static class SubagentEndpoints
 
         group.MapPost("/route", (
             [FromBody] RouteRequest request,
-            SubagentService service) =>
+            [FromServices] SubagentService service) =>
         {
             var subagent = service.FindBestSubagentForTask(request.Task, request.Context);
             var modelTier = service.DetermineModelTier(request.Task, request.Context);

@@ -1,9 +1,11 @@
 using Libr4.Shared.Infrastructure.Messaging;
 using Libr4.Shared.Infrastructure.Caching;
+using Libr4.Shared.Kernel.Application;
+using Libr4.Social.Application.Abstractions;
 
 namespace Libr4.Social.Application.Queries;
 
-public class GetUserPostsQuery
+public class GetUserPostsQuery : IQuery<List<UserPostDto>>
 {
     public Guid UserId { get; set; }
     public int Skip { get; set; } = 0;
@@ -21,13 +23,13 @@ public class GetUserPostsQueryHandler : IQueryHandler<GetUserPostsQuery, List<Us
         _cache = cache;
     }
 
-    public async Task<List<UserPostDto>> Handle(GetUserPostsQuery query)
+    public async Task<List<UserPostDto>> HandleAsync(GetUserPostsQuery query, CancellationToken cancellationToken)
     {
         var cacheKey = $"user_posts:{query.UserId}";
 
         return await _cache.GetOrSetAsync(cacheKey, async () =>
         {
-            var network = await _repository.GetByUserIdAsync(query.UserId);
+            var network = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
             if (network == null)
                 return new List<UserPostDto>();
 

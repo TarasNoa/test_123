@@ -117,6 +117,14 @@ app.MapPrometheusScrapingEndpoint();
 
 // API Endpoints
 app.MapAgentEndpoints();
+app.MapSubagentEndpoints();
+app.MapReactionEndpoints();
+app.MapRouterEndpoints();
+app.MapCodeGraphEndpoints();
+app.MapLLMEndpoints();
+app.MapOrchestrationEndpoints();
+app.MapExecutorEndpoints();
+app.MapMultiProviderEndpoints();
 app.MapOrderAssistantEndpoints();
 app.MapTaskRecommendationEndpoints();
 app.MapTranslationEndpoints();
@@ -135,3 +143,5 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+public partial class Program { }

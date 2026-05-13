@@ -3,7 +3,7 @@ namespace Libr4.Chat.Domain.ChatsCollaboration.Algorithms
 open System
 open System.Text.Json
 open Libr4.Chat.Domain.ChatsCollaboration
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Conflict Resolution Engine
 module ConflictResolutionEngine =

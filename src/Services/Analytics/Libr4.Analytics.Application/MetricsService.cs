@@ -1,6 +1,7 @@
 using Libr4.Analytics.Application.Abstractions;
 using Libr4.Analytics.Domain.Metrics;
 using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
 namespace Libr4.Analytics.Application;

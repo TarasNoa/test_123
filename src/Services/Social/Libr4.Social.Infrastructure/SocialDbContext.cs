@@ -38,11 +38,6 @@ public class SocialDbContext : DbContext
                     cnav.HasKey("Id");
                     cnav.Property(c => c.Text).IsRequired();
                 });
-
-                nav.OwnsMany(p => p.Likes, lnav =>
-                {
-                    lnav.HasKey("Id");
-                });
             });
 
             entity.OwnsOne(e => e.Profile, nav =>

@@ -1,4 +1,6 @@
 using Libr4.Shared.Infrastructure.Messaging;
+using Libr4.Shared.Infrastructure.Events;
+using Libr4.Social.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace Libr4.Social.Application.Commands;

@@ -77,7 +77,7 @@ module SocialGraphAlgorithms =
                 acc
         ) []
         |> List.sortByDescending (fun (_, count) -> count)
-        |> List.take (min topN (List.length connectionsMap))
+        |> List.take (min topN (connectionsMap |> Map.count))
 
     /// Detect influencers in the network
     let detectInfluencers (users: UserNode list) (threshold: float) : UserNode list =

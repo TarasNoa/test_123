@@ -3,7 +3,7 @@ namespace Libr4.Chat.Domain.Algorithms
 open System
 open System.Text.Json
 open Libr4.Chat.Domain.Messages
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Message Content Analyzer
 module MessageContentAnalyzer =
@@ -317,6 +317,15 @@ and [<CLIMutable>] MessageReaction =
     { Emoji: string
       UserIds: Guid list }
 
+type MessageStats = {
+    TotalMessages: int
+    MessagesWithAttachments: int
+    AverageLength: float
+    ThreadedMessages: int
+}
+
+type CodeBlock = { Language: string; Code: string }
+
 module MessageAlgorithms =
 
     let filterMessagesByDate (messages: MessageData list) (from: DateTimeOffset) (to_: DateTimeOffset) =
@@ -353,5 +362,3 @@ module MessageAlgorithms =
 
     let detectModerationIssues (message: MessageData) (bannedWords: string list) =
         bannedWords |> List.filter (fun word -> message.Content.ToLower().Contains(word.ToLower()))
-
-type CodeBlock = { Language: string; Code: string }

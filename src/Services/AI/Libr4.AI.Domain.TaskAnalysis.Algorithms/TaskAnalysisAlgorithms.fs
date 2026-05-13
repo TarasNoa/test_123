@@ -3,7 +3,7 @@ namespace Libr4.AI.Domain.TaskAnalysis.Algorithms
 open System
 open System.Text.Json
 open Libr4.AI.Domain.TaskAnalysis
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Complexity Calculator
 module ComplexityCalculator =

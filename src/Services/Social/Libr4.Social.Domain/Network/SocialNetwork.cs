@@ -113,21 +113,23 @@ public class SocialProfile : AggregateRoot<Guid>
 public class SocialConnection : Entity<Guid>
 {
     public Guid ProfileId { get; private set; }
-    public Guid ConnectedProfileId { get; private set; }
+    public Guid ConnectedUserId { get; private set; }
     public ConnectionType Type { get; private set; }
+    public string? Note { get; private set; }
     public DateTime ConnectedAt { get; private set; }
     public bool IsActive { get; private set; }
 
     private SocialConnection() { }
 
-    public static SocialConnection Create(Guid profileId, Guid connectedProfileId, ConnectionType type)
+    public static SocialConnection Create(Guid profileId, Guid connectedUserId, ConnectionType type, string? note = null)
     {
         return new SocialConnection
         {
             Id = Guid.NewGuid(),
             ProfileId = profileId,
-            ConnectedProfileId = connectedProfileId,
+            ConnectedUserId = connectedUserId,
             Type = type,
+            Note = note,
             ConnectedAt = DateTime.UtcNow,
             IsActive = true
         };
@@ -255,7 +257,7 @@ public class SocialNetwork : AggregateRoot<Guid>
     public List<SocialConnection> Connections { get; private set; } = new();
     public List<Guid> Followers { get; private set; } = new();
     public List<Guid> Following { get; private set; } = new();
-    public UserProfile Profile { get; private set; } = new();
+    public UserProfile Profile { get; private set; } = new UserProfile("", null, null, null);
     public List<UserPost> Posts { get; private set; } = new();
     public List<UserActivity> ActivityFeed { get; private set; } = new();
     public DateTime CreatedAt { get; private set; }
@@ -280,7 +282,7 @@ public class SocialNetwork : AggregateRoot<Guid>
         if (Connections.Any(c => c.ConnectedUserId == connectedUserId))
             return;
 
-        var connection = new SocialConnection(Guid.NewGuid(), connectedUserId, type, note, DateTime.UtcNow);
+        var connection = SocialConnection.Create(Id, connectedUserId, type, note);
         Connections.Add(connection);
 
         if (type == ConnectionType.Following)
@@ -389,10 +391,7 @@ public class SocialNetwork : AggregateRoot<Guid>
     }
 }
 
-public enum ConnectionType { Friend, Following, Colleague, Blocked }
 public enum ActivityType { PostCreated, PostDeleted, PostShared, PostLiked, Follow, Unfollow, CommentedOnPost }
-
-public record SocialConnection(Guid Id, Guid ConnectedUserId, ConnectionType Type, string? Note, DateTime ConnectedAt);
 
 public record UserProfile(string Name, string? Bio, string? ProfileImageUrl, string? Location);
 

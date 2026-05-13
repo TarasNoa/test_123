@@ -1,4 +1,4 @@
-﻿namespace Libr4.AI.Domain.Memory.FSharp
+namespace Libr4.AI.Domain.Memory.FSharp
 
 module MemoryErrors =
     type MemoryError =

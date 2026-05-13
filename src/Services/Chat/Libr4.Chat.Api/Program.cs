@@ -73,6 +73,7 @@ app.MapCodeShareEndpoints();
 app.MapMessageEndpoints();
 app.MapNotificationEndpoints();
 app.MapFileEndpoints();
+app.MapCallEndpoints();
 app.MapHub<ChatHub>("/chatHub");
 
 // Ensure database is created for E2E testing

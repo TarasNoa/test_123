@@ -16,7 +16,7 @@ public class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.Property(m => m.SenderId);
 
         builder.Property(m => m.Content)
-            .HasMaxLength(4000);
+            .HasMaxLength(100000);
 
         builder.Property(m => m.Type)
             .HasConversion<string>()

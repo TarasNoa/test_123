@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Libr4.Social.Domain.Network;
 
 namespace Libr4.Social.Application.Abstractions;
 
@@ -43,6 +44,8 @@ public record UserActivityDto(string Description, DateTime Timestamp, ActivityTy
 public record CreatePostRequest(string Content, List<string>? Tags, List<string>? AttachmentUrls);
 public record UpdateProfileRequest(string Name, string? Bio, string? ProfileImageUrl, string? Location);
 public record AddConnectionRequest(Guid ConnectedUserId, ConnectionType Type, string? Note);
+public record CommentRequest(string Text);
+public record ShareRequest(string? PersonalMessage);
 
 public interface ISocialNetworkService
 {

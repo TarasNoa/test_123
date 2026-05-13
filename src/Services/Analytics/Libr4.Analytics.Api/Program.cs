@@ -2,6 +2,7 @@ using Libr4.Analytics.Api.Endpoints;
 using Libr4.Analytics.Application;
 using Libr4.Analytics.Application.Abstractions;
 using Libr4.Analytics.Infrastructure;
+using Libr4.Shared.Infrastructure;
 using Libr4.Shared.Web.Auth;
 using Libr4.Shared.Web.HealthChecks;
 using Libr4.Shared.Web.Logging;
@@ -10,6 +11,7 @@ using Libr4.Shared.Web.Swagger;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddLibr4Logging();
+builder.Services.AddSharedInfrastructure(builder.Configuration);
 builder.Services.AddAnalyticsApplication();
 builder.Services.AddAnalyticsInfrastructure(builder.Configuration);
 

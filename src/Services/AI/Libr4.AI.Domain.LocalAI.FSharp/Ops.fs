@@ -1,4 +1,4 @@
-﻿namespace Libr4.AI.Domain.LocalAI.FSharp
+namespace Libr4.AI.Domain.LocalAI.FSharp
 
 open System
 

@@ -177,7 +177,7 @@ public static class SocialNetworkEndpoints
         return Results.Ok(new { message = "Post deleted" });
     }
 
-    private static async Task<IResult> GetUserPosts([FromQuery] int skip = 0, [FromQuery] int take = 20, HttpContext context, ISocialNetworkService service)
+    private static async Task<IResult> GetUserPosts(HttpContext context, ISocialNetworkService service, [FromQuery] int skip = 0, [FromQuery] int take = 20)
     {
         var userId = Guid.Parse(context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException());
         var posts = await service.GetUserPostsAsync(userId, skip, take);
@@ -219,27 +219,24 @@ public static class SocialNetworkEndpoints
         return Results.Ok(new { message = "Post shared" });
     }
 
-    private static async Task<IResult> GetFeed([FromQuery] int skip = 0, [FromQuery] int take = 20, HttpContext context, ISocialNetworkService service)
+    private static async Task<IResult> GetFeed(HttpContext context, ISocialNetworkService service, [FromQuery] int skip = 0, [FromQuery] int take = 20)
     {
         var userId = Guid.Parse(context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException());
         var feed = await service.GetFeedAsync(userId, skip, take);
         return Results.Ok(new { feed });
     }
 
-    private static async Task<IResult> GetActivityFeed([FromQuery] int skip = 0, [FromQuery] int take = 50, HttpContext context, ISocialNetworkService service)
+    private static async Task<IResult> GetActivityFeed(HttpContext context, ISocialNetworkService service, [FromQuery] int skip = 0, [FromQuery] int take = 50)
     {
         var userId = Guid.Parse(context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException());
         var activities = await service.GetActivityFeedAsync(userId, skip, take);
         return Results.Ok(new { activities });
     }
 
-    private static async Task<IResult> GetRecommendedConnections([FromQuery] int topN = 10, HttpContext context, ISocialNetworkService service)
+    private static async Task<IResult> GetRecommendedConnections(HttpContext context, ISocialNetworkService service, [FromQuery] int topN = 10)
     {
         var userId = Guid.Parse(context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException());
         var recommendations = await service.GetRecommendedConnectionsAsync(userId, topN);
         return Results.Ok(new { recommendations });
     }
 }
-
-public record CommentRequest(string Text);
-public record ShareRequest(string? PersonalMessage);

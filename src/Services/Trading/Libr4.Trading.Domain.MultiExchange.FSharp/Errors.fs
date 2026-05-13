@@ -1,4 +1,4 @@
-﻿namespace Libr4.Trading.Domain.MultiExchange.FSharp
+namespace Libr4.Trading.Domain.MultiExchange.FSharp
 
 module ExchangeErrors =
     type ExchangeError =

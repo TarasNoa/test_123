@@ -1,4 +1,6 @@
 using Libr4.Shared.Infrastructure.Messaging;
+using Libr4.Shared.Infrastructure.Events;
+using Libr4.Social.Application.Abstractions;
 using Libr4.Social.Domain.Network;
 using Microsoft.Extensions.Logging;
 

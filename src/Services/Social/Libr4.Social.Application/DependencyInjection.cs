@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Libr4.Social.Application.Abstractions;
 using Libr4.Social.Application.Commands;
 using Libr4.Social.Application.Queries;
+using Libr4.Social.Application.EventHandlers;
+using Libr4.Social.Domain.Events;
 using Libr4.Shared.Infrastructure.Messaging;
 using MediatR;
 
@@ -19,10 +21,14 @@ public static class DependencyInjection
         services.AddScoped<ICommandHandler<FollowUserCommand>, FollowUserCommandHandler>();
         services.AddScoped<ICommandHandler<UnfollowUserCommand>, UnfollowUserCommandHandler>();
         services.AddScoped<ICommandHandler<LikePostCommand>, LikePostCommandHandler>();
+        services.AddScoped<ICommandHandler<UnlikePostCommand>, UnlikePostCommandHandler>();
         services.AddScoped<ICommandHandler<CommentOnPostCommand>, CommentOnPostCommandHandler>();
         services.AddScoped<ICommandHandler<SharePostCommand>, SharePostCommandHandler>();
         services.AddScoped<ICommandHandler<UpdateProfileCommand>, UpdateProfileCommandHandler>();
         services.AddScoped<ICommandHandler<AddConnectionCommand>, AddConnectionCommandHandler>();
+        services.AddScoped<ICommandHandler<RemoveConnectionCommand>, RemoveConnectionCommandHandler>();
+        services.AddScoped<ICommandHandler<DeletePostCommand>, DeletePostCommandHandler>();
+        services.AddScoped<ICommandHandler<DeleteCommentCommand>, DeleteCommentCommandHandler>();
 
         // Query Handlers
         services.AddScoped<IQueryHandler<GetUserPostsQuery, List<UserPostDto>>, GetUserPostsQueryHandler>();
@@ -31,6 +37,12 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetFeedQuery, List<UserPostDto>>, GetFeedQueryHandler>();
         services.AddScoped<IQueryHandler<GetActivityFeedQuery, List<UserActivityDto>>, GetActivityFeedQueryHandler>();
         services.AddScoped<IQueryHandler<GetRecommendedConnectionsQuery, List<SocialNetworkDto>>, GetRecommendedConnectionsQueryHandler>();
+        services.AddScoped<IQueryHandler<GetFollowersQuery, List<SocialNetworkDto>>, GetFollowersQueryHandler>();
+        services.AddScoped<IQueryHandler<GetFollowingQuery, List<SocialNetworkDto>>, GetFollowingQueryHandler>();
+        services.AddScoped<IQueryHandler<GetPostDetailQuery, PostDetailDto>, GetPostDetailQueryHandler>();
+        services.AddScoped<IQueryHandler<SearchUsersQuery, List<UserSearchResultDto>>, SearchUsersQueryHandler>();
+        services.AddScoped<IQueryHandler<GetProfileAnalyticsQuery, ProfileAnalyticsDto>, GetProfileAnalyticsQueryHandler>();
+        services.AddScoped<IQueryHandler<GetPostsAnalyticsQuery, PostsAnalyticsDto>, GetPostsAnalyticsQueryHandler>();
 
         // Event Handlers
         services.AddScoped<IEventHandler<PostCreatedEvent>, PostCreatedEventHandler>();

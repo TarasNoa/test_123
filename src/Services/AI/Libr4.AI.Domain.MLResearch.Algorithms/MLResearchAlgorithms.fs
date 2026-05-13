@@ -3,7 +3,7 @@ namespace Libr4.AI.Domain.MLResearch.Algorithms
 open System
 open System.Text.Json
 open Libr4.AI.Domain.MLResearch
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Paper Recommender
 module PaperRecommender =

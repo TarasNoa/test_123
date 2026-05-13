@@ -27,7 +27,7 @@ public class SendMessageValidator : AbstractValidator<SendMessageCommand>
     {
         RuleFor(x => x.ChatId).NotEmpty();
         RuleFor(x => x.Content)
-            .MaximumLength(4000)
+            .MaximumLength(100000)
             .When(x => x.Type == MessageType.Text);
         RuleFor(x => x.FileUrl)
             .NotEmpty()

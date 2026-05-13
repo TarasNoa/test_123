@@ -1,4 +1,4 @@
-﻿namespace Libr4.AI.Domain.MLModels.FSharp
+namespace Libr4.AI.Domain.MLModels.FSharp
 
 open System
 

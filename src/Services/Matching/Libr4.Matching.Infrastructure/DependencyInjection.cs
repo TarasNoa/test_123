@@ -34,15 +34,8 @@ public static class DependencyInjection
             return new QdrantRestVectorIndex(http, logger);
         });
 
-        services.AddSingleton<IEmbeddingService>(sp =>
-        {
-            var channel = GrpcChannel.ForAddress(embeddingsUrl, new GrpcChannelOptions
-            {
-                HttpHandler = new System.Net.Http.SocketsHttpHandler { EnableMultipleHttp2Connections = true },
-            });
-            var logger  = sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<RustEmbeddingsGrpcClient>>();
-            return new RustEmbeddingsGrpcClient(channel, logger);
-        });
+        // Use simple local embedding service for E2E/testing (no external gRPC dependency)
+        services.AddSingleton<IEmbeddingService, SimpleEmbeddingService>();
 
         services.AddSingleton<ICrawlerService>(sp =>
         {

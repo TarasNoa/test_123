@@ -44,7 +44,16 @@ Score rules: 0-25 Beginner, 26-50 Intermediate, 51-75 Advanced, 76-100 Expert.
 Be precise and realistic based on the experience described.
 """;
 
-        var aiResponse = await _aiService.AnalyzeTextAsync(combinedText, "cv-analysis", systemPrompt);
+        string aiResponse;
+        try
+        {
+            aiResponse = await _aiService.AnalyzeTextAsync(combinedText, "cv-analysis", systemPrompt);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "AI service failed, falling back to heuristic parsing");
+            return HeuristicParse(request, combinedText);
+        }
 
         JsonDocument doc;
         try

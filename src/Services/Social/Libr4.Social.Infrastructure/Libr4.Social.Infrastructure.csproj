@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Libr4.Social.Domain\Libr4.Social.Domain.csproj" />
+    <ProjectReference Include="..\Libr4.Social.Application\Libr4.Social.Application.csproj" />
     <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Infrastructure\Libr4.Shared.Infrastructure.csproj" />
   </ItemGroup>

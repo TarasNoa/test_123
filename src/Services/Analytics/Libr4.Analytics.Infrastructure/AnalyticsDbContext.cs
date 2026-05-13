@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Libr4.Analytics.Domain.Metrics;
 using Libr4.Analytics.Domain.Dashboards;
 using Libr4.Analytics.Domain.Alerts;

@@ -58,6 +58,11 @@ public static class DependencyInjection
         // Code snippets
         services.AddScoped<ICodeSnippetService, CodeSnippetService>();
 
+        // Repositories
+        services.AddScoped<ICallRepository, CallRepository>();
+        services.AddScoped<IChatRepository, ChatRepository>();
+        services.AddScoped<IMessageRepository, MessageRepository>();
+
         // File storage (local disk for dev)
         services.AddSingleton<IFileStorageService, LocalFileStorageService>();
 

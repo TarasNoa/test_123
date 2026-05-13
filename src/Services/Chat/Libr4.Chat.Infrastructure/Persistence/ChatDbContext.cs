@@ -18,6 +18,7 @@ public class ChatDbContext : DbContext, IChatDbContext
     public DbSet<ChatMember> ChatMembers => Set<ChatMember>();
     public DbSet<Server> Servers => Set<Server>();
     public DbSet<CodeSnippet> CodeSnippets => Set<CodeSnippet>();
+    public DbSet<Call> Calls => Set<Call>();
 
     public ChatDbContext(DbContextOptions<ChatDbContext> options) : base(options)
     {

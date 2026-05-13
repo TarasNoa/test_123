@@ -1,9 +1,11 @@
 using Libr4.Shared.Infrastructure.Messaging;
 using Libr4.Shared.Infrastructure.Caching;
+using Libr4.Shared.Kernel.Application;
+using Libr4.Social.Application.Abstractions;
 
 namespace Libr4.Social.Application.Queries;
 
-public class GetUserProfileQuery
+public class GetUserProfileQuery : IQuery<UserProfileDto>
 {
     public Guid UserId { get; set; }
 }
@@ -19,13 +21,13 @@ public class GetUserProfileQueryHandler : IQueryHandler<GetUserProfileQuery, Use
         _cache = cache;
     }
 
-    public async Task<UserProfileDto> Handle(GetUserProfileQuery query)
+    public async Task<UserProfileDto> HandleAsync(GetUserProfileQuery query, CancellationToken cancellationToken)
     {
         var cacheKey = $"profile:{query.UserId}";
 
         return await _cache.GetOrSetAsync(cacheKey, async () =>
         {
-            var network = await _repository.GetByUserIdAsync(query.UserId);
+            var network = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
             if (network == null)
                 throw new InvalidOperationException("User not found");
 

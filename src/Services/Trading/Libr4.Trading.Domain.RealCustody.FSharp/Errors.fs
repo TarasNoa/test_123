@@ -1,4 +1,4 @@
-﻿namespace Libr4.Trading.Domain.RealCustody.FSharp
+namespace Libr4.Trading.Domain.RealCustody.FSharp
 
 module CustodyErrors =
     type CustodyError =

@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Infrastructure.AI;
 using Libr4.AI.Infrastructure.AI.Providers;
 

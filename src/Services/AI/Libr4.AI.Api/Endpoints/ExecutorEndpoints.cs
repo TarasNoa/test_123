@@ -12,7 +12,7 @@ public static class ExecutorEndpoints
 
         group.MapPost("/execute", async (
             [FromBody] ExecuteRequest request,
-            SandboxExecutorService service) =>
+            [FromServices] SandboxExecutorService service) =>
         {
             try
             {

@@ -39,6 +39,12 @@ public class Agent : AggregateRoot<Guid>
 
     private Agent() { } // EF Core
 
+    public static Agent Create(string name, string description, string systemPrompt, string model = "gpt-4")
+    {
+        var agent = new Agent(Guid.NewGuid(), name, description, AgentType.Chat, systemPrompt, model);
+        return agent;
+    }
+
     public Agent(
         Guid id,
         string name,

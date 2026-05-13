@@ -1,6 +1,6 @@
 using System;
 using Libr4.Shared.Kernel.Domain;
-using Libr4.Analytics.Domain.Alerts.Events;
+using Libr4.Analytics.Domain.Events;
 
 namespace Libr4.Analytics.Domain.Alerts;
 
