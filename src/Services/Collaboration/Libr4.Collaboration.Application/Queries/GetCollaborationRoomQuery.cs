@@ -39,16 +39,16 @@ public class GetCollaborationRoomQueryHandler : IRequestHandler<GetCollaboration
         {
             Id = room.Id,
             Name = room.Name,
-            RoomType = room.RoomType.ToString(),
+            RoomType = room.Type.ToString(),
             CreatorId = room.CreatorId,
             TaskId = room.TaskId,
             Description = room.Description,
             IsPublic = room.IsPublic,
-            MaxParticipants = room.MaxParticipants,
-            Settings = room.Settings,
+            MaxParticipants = room.Settings.MaxParticipants,
+            Settings = new Dictionary<string, object>(),
             Status = room.Status.ToString(),
-            CreatedAt = room.CreatedAt,
-            UpdatedAt = room.UpdatedAt,
+            CreatedAt = room.CreatedAt.DateTime,
+            UpdatedAt = room.UpdatedAt.DateTime,
             Participants = room.Sessions.Where(s => s.IsActive).Select(s => new ParticipantDto
             {
                 UserId = s.UserId,
@@ -56,7 +56,7 @@ public class GetCollaborationRoomQueryHandler : IRequestHandler<GetCollaboration
                 JoinedAt = s.JoinedAt
             }).ToList(),
             MessageCount = room.Messages.Count,
-            ActiveVideoCall = room.VideoCalls.FirstOrDefault(v => v.IsActive()) != null
+            ActiveVideoCall = room.VideoCalls.FirstOrDefault(v => v.Status == VideoCallStatus.InProgress) != null
         };
 
         return dto;

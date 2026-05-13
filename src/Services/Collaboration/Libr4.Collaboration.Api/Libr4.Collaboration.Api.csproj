@@ -14,6 +14,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Libr4.Collaboration.Application\Libr4.Collaboration.Application.csproj" />
+    <ProjectReference Include="..\Libr4.Collaboration.Infrastructure\Libr4.Collaboration.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Web\Libr4.Shared.Web.csproj" />
   </ItemGroup>
 
 </Project>

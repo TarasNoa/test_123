@@ -46,32 +46,18 @@ public class GetRoomMessagesQueryHandler : IRequestHandler<GetRoomMessagesQuery,
             messages = messages.Where(m => m.Id < request.Before.Value);
         }
 
-        var orderedMessages = messages.OrderByDescending(m => m.CreatedAt).Take(request.Limit).ToList();
+        var orderedMessages = messages.OrderByDescending(m => m.SentAt).Take(request.Limit).ToList();
 
         var dtos = orderedMessages.Select(message => new ChatMessageDto
         {
             Id = message.Id,
             RoomId = message.RoomId,
-            UserId = message.UserId,
-            Message = message.Message,
-            MessageType = message.MessageType,
-            ReplyTo = message.ReplyTo,
-            Metadata = message.Metadata,
-            CreatedAt = message.CreatedAt
+            SenderId = message.SenderId,
+            Content = message.Content,
+            Type = message.Type,
+            SentAt = message.SentAt
         }).Reverse().ToList();
 
         return dtos;
     }
-}
-
-public class ChatMessageDto
-{
-    public Guid Id { get; set; }
-    public Guid RoomId { get; set; }
-    public Guid UserId { get; set; }
-    public string Message { get; set; }
-    public string MessageType { get; set; }
-    public Guid? ReplyTo { get; set; }
-    public Dictionary<string, object> Metadata { get; set; }
-    public DateTime CreatedAt { get; set; }
 }

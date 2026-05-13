@@ -1,10 +1,14 @@
 using Microsoft.AspNetCore.Mvc;
+using Libr4.Collaboration.Application;
+using Libr4.Collaboration.Application.Abstractions;
 using Libr4.Collaboration.Application.Commands;
 using Libr4.Collaboration.Application.Queries;
 using Libr4.Collaboration.Domain;
+using Libr4.Collaboration.Infrastructure.Repositories;
 using MediatR;
 using Libr4.Collaboration.Api.Endpoints;
 using Libr4.Collaboration.Infrastructure.Hubs;
+using Libr4.Shared.Infrastructure;
 using Libr4.Shared.Web.Auth;
 using Libr4.Shared.Web.HealthChecks;
 using Libr4.Shared.Web.Logging;
@@ -14,7 +18,13 @@ using Microsoft.AspNetCore.RateLimiting;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddLibr4Logging();
+builder.Services.AddSharedInfrastructure(builder.Configuration);
 builder.Services.AddCollaborationApplication();
+
+builder.Services.AddScoped<ICollaborationRoomRepository, InMemoryCollaborationRoomRepository>();
+builder.Services.AddScoped<IDocumentRepository, InMemoryDocumentRepository>();
+builder.Services.AddScoped<IWhiteboardRepository, InMemoryWhiteboardRepository>();
+builder.Services.AddScoped<IVideoCallRepository, InMemoryVideoCallRepository>();
 
 builder.Services.AddLibr4JwtAuth(builder.Configuration);
 builder.Services.AddHealthChecks();

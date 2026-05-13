@@ -10,7 +10,7 @@ namespace Libr4.Collaboration.Application.Commands;
 public record StartVideoCallCommand(
     Guid RoomId,
     Guid InitiatorId,
-    string CallType = "video",
+    VideoCallType CallType = VideoCallType.Video,
     Dictionary<string, object>? Settings = null
 ) : IRequest<Result<Guid>>;
 
@@ -25,9 +25,8 @@ public class StartVideoCallCommandValidator : AbstractValidator<StartVideoCallCo
             .NotEmpty().WithMessage("Initiator ID is required");
 
         RuleFor(x => x.CallType)
-            .NotEmpty().WithMessage("Call type is required")
-            .Must(type => new[] { "video", "audio", "screen_share" }.Contains(type))
-            .WithMessage("Call type must be one of: video, audio, screen_share");
+            .Must(type => new[] { VideoCallType.Audio, VideoCallType.Video }.Contains(type))
+            .WithMessage("Call type must be one of: Audio, Video");
     }
 }
 
@@ -48,14 +47,10 @@ public class StartVideoCallCommandHandler : IRequestHandler<StartVideoCallComman
             return Result.Failure<Guid>(new Error("Room.NotFound", "Room not found"));
         }
 
-        var videoCallResult = room.StartVideoCall(request.InitiatorId, request.CallType, request.Settings);
-        if (videoCallResult.IsFailure)
-        {
-            return Result.Failure<Guid>(videoCallResult.Error);
-        }
+        room.InitiateVideoCall(request.InitiatorId, request.CallType);
 
         await _collaborationRoomRepository.UpdateAsync(room, cancellationToken);
 
-        return videoCallResult.Value.Id;
+        return room.ActiveCall!.Id;
     }
 }

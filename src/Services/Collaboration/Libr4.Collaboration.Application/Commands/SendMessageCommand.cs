@@ -11,7 +11,7 @@ public record SendMessageCommand(
     Guid RoomId,
     Guid UserId,
     string Message,
-    string MessageType = "text",
+    MessageType MessageType = MessageType.Text,
     Guid? ReplyTo = null,
     Dictionary<string, object>? Metadata = null
 ) : IRequest<Result<Guid>>;
@@ -52,14 +52,11 @@ public class SendMessageCommandHandler : IRequestHandler<SendMessageCommand, Res
             return Result.Failure<Guid>(new Error("Room.NotFound", "Room not found"));
         }
 
-        var messageResult = room.AddMessage(request.UserId, request.Message, request.MessageType, request.ReplyTo, request.Metadata);
-        if (messageResult.IsFailure)
-        {
-            return Result.Failure<Guid>(messageResult.Error);
-        }
+        var message = ChatMessage.Create(request.RoomId, request.UserId, request.Message, request.MessageType);
+        room.AddMessage(message);
 
         await _collaborationRoomRepository.UpdateAsync(room, cancellationToken);
 
-        return messageResult.Value.Id;
+        return message.Id;
     }
 }

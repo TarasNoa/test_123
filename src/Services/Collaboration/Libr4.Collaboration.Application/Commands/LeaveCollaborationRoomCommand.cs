@@ -41,11 +41,7 @@ public class LeaveCollaborationRoomCommandHandler : IRequestHandler<LeaveCollabo
             return Result.Failure(new Error("Room.NotFound", "Room not found"));
         }
 
-        var result = room.RemoveParticipant(request.UserId);
-        if (result.IsFailure)
-        {
-            return result;
-        }
+        room.RemoveParticipant(request.UserId);
 
         await _collaborationRoomRepository.UpdateAsync(room, cancellationToken);
 

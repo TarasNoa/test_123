@@ -9,7 +9,7 @@ namespace Libr4.Collaboration.Application.Commands;
 
 public record CreateCollaborationRoomCommand(
     string Name,
-    RoomType RoomType,
+    CollaborationRoomType RoomType,
     Guid CreatorId,
     Guid? TaskId = null,
     string? Description = null,
@@ -49,22 +49,13 @@ public class CreateCollaborationRoomCommandHandler : IRequestHandler<CreateColla
     {
         var room = CollaborationRoom.Create(
             request.Name,
-            request.RoomType,
+            request.Description ?? string.Empty,
             request.CreatorId,
-            request.TaskId,
-            request.Description,
-            request.IsPublic,
-            request.MaxParticipants,
-            request.Settings
+            request.RoomType
         );
 
-        if (room.IsFailure)
-        {
-            return Result.Failure<Guid>(room.Error);
-        }
+        await _collaborationRoomRepository.AddAsync(room, cancellationToken);
 
-        await _collaborationRoomRepository.AddAsync(room.Value, cancellationToken);
-
-        return room.Value.Id;
+        return room.Id;
     }
 }

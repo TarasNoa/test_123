@@ -4,17 +4,26 @@ using Libr4.Collaboration.Domain.Events;
 
 namespace Libr4.Collaboration.Domain;
 
+public enum CollaborationRoomStatus { Active, Archived, Deleted }
+
 public class CollaborationRoom : AggregateRoot<Guid>
 {
     public string Name { get; private set; } = string.Empty;
     public string Description { get; private set; } = string.Empty;
     public Guid CreatorId { get; private set; }
+    public Guid? TaskId { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
     public CollaborationRoomType Type { get; private set; }
+    public bool IsPublic { get; private set; }
+    public CollaborationRoomStatus Status { get; private set; } = CollaborationRoomStatus.Active;
     public List<Participant> Participants { get; private set; } = new();
-    public List<Document> Documents { get; private set; } = new();
+    public List<SharedDocument> Documents { get; private set; } = new();
     public List<Whiteboard> Whiteboards { get; private set; } = new();
     public List<ChatMessage> Messages { get; private set; } = new();
+    public List<CollaborationSession> Sessions { get; private set; } = new();
+    public List<VideoCall> VideoCalls { get; private set; } = new();
+    public List<FileShare> FileShares { get; private set; } = new();
     public VideoCall? ActiveCall { get; private set; }
     public CollaborationRoomSettings Settings { get; private set; } = new();
 
@@ -55,7 +64,7 @@ public class CollaborationRoom : AggregateRoot<Guid>
         }
     }
 
-    public void AddDocument(Document document)
+    public void AddDocument(SharedDocument document)
     {
         Documents.Add(document);
         RaiseDomainEvent(new DocumentAddedEvent(Id, document.Id, document.Name));
@@ -63,7 +72,7 @@ public class CollaborationRoom : AggregateRoot<Guid>
 
     public void CreateWhiteboard(string name)
     {
-        var whiteboard = new Whiteboard(Guid.NewGuid(), name, Id);
+        var whiteboard = Whiteboard.Create(Id, name);
         Whiteboards.Add(whiteboard);
         RaiseDomainEvent(new WhiteboardCreatedEvent(Id, whiteboard.Id, name));
     }
@@ -94,29 +103,19 @@ public class CollaborationRoom : AggregateRoot<Guid>
         Settings = settings;
         RaiseDomainEvent(new RoomSettingsUpdatedEvent(Id));
     }
+
+    public FileShare ShareFile(Guid userId, string fileName, long fileSize, string fileType, string fileUrl, string? description)
+    {
+        var fileShare = FileShare.Create(Id, userId, fileName, fileSize, fileType, fileUrl, description);
+        FileShares.Add(fileShare);
+        return fileShare;
+    }
 }
 
 public enum CollaborationRoomType { Workspace, Classroom, ProjectRoom, StudyGroup, Interview }
 public enum ParticipantRole { Viewer, Editor, Owner }
-public enum VideoCallType { Audio, Video }
 
 public record Participant(Guid UserId, ParticipantRole Role, DateTimeOffset JoinedAt);
-
-public record Document(Guid Id, string Name, string Type, Guid OwnerId, DateTimeOffset CreatedAt)
-{
-    public string? Content { get; set; }
-    public List<DocumentVersion> Versions { get; set; } = new();
-    public List<Guid> CollaboratingUsers { get; set; } = new();
-}
-
-public record DocumentVersion(Guid Id, int Version, string Content, Guid AuthorId, DateTimeOffset CreatedAt);
-
-public record Whiteboard(Guid Id, string Name, Guid RoomId)
-{
-    public List<DrawingElement> Elements { get; set; } = new();
-}
-
-public record DrawingElement(Guid Id, string Type, double X, double Y, string Color, string Data);
 
 public class CollaborationRoomSettings
 {

@@ -10,7 +10,7 @@ namespace Libr4.Collaboration.Application.Commands;
 public record JoinCollaborationRoomCommand(
     Guid RoomId,
     Guid UserId,
-    string Role = "participant"
+    ParticipantRole Role = ParticipantRole.Editor
 ) : IRequest<Result<Guid>>;
 
 public class JoinCollaborationRoomCommandValidator : AbstractValidator<JoinCollaborationRoomCommand>
@@ -24,9 +24,8 @@ public class JoinCollaborationRoomCommandValidator : AbstractValidator<JoinColla
             .NotEmpty().WithMessage("User ID is required");
 
         RuleFor(x => x.Role)
-            .NotEmpty().WithMessage("Role is required")
-            .Must(role => new[] { "owner", "admin", "participant", "observer" }.Contains(role))
-            .WithMessage("Role must be one of: owner, admin, participant, observer");
+            .Must(role => new[] { ParticipantRole.Owner, ParticipantRole.Editor, ParticipantRole.Viewer }.Contains(role))
+            .WithMessage("Role must be one of: Owner, Editor, Viewer");
     }
 }
 
@@ -47,14 +46,10 @@ public class JoinCollaborationRoomCommandHandler : IRequestHandler<JoinCollabora
             return Result.Failure<Guid>(new Error("Room.NotFound", "Room not found"));
         }
 
-        var sessionResult = room.AddParticipant(request.UserId, request.Role);
-        if (sessionResult.IsFailure)
-        {
-            return Result.Failure<Guid>(sessionResult.Error);
-        }
+        room.AddParticipant(request.UserId, request.Role);
 
         await _collaborationRoomRepository.UpdateAsync(room, cancellationToken);
 
-        return sessionResult.Value.Id;
+        return room.Id;
     }
 }

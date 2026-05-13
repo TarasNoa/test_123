@@ -59,7 +59,7 @@ public class ShareFileCommandHandler : IRequestHandler<ShareFileCommand, Result<
             return Result.Failure<Guid>(new Error("Room.NotFound", "Room not found"));
         }
 
-        var fileShareResult = room.ShareFile(
+        var fileShare = room.ShareFile(
             request.UserId,
             request.FileName,
             request.FileSize,
@@ -68,13 +68,8 @@ public class ShareFileCommandHandler : IRequestHandler<ShareFileCommand, Result<
             request.Description
         );
 
-        if (fileShareResult.IsFailure)
-        {
-            return Result.Failure<Guid>(fileShareResult.Error);
-        }
-
         await _collaborationRoomRepository.UpdateAsync(room, cancellationToken);
 
-        return fileShareResult.Value.Id;
+        return fileShare.Id;
     }
 }

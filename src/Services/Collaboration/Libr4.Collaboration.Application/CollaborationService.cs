@@ -1,6 +1,7 @@
 using Libr4.Collaboration.Application.Abstractions;
 using Libr4.Collaboration.Domain;
 using Microsoft.Extensions.Logging;
+using IDocumentRepository = Libr4.Collaboration.Domain.IDocumentRepository;
 
 namespace Libr4.Collaboration.Application;
 
@@ -108,8 +109,8 @@ public class CollaborationService : ICollaborationService
         room.InitiateVideoCall(initiatorId, request.Type);
         await _roomRepository.UpdateAsync(room, cancellationToken);
 
-        return new VideoCallDto(room.ActiveCall!.Id, room.ActiveCall.RoomId, room.ActiveCall.InitiatorId, room.ActiveCall.Type, room.ActiveCall.Status,
-            room.ActiveCall.Participants.Select(p => new CallParticipantDto(p.UserId, p.Status)).ToList());
+        return new VideoCallDto(room.ActiveCall!.Id, room.ActiveCall.RoomId, room.ActiveCall.InitiatorId, room.ActiveCall.Type, room.ActiveCall.Status.ToString(),
+            room.ActiveCall.Participants.Select(p => new CallParticipantDto(p.UserId, p.Status.ToString())).ToList());
     }
 
     public async Task JoinVideoCallAsync(Guid callId, Guid userId, CancellationToken cancellationToken = default)
@@ -137,14 +138,13 @@ public class CollaborationService : ICollaborationService
         // Save message (assumes repository exists)
         await Task.CompletedTask;
         
-        return new ChatMessageDto(message.Id, message.RoomId, message.SenderId, message.Content, message.Type, message.SentAt, new List<ChatAttachmentDto>());
+        return new ChatMessageDto { Id = message.Id, RoomId = message.RoomId, SenderId = message.SenderId, Content = message.Content, Type = message.Type, SentAt = message.SentAt };
     }
 
     public async Task<List<ChatMessageDto>> GetRoomMessagesAsync(Guid roomId, int skip = 0, int take = 50, CancellationToken cancellationToken = default)
     {
         // Fetch messages from repository
         var messages = await Task.FromResult(new List<ChatMessage>());
-        return messages.Select(m => new ChatMessageDto(m.Id, m.RoomId, m.SenderId, m.Content, m.Type, m.SentAt, 
-            m.Attachments.Select(a => new ChatAttachmentDto(a.FileName, a.Url, a.Size)).ToList())).ToList();
+        return messages.Select(m => new ChatMessageDto { Id = m.Id, RoomId = m.RoomId, SenderId = m.SenderId, Content = m.Content, Type = m.Type, SentAt = m.SentAt }).ToList();
     }
 }

@@ -7,7 +7,7 @@ using MediatR;
 
 namespace Libr4.Collaboration.Application.Queries;
 
-public record GetUserRoomsQuery(Guid UserId, RoomType? RoomType = null, int Limit = 20) : IRequest<Result<List<CollaborationRoomSummaryDto>>>;
+public record GetUserRoomsQuery(Guid UserId, CollaborationRoomType? RoomType = null, int Limit = 20) : IRequest<Result<List<CollaborationRoomSummaryDto>>>;
 
 public class GetUserRoomsQueryValidator : AbstractValidator<GetUserRoomsQuery>
 {
@@ -36,7 +36,7 @@ public class GetUserRoomsQueryHandler : IRequestHandler<GetUserRoomsQuery, Resul
         var rooms = await _collaborationRoomRepository.GetByUserIdAsync(request.UserId, cancellationToken);
 
         var filteredRooms = request.RoomType.HasValue
-            ? rooms.Where(r => r.RoomType == request.RoomType.Value).ToList()
+            ? rooms.Where(r => r.Type == request.RoomType.Value).ToList()
             : rooms;
 
         var limitedRooms = filteredRooms.Take(request.Limit).ToList();
@@ -45,13 +45,13 @@ public class GetUserRoomsQueryHandler : IRequestHandler<GetUserRoomsQuery, Resul
         {
             Id = room.Id,
             Name = room.Name,
-            RoomType = room.RoomType.ToString(),
+            RoomType = room.Type.ToString(),
             Description = room.Description,
             IsPublic = room.IsPublic,
             Status = room.Status.ToString(),
             ParticipantCount = room.Sessions.Count(s => s.IsActive),
-            CreatedAt = room.CreatedAt,
-            UpdatedAt = room.UpdatedAt
+            CreatedAt = room.CreatedAt.DateTime,
+            UpdatedAt = room.UpdatedAt.DateTime
         }).ToList();
 
         return dtos;
