@@ -21,7 +21,11 @@ public class WalletConfiguration : IEntityTypeConfiguration<Wallet>
 
         builder.HasIndex(w => new { w.UserId, w.Currency }).IsUnique();
 
-        // Wallet entries — EF Core auto-detects _entries backing field
+        // Wallet entries — explicit backing field configuration
+        builder.Navigation(w => w.Entries)
+            .HasField("_entries")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasMany(w => w.Entries)
             .WithOne()
             .HasForeignKey("WalletId")

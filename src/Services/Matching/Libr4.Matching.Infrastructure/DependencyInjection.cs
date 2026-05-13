@@ -1,5 +1,6 @@
 using Grpc.Net.Client;
 using Libr4.Matching.Application.Abstractions;
+using Libr4.Matching.Infrastructure.Clients;
 using Libr4.Matching.Infrastructure.Crawling;
 using Libr4.Matching.Infrastructure.Embeddings;
 using Libr4.Matching.Infrastructure.Matching;
@@ -50,6 +51,14 @@ public static class DependencyInjection
         services.AddScoped<IMatchRepository, MatchRepository>();
         services.AddScoped<IMatchingService, HybridMatchingService>();
         services.AddHostedService<EnsureCollectionsHostedService>();
+
+        // HTTP client to fetch task data from Tasks API
+        var tasksApiUrl = configuration["Services:TasksApiUrl"] ?? "http://localhost:5012";
+        services.AddHttpClient<ITaskDataClient, HttpTaskDataClient>(client =>
+        {
+            client.BaseAddress = new Uri(tasksApiUrl);
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
 
         return services;
     }

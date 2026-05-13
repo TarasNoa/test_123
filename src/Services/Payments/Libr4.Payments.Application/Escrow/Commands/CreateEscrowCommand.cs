@@ -108,10 +108,15 @@ public class CreateEscrowHandler : IRequestHandler<CreateEscrowCommand, Result<E
                 await _dbContext.SaveChangesAsync(ct);
                 break;
             }
-            catch (DbUpdateConcurrencyException) when (attempt == 0)
+            catch (DbUpdateConcurrencyException ex) when (attempt == 0)
             {
-                // Pause briefly and retry (sequential e2e tests rarely have true contention)
-                await Task.Delay(100, ct);
+                // Refresh concurrency tokens from database before retry
+                foreach (var entry in ex.Entries)
+                {
+                    var dbValues = await entry.GetDatabaseValuesAsync(ct);
+                    if (dbValues is not null)
+                        entry.OriginalValues.SetValues(dbValues);
+                }
             }
         }
 

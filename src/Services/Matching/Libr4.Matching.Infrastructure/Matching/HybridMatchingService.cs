@@ -10,17 +10,20 @@ public sealed class HybridMatchingService : IMatchingService
     private readonly IEmbeddingService _embeddings;
     private readonly IVectorIndex _vectorIndex;
     private readonly IMatchRepository _matchRepo;
+    private readonly ITaskDataClient _taskClient;
     private readonly ILogger<HybridMatchingService> _logger;
 
     public HybridMatchingService(
         IEmbeddingService embeddings,
         IVectorIndex vectorIndex,
         IMatchRepository matchRepo,
+        ITaskDataClient taskClient,
         ILogger<HybridMatchingService> logger)
     {
         _embeddings = embeddings;
         _vectorIndex = vectorIndex;
         _matchRepo = matchRepo;
+        _taskClient = taskClient;
         _logger = logger;
     }
 
@@ -31,7 +34,11 @@ public sealed class HybridMatchingService : IMatchingService
     {
         var weights = await _matchRepo.GetCurrentWeightsAsync(ct);
 
-        var taskEmbedding = await _embeddings.EmbedAsync($"task:{taskId}", ct);
+        var taskData = await _taskClient.GetTaskAsync(taskId, ct);
+        var taskText = taskData != null
+            ? $"{taskData.Title} {taskData.Description} {taskData.Category}"
+            : $"task:{taskId}";
+        var taskEmbedding = await _embeddings.EmbedAsync(taskText, ct);
 
         var candidates = await _vectorIndex.SearchFreelancersAsync(
             taskEmbedding, topK: topK * 3, minScore: 0.35f, ct: ct);
@@ -42,13 +49,15 @@ public sealed class HybridMatchingService : IMatchingService
         var taskProfile = new HybridScorer.TaskProfile
         {
             TaskId = taskId,
-            Title = string.Empty,
-            Description = string.Empty,
-            RequiredSkills = Array.Empty<string>(),
+            Title = taskData?.Title ?? string.Empty,
+            Description = taskData?.Description ?? string.Empty,
+            RequiredSkills = taskData?.Category is not null
+                ? new[] { taskData.Category }
+                : Array.Empty<string>(),
             BudgetMin = 0,
-            BudgetMax = int.MaxValue,
+            BudgetMax = (int)(taskData?.Budget ?? int.MaxValue),
             DurationDays = 30,
-            PostedAt = DateTimeOffset.UtcNow,
+            PostedAt = taskData?.CreatedAt ?? DateTimeOffset.UtcNow,
             Embedding = taskEmbedding.Select(x => (float)x).ToArray(),
         };
 
