@@ -9,6 +9,11 @@ public static class HealthCheckExtensions
 {
     public static IEndpointRouteBuilder MapLibr4HealthChecks(this IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapHealthChecks("/health", new HealthCheckOptions
+        {
+            ResponseWriter = UIResponseWriter.WriteHealthCheckUIResponse
+        });
+
         endpoints.MapHealthChecks("/health/live", new HealthCheckOptions
         {
             Predicate = _ => false,

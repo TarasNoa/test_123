@@ -15,7 +15,7 @@ public static class DependencyInjection
         IConfiguration configuration)
     {
         // Event bus (domain events) — renamed to IDomainEventBus to avoid ambiguity
-        services.AddScoped<IDomainEventBus, DomainEventBus>();
+        services.AddSingleton<IDomainEventBus, DomainEventBus>();
 
         // Command/Query buses
         services.AddScoped<IQueryBus, QueryBus>();
@@ -33,10 +33,8 @@ public static class DependencyInjection
         services.AddSingleton<IEventPublisher, EventPublisher>();
         services.AddHostedService<EventProcessingBackgroundService>();
 
-        // Repositories
-        services.AddSingleton<IUnitOfWork, UnitOfWork>();
-
         // Outbox pattern
+        services.AddSingleton<IOutboxRepository, InMemoryOutboxRepository>();
         services.AddSingleton<IOutboxService, OutboxService>();
 
         return services;
