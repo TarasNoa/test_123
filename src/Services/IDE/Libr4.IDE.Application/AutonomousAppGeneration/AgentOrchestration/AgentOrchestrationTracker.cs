@@ -3,7 +3,7 @@ using Microsoft.Extensions.Logging;
 namespace Libr4.IDE.Application.AutonomousAppGeneration.AgentOrchestration;
 
 /// <summary>
-/// Stub orchestration tracker for agent calls (in-memory implementation)
+/// Orchestration tracker for agent calls (in-memory implementation)
 /// </summary>
 public class AgentOrchestrationTracker : IAgentOrchestrationTracker
 {

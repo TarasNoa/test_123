@@ -1,4 +1,4 @@
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace Libr4.IDE.AutonomousAppGeneration.Agents;

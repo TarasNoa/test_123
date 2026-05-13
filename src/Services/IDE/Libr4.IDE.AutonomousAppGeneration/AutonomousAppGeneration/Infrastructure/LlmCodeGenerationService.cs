@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Infrastructure.AI;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
@@ -63,7 +64,7 @@ If the tech stack includes ASP.NET Core, you MUST generate:
 FAILURE to include Controllers/, Services/, and Models/ folders will result in quality gate rejection.
 
 ====================== FILE CONTENT RULES ======================
-1. Every file MUST be COMPLETE and COMPILABLE. No stubs, no ""// TODO"", no ""// implement here"", no ""...""-as-ellipsis.
+1. Every file MUST be COMPLETE and COMPILABLE. No placeholders, no TODO comments, no implement here comments, no ellipsis-as-placeholder.
 2. Every public API referenced from another file in this project MUST have a full implementation somewhere.
 3. Use exact namespaces / module paths that match the directory layout.
 4. Include full using/import lists at the top of each file.
@@ -109,7 +110,7 @@ Return ONLY a JSON object: { ""files"": [ { ""relativePath"", ""content"" } ] }
 5. Preserve existing behavior of files you don't touch. Don't rewrite unrelated code.
 6. Keep the tech stack identical - never swap frameworks or databases.
 7. Every file you return must COMPILE standalone when combined with the untouched files.
-8. Never introduce ""// TODO"", stubs, or empty method bodies.
+8. Never introduce ""// TODO"", placeholders, or empty method bodies.
 9. Never truncate. If your fix would be huge, split across multiple files but keep each complete.
 10. You MAY update multiple related files when needed (e.g., interface + implementation + registration + tests).
 11. For dependency errors, fix all impacted files in one patch set (cross-file, dependency-aware).
@@ -2036,7 +2037,7 @@ All responses must include:
         sb.AppendLine("- relativePath values in your JSON MUST EXACTLY match the paths listed above.");
         sb.AppendLine("- Do NOT emit any files other than those listed; extras will be discarded.");
         sb.AppendLine("- Each file MUST compile/run when combined with the other manifest files (respect their names, namespaces, and signatures).");
-        sb.AppendLine("- No stubs, no '// TODO', no empty methods, no placeholder strings. Every public member has a real body.");
+        sb.AppendLine("- No placeholders, no '// TODO', no empty methods, no placeholder strings. Every public member has a real body.");
         sb.AppendLine("- Remember: \\n for newlines, \\\" for quotes, \\\\ for backslashes inside the JSON content string.");
         sb.AppendLine("- Output ONLY the JSON {\"files\":[...]} described in the system prompt. No prose, no fences.");
         return sb.ToString();

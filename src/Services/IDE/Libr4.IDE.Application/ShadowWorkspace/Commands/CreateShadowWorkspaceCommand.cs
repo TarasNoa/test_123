@@ -9,5 +9,7 @@ namespace Libr4.IDE.Application.ShadowWorkspace.Commands;
 public record CreateShadowWorkspaceCommand : IRequest<ShadowWorkspaceDto>
 {
     public string ParentWorkspaceId { get; init; } = string.Empty;
-    public List<(string FilePath, string Content)> Files { get; init; } = new();
+    public List<ShadowFileRequest> Files { get; init; } = new();
 }
+
+public record ShadowFileRequest(string FilePath, string Content);

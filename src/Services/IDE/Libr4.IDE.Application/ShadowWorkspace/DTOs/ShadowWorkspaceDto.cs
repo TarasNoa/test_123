@@ -8,7 +8,9 @@ public record ShadowWorkspaceDto
     public Guid Id { get; init; }
     public string WorkspaceId { get; init; } = string.Empty;
     public string ParentWorkspaceId { get; init; } = string.Empty;
+    public string Path { get; init; } = string.Empty;
     public List<ShadowFileDto> Files { get; init; } = new();
+    public int FileCount { get; init; }
     public string Status { get; init; } = string.Empty;
     public DateTime CreatedAt { get; init; }
     public DateTime? CompletedAt { get; init; }

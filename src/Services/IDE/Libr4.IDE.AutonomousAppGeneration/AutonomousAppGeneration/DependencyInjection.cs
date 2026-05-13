@@ -1,3 +1,4 @@
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
 using Libr4.IDE.Application.AutonomousAppGeneration.Runtime;
@@ -6,7 +7,6 @@ using Libr4.IDE.Application.AutonomousAppGeneration.Services.Pipeline;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Templates;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.StackStrategy;
 using Libr4.IDE.Application.AutonomousAppGeneration.Runtime.Docker;
-using Libr4.IDE.Application.AutonomousAppGeneration.Runtime.Stubs;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Analysis;
 using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Artifacts;
@@ -26,7 +26,7 @@ using Libr4.IDE.AutonomousAppGeneration.AutonomousAppGeneration.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 
 /// <summary>
@@ -101,7 +101,7 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddSingleton<ITriggerAdapterRouter, TriggerAdapterRouter>();
         services.AddSingleton<IRunMiddleware, DeterministicRunLoggingMiddleware>();
         services.AddSingleton<IAutonomousFinalizationHook, EnsureTerminalStateFinalizationHook>();
-        // services.AddSingleton<IAgentEventEmitter, AgentEventEmitter>(); // Missing dependency
+        services.AddSingleton<IAgentEventEmitter, AgentEventEmitter>();
 
         services.AddSingleton<IMcpToolRegistry, DefaultMcpToolRegistry>();
         services.AddSingleton<IMcpExecutionPolicy, DefaultMcpExecutionPolicy>();
@@ -152,7 +152,7 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddSingleton<IRuntimeCommandPolicy, DefaultRuntimeCommandPolicy>();
         services.AddSingleton<DockerIsolatedRuntime>();
         services.AddSingleton<WslIsolatedRuntime>();
-        services.AddSingleton<HyperVIsolatedRuntime>();
+        services.AddSingleton<HyperVRuntime>();
         services.AddSingleton<ProcessIsolatedRuntime>();
         services.AddSingleton<IIsolatedRuntime>(sp =>
             new RuntimeProviderRouter(
@@ -160,7 +160,7 @@ public static class AutonomousAppGenerationDependencyInjection
                 allowFallbackToProcess: allowFallbackToProcess,
                 docker: sp.GetRequiredService<DockerIsolatedRuntime>(),
                 wsl: sp.GetRequiredService<WslIsolatedRuntime>(),
-                hyperV: sp.GetRequiredService<HyperVIsolatedRuntime>(),
+                hyperV: sp.GetRequiredService<HyperVRuntime>(),
                 process: sp.GetRequiredService<ProcessIsolatedRuntime>(),
                 diagnostics: sp.GetRequiredService<IRuntimeDiagnostics>(),
                 logger: sp.GetRequiredService<ILogger<RuntimeProviderRouter>>()));
@@ -168,32 +168,53 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddSingleton<IWorkspaceSyncService, FileSystemWorkspaceSyncService>();
 
         // Shadow execution = pool + runtime + sync.
-        // services.AddSingleton<IShadowExecutionService, IsolatedShadowExecutionService>(); // File excluded
+        services.AddSingleton<IShadowExecutionService, IsolatedShadowExecutionService>();
 
-        // New agent infrastructure - register manually when needed with required parameters
-        // services.AddSingleton<HierarchicalSkillLoader>();
+        // Multi-agent infrastructure for stack-specific generation
+        services.AddSingleton<AgentSkillRegistry>(sp =>
+        {
+            var assemblyLocation = typeof(AgentSkillRegistry).Assembly.Location;
+            var assemblyDir = Path.GetDirectoryName(assemblyLocation)!;
+            return new AgentSkillRegistry(
+                sp.GetRequiredService<ILogger<AgentSkillRegistry>>(),
+                Path.Combine(assemblyDir, "Agents", "Skills"));
+        });
 
-        // New agents (registered with skill paths)
+        services.AddSingleton<IAgentSpawner, AgentSpawner>();
+        services.AddSingleton<AgentOrchestrationFactory>();
+
+        // Reviewer agents (stack-agnostic)
+        services.AddScoped<SpecReviewerAgent>(sp => new SpecReviewerAgent(
+            Path.Combine(AppContext.BaseDirectory, "Agents", "Skills", "spec-compliance-reviewer", "SKILL.md"),
+            sp.GetRequiredService<IAIService>(),
+            sp.GetRequiredService<ILogger<SpecReviewerAgent>>()));
+
+        services.AddScoped<CodeQualityReviewerAgent>(sp => new CodeQualityReviewerAgent(
+            Path.Combine(AppContext.BaseDirectory, "Agents", "Skills", "code-review", "SKILL.md"),
+            sp.GetRequiredService<IAIService>(),
+            sp.GetRequiredService<ILogger<CodeQualityReviewerAgent>>()));
+
+        // Legacy agents kept for backward compatibility; they auto-delegate through spawner now
         services.AddScoped<DatabaseDesignAgent>(sp => new DatabaseDesignAgent(
             Path.Combine(AppContext.BaseDirectory, "Agents", "Skills", "database-designer", "SKILL.md"),
             sp.GetRequiredService<IAIService>(),
             sp.GetRequiredService<ILogger<DatabaseDesignAgent>>()));
-        
+
         services.AddScoped<CICDPipelineAgent>(sp => new CICDPipelineAgent(
             Path.Combine(AppContext.BaseDirectory, "Agents", "Skills", "ci-cd-pipeline-builder", "SKILL.md"),
             sp.GetRequiredService<IAIService>(),
             sp.GetRequiredService<ILogger<CICDPipelineAgent>>()));
-        
+
         services.AddScoped<PerformanceProfilingAgent>(sp => new PerformanceProfilingAgent(
             Path.Combine(AppContext.BaseDirectory, "Agents", "Skills", "performance-profiler", "SKILL.md"),
             sp.GetRequiredService<IAIService>(),
             sp.GetRequiredService<ILogger<PerformanceProfilingAgent>>()));
-        
+
         services.AddScoped<TechDebtTrackingAgent>(sp => new TechDebtTrackingAgent(
             Path.Combine(AppContext.BaseDirectory, "Agents", "Skills", "tech-debt-tracker", "SKILL.md"),
             sp.GetRequiredService<IAIService>(),
             sp.GetRequiredService<ILogger<TechDebtTrackingAgent>>()));
-        
+
         services.AddScoped<ObservabilityAgent>(sp => new ObservabilityAgent(
             Path.Combine(AppContext.BaseDirectory, "Agents", "Skills", "observability-designer", "SKILL.md"),
             sp.GetRequiredService<IAIService>(),

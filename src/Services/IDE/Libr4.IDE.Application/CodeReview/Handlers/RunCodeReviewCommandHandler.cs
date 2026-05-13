@@ -3,7 +3,7 @@ using MediatR;
 using Libr4.IDE.Application.CodeReview.Commands;
 using Libr4.IDE.Application.CodeReview.DTOs;
 using Libr4.IDE.Domain.CodeReview;
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace Libr4.IDE.Application.CodeReview.Handlers;

@@ -92,7 +92,7 @@ public sealed class GetStageCReadinessQueryHandler
         if (string.Equals(blockerCode, "mcp_server_missing", StringComparison.OrdinalIgnoreCase))
         {
             hints.Add($"Verify configured executable/script path for {lane} lane server.");
-            hints.Add("Install or create local MCP server stub at configured location.");
+            hints.Add("Install or create local MCP server instance at configured location.");
         }
         else if (string.Equals(blockerCode, "mcp_server_unreachable", StringComparison.OrdinalIgnoreCase))
         {

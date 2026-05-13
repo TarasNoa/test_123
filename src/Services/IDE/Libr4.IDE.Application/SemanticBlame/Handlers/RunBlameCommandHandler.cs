@@ -1,7 +1,7 @@
 using MediatR;
 using Libr4.IDE.Application.SemanticBlame.Commands;
 using Libr4.IDE.Application.SemanticBlame.DTOs;
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Text;

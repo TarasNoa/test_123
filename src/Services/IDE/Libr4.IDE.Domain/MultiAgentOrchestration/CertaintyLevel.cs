@@ -1,5 +1,14 @@
 namespace Libr4.IDE.Domain.MultiAgentOrchestration;
 
+public enum CertaintyLevel
+{
+    VeryLow,
+    Low,
+    Medium,
+    High,
+    VeryHigh
+}
+
 /// <summary>
 /// Extension methods for CertaintyLevel
 /// </summary>

@@ -1,4 +1,3 @@
-/*
 using Libr4.IDE.Application.AI.Commands;
 using Libr4.IDE.Application.AI.Queries;
 using Libr4.IDE.Application.AI.DTOs;
@@ -12,7 +11,6 @@ public static class AIEndpoints
     public static void MapAIEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/ai")
-            .WithTags("AI Assistant")
             .RequireAuthorization();
 
         // Conversations
@@ -24,9 +22,8 @@ public static class AIEndpoints
             var result = await mediator.Send(command, ct);
             return result.IsSuccess 
                 ? Results.Ok(result.Value) 
-                : Results.BadRequest(result.Error.Message);
-        })
-        .WithName("CreateAIConversation");
+                : Results.BadRequest(result.Error);
+        });
 
         group.MapGet("/conversations", async (
             IMediator mediator,
@@ -40,9 +37,8 @@ public static class AIEndpoints
             var result = await mediator.Send(query, ct);
             return result.IsSuccess 
                 ? Results.Ok(result.Value) 
-                : Results.BadRequest(result.Error.Message);
-        })
-        .WithName("GetAIConversations");
+                : Results.BadRequest(result.Error);
+        });
 
         group.MapGet("/conversations/{conversationId}/messages", async (
             Guid conversationId,
@@ -55,8 +51,7 @@ public static class AIEndpoints
             return result.IsSuccess 
                 ? Results.Ok(result.Value) 
                 : Results.NotFound(result.Error.Message);
-        })
-        .WithName("GetConversationMessages");
+        });
 
         // Chat
         group.MapPost("/chat", async (
@@ -67,9 +62,8 @@ public static class AIEndpoints
             var result = await mediator.Send(command, ct);
             return result.IsSuccess 
                 ? Results.Ok(result.Value) 
-                : Results.BadRequest(result.Error.Message);
-        })
-        .WithName("ChatWithAI");
+                : Results.BadRequest(result.Error);
+        });
 
         // Quality Scoring
         group.MapPost("/chat/{messageId}/score", async (
@@ -84,9 +78,8 @@ public static class AIEndpoints
             var result = await mediator.Send(command, ct);
             return result.IsSuccess 
                 ? Results.Ok(result.Value) 
-                : Results.BadRequest(result.Error.Message);
-        })
-        .WithName("ScoreAIMessage");
+                : Results.BadRequest(result.Error);
+        });
 
         // Tambo AI Integration - UI Generation
         group.MapPost("/generate-ui", async (
@@ -95,11 +88,9 @@ public static class AIEndpoints
             CancellationToken ct) =>
         {
             var result = await mediator.Send(command, ct);
-            return result.IsSuccess 
-                ? Results.Ok(result.Value) 
-                : Results.BadRequest(result.Error.Message);
-        })
-        .WithName("GenerateUI");
+            return result.Success 
+                ? Results.Ok(result) 
+                : Results.BadRequest(result.Error);
+        });
     }
 }
-*/

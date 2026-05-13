@@ -11,32 +11,35 @@ using Libr4.IDE.Application.DTOs;
 // using Libr4.IDE.Domain.Algorithms;
 using Libr4.AI.Infrastructure.AI;
 // using Libr4.IDE.Application.AI.Algorithms;
-// using Libr4.IDE.Application.Translation;
-// using Libr4.IDE.Application.Terminal;
-// using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
-// using Libr4.IDE.Application.AutonomousAppGeneration.AgentOrchestration;
+using Libr4.IDE.Application.Translation;
+using Libr4.IDE.Application.Terminal;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentOrchestration;
 using Microsoft.Extensions.DependencyInjection;
 using MediatR;
 using Microsoft.FSharp.Control;
 using Libr4.IDE.Api;
 using Libr4.IDE.Application.Obscura;
-// using Libr4.IDE.Infrastructure.FSharpInterop;  // F# interop not yet implemented
 using Libr4.IDE.Application.GitAutomation;
 using Libr4.IDE.Application.CodeSearch;
 using Libr4.IDE.Application.PromptOptimization;
-// using Libr4.IDE.Infrastructure.SemanticIndex;
-// using Libr4.IDE.Infrastructure.Persistence;
-// using Libr4.IDE.Application.SecurityTesting;
-// using Libr4.IDE.Application.CodeReview;
-// using Libr4.IDE.Application.Escrow;
-// using Libr4.IDE.Application.Gateway;
+using Libr4.IDE.Infrastructure.SemanticIndex;
+using Libr4.IDE.Infrastructure.Persistence;
+using Libr4.IDE.Application.SecurityTesting;
+using Libr4.IDE.Application.CodeReview;
+using Libr4.IDE.Application.Escrow;
+using Libr4.IDE.Application.Gateway;
 using Libr4.IDE.Application.AI;
-// using Libr4.IDE.Application.ShadowWorkspace;
+using Libr4.IDE.Application.ShadowWorkspace;
 using Libr4.IDE.Application.MultiAgentOrchestration;
 using Libr4.IDE.Application.DesignContext;
 using Libr4.IDE.Application.DesignSkills;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
+using Libr4.AI.Application.Abstractions;
+using Libr4.IDE.Domain;
+using Libr4.IDE.Domain.AI;
+using Libr4.IDE.Infrastructure.Sandbox;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -63,30 +66,38 @@ builder.Services.AddCors(options => {
 });
 
 // Add services
-// builder.Services.AddSingleton<TerminalWebSocketHandler>(); // Excluded
-// builder.Services.AddSingleton<AgentEventWebSocketHandler>(); // Excluded
-// builder.Services.AddScoped<IDockerService, ProcessDockerService>(); // Excluded
-// builder.Services.AddScoped<ITranslationService, OpenAITranslationService>(); // Excluded
-// builder.Services.AddScoped<ITerminalService, DockerTerminalService>(); // Excluded
-// builder.Services.AddScoped<IAgentEventEmitter, AgentEventEmitter>(); // Not implemented
-// builder.Services.AddScoped<IAgentOrchestrationTracker, AgentOrchestrationTracker>(); // Not implemented
-// Shadow Workspace - Golden Stack Architecture - commented out due to missing dependencies
-// builder.Services.AddSingleton<IContainerManager, ContainerRuntimeGrpcClient>();
-// builder.Services.AddSingleton<IPreWarmedContainerPool, NullPreWarmedContainerPool>();
-// builder.Services.AddSingleton<IContainerLifecycleService, ContainerLifecycleBridge>();
-// builder.Services.AddHostedService<ContainerPoolWarmupService>();
+builder.Services.AddScoped<TerminalWebSocketHandler>();
+builder.Services.AddScoped<AgentEventWebSocketHandler>();
+builder.Services.AddScoped<IDockerService, ProcessDockerService>();
+builder.Services.AddScoped<ITranslationService, OpenAITranslationService>();
+builder.Services.AddScoped<ITerminalService, DockerTerminalService>();
+builder.Services.AddScoped<IAgentEventEmitter, AgentEventEmitter>();
+builder.Services.AddScoped<IAgentOrchestrationTracker, AgentOrchestrationTracker>();
+builder.Services.AddScoped<ICodeSessionRepository, InMemoryCodeSessionRepository>();
+builder.Services.AddHealthChecks();
+
+// Shadow Workspace - Golden Stack Architecture
+builder.Services.AddSingleton<Libr4.IDE.Infrastructure.Containers.IContainerManager, Libr4.IDE.Infrastructure.Containers.ContainerManager>();
+builder.Services.AddSingleton<Libr4.IDE.Application.ShadowWorkspace.IContainerManager, Libr4.IDE.Infrastructure.ShadowWorkspace.ContainerManagerAdapter>();
+builder.Services.AddSingleton<Libr4.IDE.Infrastructure.Containers.IPreWarmedContainerPool, Libr4.IDE.Infrastructure.Containers.PreWarmedContainerPool>();
+builder.Services.AddSingleton<Libr4.IDE.Application.ShadowWorkspace.IPreWarmedContainerPool, Libr4.IDE.Infrastructure.ShadowWorkspace.PreWarmedContainerPoolAdapter>();
+builder.Services.AddSingleton<Libr4.IDE.Application.ShadowWorkspace.IContainerLifecycleService, Libr4.IDE.Application.ShadowWorkspace.ContainerLifecycleBridge>();
+builder.Services.AddHostedService<Libr4.IDE.Infrastructure.Containers.ContainerPoolWarmupService>();
 
 // Obscura Browser Automation - Golden Stack: Rust chromiumoxide via gRPC
 builder.Services.AddSingleton<IBrowserAutomationService, BrowserAutomationGrpcClient>();
 builder.Services.AddSingleton<IAgentObscuraTool, AgentObscuraTool>(); // Will use Rust service internally
 builder.Services.AddSingleton<IDomToMarkdownConverter, DomToMarkdownConverter>();
 builder.Services.AddSingleton<ISubagentObscuraIntegration, SubagentObscuraIntegration>();
+builder.Services.AddSingleton<IAgentOrchestrator, Libr4.IDE.Application.MultiAgentOrchestration.MultiAgentOrchestrator>();
+builder.Services.AddSingleton<IObscuraBrowserTool, Libr4.IDE.Application.Obscura.ObscuraBrowserTool>();
 
 // Semantic Code Index (SocratiCode analog) - Ollama embeddings + Qdrant vector store + BM25 RRF
-// builder.Services.AddSemanticCodeIndex(builder.Configuration); // Excluded - SemanticIndex folder disabled
+builder.Services.AddSemanticCodeIndex(builder.Configuration);
 
 // Git Automation - LibGit2Sharp
 builder.Services.AddScoped<IGitAutomationService, LibGit2SharpService>();
+builder.Services.AddScoped<IAIService, AIService>();
 builder.Services.AddScoped<ICodeSearchService, CodeSearchService>();
 builder.Services.AddScoped<IPromptOptimizationService, PromptOptimizationService>();
 // Design context service (awesome-design-md style internal implementation)
@@ -97,9 +108,6 @@ builder.Services.AddScoped<IDesignSkillsService, DesignSkillsService>();
 // Multi-Agent Debate & Context Compression
 builder.Services.AddSingleton<IContextCompressionService, ContextCompressionService>();
 builder.Services.AddSingleton<IAgentDebateService, AgentDebateService>();
-
-// F# Interop services - commented out due to missing AddFSharpInterop
-// builder.Services.AddFSharpInterop();  // Agent State Machine, Consensus, AST Transforms
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -150,18 +158,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(CreateCodeSessionCommand).Assembly));
-// AI command handlers - commented out due to missing ChatCommand
-// builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.AI.Commands.ChatCommand).Assembly));
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.AI.Commands.ChatCommand).Assembly));
 // Obscura browser MediatR handlers
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.Obscura.Commands.LaunchBrowserCommand).Assembly));
-// TaskDecomposition - commented out due to missing namespace
-// builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.TaskDecomposition.Commands.DecomposeTaskCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.SeniorRolePrompts.Commands.GenerateRolePromptCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.IntelligenceRouter.Commands.BuildRoutingPlanCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.Cascade.Commands.RunCascadePlanningCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.OrchestrationRun.Commands.StartOrchestrationRunCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.MultiAgentOrchestration.Commands.StartAgentOrchestrationCommand).Assembly));
-builder.Services.AddSingleton<IContextCompressionService, ContextCompressionService>();  // HiveMind context compression
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.AutonomousRuntimePolicy.Commands.GeneratePolicyCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.ShadowWorkspace.Commands.CreateShadowWorkspaceCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.CodeReview.Commands.RunCodeReviewCommand).Assembly));
@@ -177,7 +181,11 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.SecurityTesting.Commands.RunSecurityTestCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.HackerAgent.Commands.RunHackerAgentCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.AIWorkflowAutomation.Commands.DistillWorkflowCommand).Assembly));
-builder.Services.AddScoped<IAIService, Libr4.AI.Infrastructure.AI.AIService>();
+builder.Services.AddSingleton<IQualityGateService, QualityGateService>();
+builder.Services.AddSingleton<IObscuraBrowserService, ObscuraBrowserServiceAdapter>();
+builder.Services.AddScoped<IAIConversationRepository, Libr4.IDE.Infrastructure.Persistence.EfAIConversationRepository>();
+builder.Services.AddScoped<ICodeSessionRepository, InMemoryCodeSessionRepository>();
+builder.Services.AddSingleton<Libr4.IDE.Infrastructure.Sandbox.ISandboxClient, Libr4.IDE.Infrastructure.Sandbox.RustSandboxExecutor>();
 builder.Services.AddHttpClient();
 
 // 3. PostgreSQL
@@ -207,17 +215,25 @@ builder.Services.AddScoped<Libr4.IDE.Application.Security.ICodeValidator, Libr4.
 builder.Services.AddSingleton<Libr4.IDE.Application.Caching.IExecutionCache, Libr4.IDE.Application.Caching.ExecutionCache>();
 
 // Shadow workspace services already registered above
-// builder.Services.AddScoped<ISelfHealingBuildPipeline, SelfHealingBuildPipeline>(); // Not implemented
-// builder.Services.AddScoped<ISecurityTestingService, SecurityTestingService>(); // Not implemented
-// builder.Services.AddScoped<ICodeReviewService, CodeReviewService>(); // Not implemented
-// builder.Services.AddScoped<IEscrowCodeService, EscrowCodeService>(); // Not implemented
-// builder.Services.AddScoped<IGatewayPreviewIntegration, GatewayPreviewIntegration>(); // Not implemented
+builder.Services.AddScoped<ISelfHealingBuildPipeline, SelfHealingBuildPipeline>();
+builder.Services.AddScoped<ISecurityTestingService, SecurityTestingService>();
+builder.Services.AddScoped<ICodeReviewService, CodeReviewService>();
+builder.Services.AddScoped<IEscrowCodeService, EscrowCodeService>();
+builder.Services.AddScoped<IGatewayPreviewIntegration, GatewayPreviewIntegration>();
 
 // AutonomousAppGeneration orchestrator lives in its own project
 // (Libr4.IDE.AutonomousAppGeneration) and is exposed via Libr4.IDE.AutonomousAppGeneration.Host,
 // decoupled from the legacy IDE.Application compile errors.
 
 builder.Services.AddScoped<IAIAlgorithmService, AIAlgorithmServiceWrapper>();
+builder.Services.AddSingleton<Libr4.AI.Infrastructure.AI.AIProviderFactory>();
+builder.Services.AddSingleton<Libr4.AI.Infrastructure.AI.LlmCircuitBreaker>();
+builder.Services.AddSingleton<Libr4.AI.Infrastructure.Hooks.HookManager>();
+builder.Services.AddSingleton<Libr4.AI.Infrastructure.LLMRouter>();
+
+// Validators used in minimal API endpoints
+builder.Services.AddScoped<Libr4.IDE.Application.CodeReview.Validators.RunCodeReviewCommandValidator>();
+builder.Services.AddScoped<Libr4.IDE.Application.MultiAgentOrchestration.Validators.StartAgentOrchestrationCommandValidator>();
 
 // CORS already configured above with specific origin
 
@@ -232,82 +248,59 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseSwagger();
 app.UseSwaggerUI(options => {});
+app.MapHealthChecks("/health");
 app.MapControllers();
 
-// Obscura browser endpoints (external integration)
-// app.MapObscuraEndpoints(); // Endpoint not defined
+app.MapObscuraEndpoints();
 
-// AI Assistant endpoints - commented out due to missing endpoint file
-// app.MapAIEndpoints();
+app.MapAIEndpoints();
 
-// Task Decomposition endpoints - commented out due to missing namespace
-// app.MapTaskDecompositionEndpoints();
+app.MapTaskDecompositionEndpoints();
 
-// Senior Role Prompts
-// app.MapSeniorRolePromptsEndpoints(); // Endpoint not defined
+app.MapSeniorRolePromptsEndpoints();
 
-// Intelligence Router
-// app.MapIntelligenceRouterEndpoints(); // Endpoint not defined
+app.MapIntelligenceRouterEndpoints();
 
-// Cascade planning endpoint
-// app.MapCascadeEndpoints(); // Endpoint not defined
+app.MapCascadeEndpoints();
 
-// Orchestration Run
-// app.MapOrchestrationRunEndpoints(); // Endpoint not defined
+app.MapOrchestrationRunEndpoints();
 
-// Multi-Agent Orchestration endpoints - commented out due to missing endpoint file
-// app.MapMultiAgentOrchestrationEndpoints();
+app.MapMultiAgentOrchestrationEndpoints();
 
-// Autonomous Runtime Policy
-// app.MapAutonomousRuntimePolicyEndpoints(); // Endpoint not defined
+app.MapAutonomousRuntimePolicyEndpoints();
 
 // Shadow Workspace
-// app.MapShadowWorkspaceEndpoints(); // Endpoint not defined
+app.MapShadowWorkspaceEndpoints();
 
-// Code Review endpoints - commented out due to missing endpoint file
-// app.MapCodeReviewEndpoints();
+app.MapCodeReviewEndpoints();
 
-// Semantic Code Graph
-// app.MapSemanticCodeGraphEndpoints(); // Endpoint not defined
+app.MapSemanticCodeGraphEndpoints();
 
-// Agent Memory System endpoints - commented out due to missing endpoint file
-// app.MapAgentMemorySystemEndpoints();
+app.MapAgentMemorySystemEndpoints();
 
-// Agent Instance and Specialization endpoints - commented out due to missing endpoint file
-// app.MapAgentEndpoints();
+app.MapAgentEndpoints();
 
-// LLM Router - commented out due to missing endpoint file
-// app.MapLLMRouterEndpoints();
+app.MapLLMRouterEndpoints();
 
-// AI Workflow Automation
-// app.MapAIWorkflowAutomationEndpoints(); // Endpoint not defined
+app.MapAIWorkflowAutomationEndpoints();
 
-// AI Workflow endpoints - commented out due to missing endpoint file
-// app.MapAIWorkflowEndpoints();
+app.MapAIWorkflowEndpoints();
 
-// WebSearch endpoints - commented out due to missing endpoint file
-// app.MapWebSearchEndpoints();
+app.MapWebSearchEndpoints();
 
-// Task Record - commented out due to missing endpoint file
-// app.MapTaskRecordEndpoints();
+app.MapTaskRecordEndpoints();
 
-// GitHubBootstrap endpoints - commented out due to missing endpoint file
-// app.MapGitHubBootstrapEndpoints();
+app.MapGitHubBootstrapEndpoints();
 
-// Architectural Guardrails
-// app.MapArchitecturalGuardrailsEndpoints(); // Endpoint not defined
+app.MapArchitecturalGuardrailsEndpoints();
 
-// Semantic Blame
-// app.MapSemanticBlameEndpoints(); // Endpoint not defined
+app.MapSemanticBlameEndpoints();
 
-// CodeIntelligence endpoints - commented out due to missing endpoint file
-// app.MapCodeIntelligenceEndpoints();
+app.MapCodeIntelligenceEndpoints();
 
-// Security Testing endpoints
-// app.MapSecurityTestingEndpoints(); // Endpoint not defined
+app.MapSecurityTestingEndpoints();
 
-// HackerAgent endpoints - commented out due to missing endpoint file
-// app.MapHackerAgentEndpoints();
+app.MapHackerAgentEndpoints();
 
 // Golden Stack: Agent State endpoints for Frontend synchronization
 app.MapAgentStateEndpoints();
@@ -315,41 +308,9 @@ app.MapAgentStateEndpoints();
 // SignalR Hub for real-time agent updates
 app.MapHub<Libr4.IDE.Api.Hubs.AgentHub>("/hubs/agents");
 
-// F# Interop demo endpoint - Agent State Machine - commented out due to missing IAgentStateMachineBridge
-/*
-app.MapGet("/api/fsharp/agent-demo", (IAgentStateMachineBridge bridge) =>
-{
-    // Create agent
-    var agent = bridge.CreateIdleState("demo-agent-123", new[] { "code", "test", "review" });
-    
-    // Initialize
-    var initialized = bridge.Initialize(agent, new Dictionary<string, object> 
-    { 
-        ["workspace"] = "ws-456",
-        ["context"] = "demo"
-    });
-    
-    // Mark ready
-    var ready = bridge.MarkReady(initialized, new[] { "git", "dotnet", "docker" });
-    
-    return Results.Ok(new 
-    { 
-        AgentId = bridge.GetAgentId(ready),
-        State = bridge.GetStateName(ready),
-        CanAcceptTask = bridge.CanAcceptTask(ready),
-        IsActive = bridge.IsActive(ready),
-        Progress = bridge.GetProgress(ready),
-        Message = "F# Agent State Machine via C# Bridge - Golden Stack!"
-    });
-});
-*/
+app.MapTerminalEndpoints();
 
-// Terminal - не реализован
-// app.MapTerminalEndpoints();
-
-// Translation endpoints - commented out due to missing endpoint file
-// TODO: Fix endpoint compilation errors
-// app.MapTranslationEndpoints();
+app.MapTranslationEndpoints();
 
 // Code Sessions endpoints
 app.MapPost("/api/ide/sessions", async (CreateCodeSessionCommand command, IMediator mediator) =>
@@ -439,19 +400,24 @@ app.MapPost("/api/ide/ai/explain", async (ExplainCodeRequest request, IAIService
 });
 */
 
-// WebSocket for terminal real-time output - commented out due to missing TerminalWebSocketHandler
-// app.MapGet("/ws/terminal/{sessionId}", async (string sessionId, TerminalWebSocketHandler handler, HttpContext context) =>
-// {
-//     await handler.HandleWebSocketAsync(context, sessionId);
-// });
+// WebSocket for terminal real-time output
+app.MapGet("/ws/terminal/{sessionId}", async (string sessionId, TerminalWebSocketHandler handler, HttpContext context) =>
+{
+    await handler.HandleWebSocketAsync(context, sessionId);
+});
 
-// WebSocket for agent events real-time delivery - commented out due to missing AgentEventWebSocketHandler
-// app.MapGet("/ws/events/{runId}", async (string runId, AgentEventWebSocketHandler handler, HttpContext context) =>
-// {
-//     await handler.HandleWebSocketAsync(context, runId);
-// });
+// WebSocket for agent events real-time delivery
+app.MapGet("/ws/events/{runId}", async (string runId, AgentEventWebSocketHandler handler, HttpContext context) =>
+{
+    await handler.HandleWebSocketAsync(context, runId);
+});
 
-// SignalR Hub for Shadow Workspace real-time collaboration - commented out due to missing ShadowWorkspaceHub
-// app.MapHub<ShadowWorkspaceHub>("/hubs/shadow-workspace");
+app.MapHub<ShadowWorkspaceHub>("/hubs/shadow-workspace");
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    db.Database.EnsureCreated();
+}
 
 app.Run();

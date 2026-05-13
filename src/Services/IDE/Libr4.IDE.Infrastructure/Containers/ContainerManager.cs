@@ -334,7 +334,7 @@ public class ContainerManager : IContainerManager
             await rmProcess.WaitForExitAsync();
 
             // Remove from tracking
-            _containers.TryRemove(workspaceId, out _);
+            _containers.Remove(workspaceId);
 
             _logger.LogInformation(
                 "Container {ContainerId} for workspace {WorkspaceId} stopped and removed immediately",

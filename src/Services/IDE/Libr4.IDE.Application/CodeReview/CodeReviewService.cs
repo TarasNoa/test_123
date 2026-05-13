@@ -6,7 +6,6 @@ namespace Libr4.IDE.Application.CodeReview;
 
 /// <summary>
 /// Golden Stack: Code review via Rust browser-automation gRPC + F# ConsensusLogic
-/// Replaces stub that always returned "no issues found"
 /// </summary>
 public class CodeReviewService : ICodeReviewService
 {

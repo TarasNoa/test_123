@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Libr4.IDE.Application.Obscura;
 
 namespace Libr4.IDE.Application.MultiAgentOrchestration;
 
@@ -888,25 +889,6 @@ public class ToolRegistration
     public string Code { get; set; } = string.Empty;
     public string DiscoveredBy { get; set; } = string.Empty;
     public string ValidationStatus { get; set; } = string.Empty;
-}
-
-public class WebResearchResult
-{
-    public List<WebResearchSource> Sources { get; set; } = new();
-    public string Summary { get; set; } = string.Empty;
-}
-
-public class WebResearchSource
-{
-    public string Url { get; set; } = string.Empty;
-    public string Summary { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
-}
-
-public class WebResearchOptions
-{
-    public int MaxSources { get; set; } = 3;
-    public bool StealthMode { get; set; } = false;
 }
 
 public class ToolExecutionException : Exception

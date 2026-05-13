@@ -2,7 +2,7 @@
 using MediatR;
 using Libr4.IDE.Application.SecurityTesting.Commands;
 using Libr4.IDE.Application.SecurityTesting.DTOs;
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 

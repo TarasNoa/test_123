@@ -2,7 +2,7 @@ using System.Diagnostics;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 
-namespace Libr4.IDE.Application.AutonomousAppGeneration.Runtime.Stubs;
+namespace Libr4.IDE.Application.AutonomousAppGeneration.Runtime;
 
 /// <summary>
 /// WSL-backed runtime provider.

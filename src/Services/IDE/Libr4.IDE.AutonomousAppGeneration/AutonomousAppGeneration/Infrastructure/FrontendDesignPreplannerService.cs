@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
 using Libr4.IDE.Domain.AutonomousAppGeneration;

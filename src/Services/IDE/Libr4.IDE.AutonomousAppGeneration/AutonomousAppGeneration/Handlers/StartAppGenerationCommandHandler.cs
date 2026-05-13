@@ -56,6 +56,7 @@ public sealed class StartAppGenerationCommandHandler
     private readonly ISubagentRoutingService? _subagentRoutingService;
     private readonly ISubagentSelector? _subagentSelector;
     private readonly IGenerationPipelineRunner? _pipelineRunner;
+    private readonly Libr4.IDE.AutonomousAppGeneration.Agents.AgentOrchestrationFactory? _agentOrchestrationFactory;
     private readonly ILogger<StartAppGenerationCommandHandler> _logger;
 
     public StartAppGenerationCommandHandler(
@@ -87,7 +88,8 @@ public sealed class StartAppGenerationCommandHandler
         IEnumerable<IRunMiddleware>? middlewares = null,
         IEnumerable<IAutonomousFinalizationHook>? finalizationHooks = null,
         IConsolidationQueue? consolidationQueue = null,
-        IGenerationPipelineRunner? pipelineRunner = null)
+        IGenerationPipelineRunner? pipelineRunner = null,
+        Libr4.IDE.AutonomousAppGeneration.Agents.AgentOrchestrationFactory? agentOrchestrationFactory = null)
     {
         _planner = planner;
         _codeGen = codeGen;
@@ -123,6 +125,7 @@ public sealed class StartAppGenerationCommandHandler
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
         _pipelineRunner = pipelineRunner;
+        _agentOrchestrationFactory = agentOrchestrationFactory;
         _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<StartAppGenerationCommandHandler>.Instance;
     }
 
@@ -487,10 +490,72 @@ public sealed class StartAppGenerationCommandHandler
             }
             else
             {
-                phaseBatches = TechStackArtifactFilter.PrunePhaseBatches(
-                    await _codeGen.GenerateInitialByPhasesAsync(plan, runCt),
-                    plan);
-                files = phaseBatches.SelectMany(p => p.Files).ToList();
+                if (_agentOrchestrationFactory is not null)
+                {
+                    // Multi-agent generation: each phase gets its own specialist agent
+                    var backendStack = plan.TechStack.Languages.FirstOrDefault() ?? "csharp";
+                    var frontendStack = plan.TechStack.Frameworks.FirstOrDefault(f =>
+                        f.Contains("react", StringComparison.OrdinalIgnoreCase) ||
+                        f.Contains("vue", StringComparison.OrdinalIgnoreCase) ||
+                        f.Contains("angular", StringComparison.OrdinalIgnoreCase) ||
+                        f.Contains("blazor", StringComparison.OrdinalIgnoreCase) ||
+                        f.Contains("svelte", StringComparison.OrdinalIgnoreCase));
+
+                    var orchestrators = _agentOrchestrationFactory.CreateFullStackOrchestrators(backendStack, frontendStack);
+                    var allPhaseResults = new List<GenerationPhaseBatchResult>();
+
+                    foreach (var (phase, subOrchestrator) in orchestrators)
+                    {
+                        _logger.LogInformation(
+                            "[AutoGen {Id}] Running multi-agent generation for phase '{Phase}'",
+                            orchestrator.Id, phase);
+
+                        var tasks = new List<Libr4.IDE.AutonomousAppGeneration.Agents.AgentTask>
+                        {
+                            new()
+                            {
+                                Description = $"Generate {phase} artifacts for {plan.ApplicationName}",
+                                Context = new Libr4.IDE.AutonomousAppGeneration.Agents.AgentContext
+                                {
+                                    ApplicationName = plan.ApplicationName,
+                                    Description = plan.ApplicationDescription,
+                                    TechStack = string.Join(", ", plan.TechStack.Languages.Concat(plan.TechStack.Frameworks))
+                                }
+                            }
+                        };
+
+                        var phaseResult = await subOrchestrator.ExecuteParallelAsync(tasks, runCt);
+                        var generatedContent = string.Join("\n", phaseResult.Results
+                            .Where(r => r.IsSuccess)
+                            .Select(r => r.Result?.Content ?? string.Empty));
+
+                        var parsedFiles = TryParseGeneratedFiles(generatedContent);
+                        if (parsedFiles.Count > 0)
+                        {
+                            allPhaseResults.Add(new GenerationPhaseBatchResult(phase.ToString().ToLowerInvariant(), parsedFiles));
+                            _logger.LogInformation(
+                                "[AutoGen {Id}] Phase '{Phase}' generated {Count} files",
+                                orchestrator.Id, phase, parsedFiles.Count);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "[AutoGen {Id}] Phase '{Phase}' returned no parseable files. Content length: {Len}",
+                                orchestrator.Id, phase, generatedContent.Length);
+                        }
+                    }
+
+                    phaseBatches = TechStackArtifactFilter.PrunePhaseBatches(allPhaseResults, plan);
+                    files = phaseBatches.SelectMany(p => p.Files).ToList();
+                }
+                else
+                {
+                    // Fallback to monolithic generation when multi-agent infra is not available
+                    phaseBatches = TechStackArtifactFilter.PrunePhaseBatches(
+                        await _codeGen.GenerateInitialByPhasesAsync(plan, runCt),
+                        plan);
+                    files = phaseBatches.SelectMany(p => p.Files).ToList();
+                }
             }
             if (files.Count == 0)
             {
@@ -1515,5 +1580,90 @@ public sealed class StartAppGenerationCommandHandler
         }
 
         return (artifact.Id, artifact.Version);
+    }
+
+    // --- Multi-agent generation helpers ------------------------------------
+
+    /// <summary>
+    /// Attempts to parse a JSON response containing generated files into a list of GeneratedFile objects.
+    /// Handles both explicit JSON objects and inline file markers like "// File: path".
+    /// </summary>
+    private static List<GeneratedFile> TryParseGeneratedFiles(string content)
+    {
+        var files = new List<GeneratedFile>();
+        if (string.IsNullOrWhiteSpace(content))
+            return files;
+
+        // Try explicit JSON first
+        try
+        {
+            var jsonMatch = System.Text.RegularExpressions.Regex.Match(
+                content,
+                @"\{\s*""files""\s*:\s*\[(.*?)\]\s*\}",
+                System.Text.RegularExpressions.RegexOptions.Singleline);
+
+            if (jsonMatch.Success)
+            {
+                var json = jsonMatch.Value;
+                using var doc = JsonDocument.Parse(json);
+                var filesArray = doc.RootElement.GetProperty("files");
+                foreach (var element in filesArray.EnumerateArray())
+                {
+                    var path = element.GetProperty("relativePath").GetString();
+                    var fileContent = element.GetProperty("content").GetString();
+                    if (!string.IsNullOrWhiteSpace(path) && fileContent is not null)
+                    {
+                        var lang = Path.GetExtension(path).TrimStart('.').ToLowerInvariant() switch
+                        {
+                            "cs" => "csharp",
+                            "ts" or "tsx" => "typescript",
+                            "js" or "jsx" => "javascript",
+                            "py" => "python",
+                            "go" => "go",
+                            "rs" => "rust",
+                            "java" => "java",
+                            "php" => "php",
+                            "rb" => "ruby",
+                            "kt" => "kotlin",
+                            "scala" => "scala",
+                            "swift" => "swift",
+                            "dart" => "dart",
+                            "html" => "html",
+                            "css" => "css",
+                            "scss" or "sass" => "scss",
+                            "sql" => "sql",
+                            "yaml" or "yml" => "yaml",
+                            "json" => "json",
+                            "xml" => "xml",
+                            "dockerfile" => "dockerfile",
+                            "sh" or "bash" => "shell",
+                            "ps1" => "powershell",
+                            "md" => "markdown",
+                            _ => "plaintext"
+                        };
+                        files.Add(new GeneratedFile(path, lang, fileContent));
+                    }
+                }
+                return files;
+            }
+        }
+        catch { /* fallback to regex parsing */ }
+
+        // Fallback: parse "// File: path" markers
+        var fileMarkerRegex = new System.Text.RegularExpressions.Regex(
+            @"(?://|#)\s*File:\s*(.+?)\r?\n(.*?)(?=(?://|#)\s*File:|$)",
+            System.Text.RegularExpressions.RegexOptions.Singleline);
+
+        foreach (System.Text.RegularExpressions.Match match in fileMarkerRegex.Matches(content))
+        {
+            var path = match.Groups[1].Value.Trim();
+            var fileContent = match.Groups[2].Value.Trim();
+            if (!string.IsNullOrWhiteSpace(path) && !string.IsNullOrWhiteSpace(fileContent))
+            {
+                files.Add(new GeneratedFile(path, "plaintext", fileContent));
+            }
+        }
+
+        return files;
     }
 }

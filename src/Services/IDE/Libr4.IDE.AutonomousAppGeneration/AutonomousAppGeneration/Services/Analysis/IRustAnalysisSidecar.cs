@@ -59,7 +59,7 @@ public sealed record ComplexityMetrics(
 
 public sealed record PlaceholderFinding(
     int Line,
-    string Type, // TODO, FIXME, HACK, XXX, STUB
+    string Type, // TODO, FIXME, HACK, XXX, PLACEHOLDER
     string Message);
 
 public sealed record SecurityFinding(

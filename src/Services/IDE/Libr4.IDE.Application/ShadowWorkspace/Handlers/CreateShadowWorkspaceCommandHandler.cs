@@ -1,8 +1,7 @@
-/*
 using MediatR;
 using Libr4.IDE.Application.ShadowWorkspace.Commands;
 using Libr4.IDE.Application.ShadowWorkspace.DTOs;
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Microsoft.Extensions.Logging;
 
 namespace Libr4.IDE.Application.ShadowWorkspace.Handlers;
@@ -30,11 +29,13 @@ public class CreateShadowWorkspaceCommandHandler : IRequestHandler<CreateShadowW
             Directory.CreateDirectory(workspacePath);
 
             // Copy files
-            foreach (var (filePath, content) in request.Files)
+            foreach (var file in request.Files)
             {
-                var fullPath = Path.Combine(workspacePath, filePath);
-                Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-                await File.WriteAllTextAsync(fullPath, content, ct);
+                var fullPath = Path.Combine(workspacePath, file.FilePath);
+                var dir = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrEmpty(dir))
+                    Directory.CreateDirectory(dir);
+                await File.WriteAllTextAsync(fullPath, file.Content, ct);
             }
 
             _logger.LogInformation("Created shadow workspace {WorkspaceId} with {FileCount} files",
@@ -58,4 +59,3 @@ public class CreateShadowWorkspaceCommandHandler : IRequestHandler<CreateShadowW
         }
     }
 }
-*/

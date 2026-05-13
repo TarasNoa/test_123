@@ -14,8 +14,11 @@ public interface IGatewayPreviewIntegration
 public class PreviewStatus
 {
     public string PreviewId { get; set; } = string.Empty;
+    public string ProjectId { get; set; } = string.Empty;
     public string State { get; set; } = string.Empty; // "Creating", "Ready", "Error", "Destroyed"
     public string? Error { get; set; }
+    public string? Summary { get; set; }
+    public int FileCount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? ReadyAt { get; set; }
 }

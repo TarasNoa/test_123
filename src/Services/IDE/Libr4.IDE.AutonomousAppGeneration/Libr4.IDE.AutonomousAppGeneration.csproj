@@ -20,7 +20,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="Infrastructure\IsolatedShadowExecutionService.cs" />
+    <Content Include="Agents\Skills\**\SKILL.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>

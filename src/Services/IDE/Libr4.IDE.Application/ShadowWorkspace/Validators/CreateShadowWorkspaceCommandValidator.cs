@@ -19,7 +19,7 @@ public class CreateShadowWorkspaceCommandValidator : AbstractValidator<CreateSha
             .WithMessage("Cannot process more than 100 files");
         
         RuleForEach(x => x.Files)
-            .Must(x => !string.IsNullOrWhiteSpace(x.FilePath))
+            .Must(x => !string.IsNullOrWhiteSpace(x!.FilePath))
             .WithMessage("File path cannot be empty");
     }
 }

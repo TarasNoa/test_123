@@ -57,10 +57,10 @@
     <Compile Remove="Orchestration\ResilientOrchestrator.cs" />
     <Compile Remove="FSharpInterop\**\*.cs" />
     <Compile Remove="Persistence\Converters\AgentStateConverter.cs" />
-    <Compile Remove="Containers\ContainerManager.cs" />
+    <!-- <Compile Remove="Containers\ContainerManager.cs" />
     <Compile Remove="Containers\ContainerConnectionTracker.cs" />
     <Compile Remove="Containers\PreWarmedContainerPool.cs" />
-    <Compile Remove="Containers\ContainerPoolWarmupService.cs" />
+    <Compile Remove="Containers\ContainerPoolWarmupService.cs" /> -->
     <Compile Remove="Obscura\ObscuraBrowserService.cs" />
   </ItemGroup>
 

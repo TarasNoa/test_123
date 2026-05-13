@@ -654,7 +654,7 @@ public class AgentNativeResearchArtifact
     public List<ResearchClaim> Claims { get; private set; }
     
     /// <summary>
-    /// Physical layer: configs, code stubs
+    /// Physical layer: configs, code snippets
     /// </summary>
     public List<ResearchArtifact> Artifacts { get; private set; }
     
@@ -715,7 +715,7 @@ public class ResearchClaim
 }
 
 /// <summary>
-/// Research artifact (config, code stub, etc.)
+/// Research artifact (config, code snippet, etc.)
 /// </summary>
 public class ResearchArtifact
 {

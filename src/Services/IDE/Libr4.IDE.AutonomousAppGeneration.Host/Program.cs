@@ -1,3 +1,4 @@
+using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Infrastructure.AI;
 using Libr4.AI.Infrastructure.AI.Providers;
 using Libr4.IDE.Application.AutonomousAppGeneration;

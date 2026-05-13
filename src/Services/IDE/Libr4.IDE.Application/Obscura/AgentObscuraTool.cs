@@ -600,6 +600,7 @@ public class WebSourceResult
     public string Url { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
+    public string Summary { get; set; } = string.Empty;
     public string HtmlContent { get; set; } = string.Empty;
     public bool HasContent { get; set; }
     public double RelevanceScore { get; set; }
