@@ -2,7 +2,7 @@ namespace Libr4.Community.Domain.Algorithms
 
 open System
 open System.Text.Json
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Content Moderation Algorithms
 module ContentModerator =

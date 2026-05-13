@@ -2,7 +2,7 @@ namespace Libr4.Projects.Domain.Kanban.Algorithms
 
 open System
 open System.Text.Json
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Shared types for Kanban algorithms
 type CardMovement = {

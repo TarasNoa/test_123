@@ -54,6 +54,8 @@ grafanadata/
 ## Misc temp
 *.zip
 
+## Rust
+rust/target/
 
 ## Submodules
 obscura/

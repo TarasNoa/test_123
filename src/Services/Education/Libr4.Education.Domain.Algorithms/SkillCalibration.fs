@@ -2,7 +2,7 @@ namespace Libr4.Education.Domain.Algorithms
 
 open System
 open System.Text.Json
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Skill Level Types
 type SkillLevel = Beginner = 0 | Intermediate = 1 | Advanced = 2 | Expert = 3 | Master = 4

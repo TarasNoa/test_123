@@ -2,7 +2,7 @@ namespace Libr4.Gamification.Domain.Algorithms
 
 open System
 open System.Text.Json
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Simple types to avoid circular dependency
 type Rarity = Common = 0 | Rare = 1 | Epic = 2 | Legendary = 3
