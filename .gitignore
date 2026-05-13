@@ -31,6 +31,11 @@ next-env.d.ts
 ## Logs
 *.log
 logs/
+e2e-logs/
+*_err.txt
+*_out.txt
+*-errors.txt
+*-report*.json
 
 ## OS
 .DS_Store
@@ -46,5 +51,15 @@ rabbitdata/
 prometheusdata/
 grafanadata/
 
+## Misc temp
+*.zip
+
+
 ## Submodules
 obscura/
+
+## Porting / temp reports
+PORTING_REPORTS/
+escrow_error.html
+fix_ai_refs.py
+obscura.zip
