@@ -16,5 +16,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Libr4.Matching.Application\Libr4.Matching.Application.csproj" />
     <ProjectReference Include="..\Libr4.Matching.Infrastructure\Libr4.Matching.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Web\Libr4.Shared.Web.csproj" />
   </ItemGroup>
 </Project>

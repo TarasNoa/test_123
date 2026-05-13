@@ -8,8 +8,11 @@ public static class SerilogExtensions
 {
     public static IServiceCollection AddLibr4Logging(this IServiceCollection services)
     {
-        // Serilog is configured via builder.Host.UseSerilog — this overload is a no-op stub
-        // for services that call AddLibr4Logging() on IServiceCollection directly.
+        // Ensure default logging providers are available.
+        // Console/Debug providers are typically registered by the host;
+        // this call ensures the logging pipeline is configured when
+        // services only have access to IServiceCollection.
+        services.AddLogging();
         return services;
     }
 

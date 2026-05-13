@@ -40,11 +40,11 @@ app.MapOrderEndpoints();
 app.MapMarketDataEndpoints();
 app.MapPortfolioEndpoints();
 
-// Ensure DB migrated on startup
+// Ensure DB created on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<Libr4.Trading.Infrastructure.Persistence.TradingDbContext>();
-    await db.Database.MigrateAsync();
+    db.Database.EnsureCreated();
 }
 
 app.Run();

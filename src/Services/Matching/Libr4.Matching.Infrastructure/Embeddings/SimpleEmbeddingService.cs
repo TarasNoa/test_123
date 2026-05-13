@@ -33,8 +33,10 @@ public sealed class SimpleEmbeddingService : IEmbeddingService
 
     private static float[] GenerateEmbedding(string text)
     {
-        var hash = text.GetHashCode();
-        var random = new Random(hash);
+        using var sha = System.Security.Cryptography.SHA256.Create();
+        var bytes = sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(text));
+        var seed = BitConverter.ToInt32(bytes, 0);
+        var random = new Random(seed);
         var embedding = new float[EmbeddingDimension];
         for (int i = 0; i < EmbeddingDimension; i++)
         {

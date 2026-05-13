@@ -8,7 +8,7 @@ public static class MatchingEndpoints
 {
     public static IEndpointRouteBuilder MapMatchingEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/matching").WithTags("Matching");
+        var group = app.MapGroup("/api/matching").WithTags("Matching").RequireAuthorization();
 
         group.MapPost("/tasks/{taskId:guid}/matches", async (
             Guid taskId,

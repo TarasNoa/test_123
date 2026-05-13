@@ -74,7 +74,7 @@ app.MapMessageEndpoints();
 app.MapNotificationEndpoints();
 app.MapFileEndpoints();
 app.MapCallEndpoints();
-app.MapHub<ChatHub>("/chatHub");
+app.MapHub<ChatHub>("/chatHub").RequireAuthorization();
 
 // Ensure database is created for E2E testing
 using (var scope = app.Services.CreateScope())

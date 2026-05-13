@@ -3,6 +3,8 @@
 Full Workflow Integration Test for Libr4 microservices.
 Simulates: customer registration -> task creation -> freelancer applies -> collaboration -> task completion
 """
+import os
+import platform
 import subprocess
 import time
 import json
@@ -10,7 +12,9 @@ import urllib.request
 import urllib.error
 from pathlib import Path
 
-BASE = Path("d:/lib4_project/libr4")
+BASE = Path(os.environ.get("LIBR4_ROOT", Path(__file__).parent.parent))
+if not (BASE / "libr4.sln").exists():
+    BASE = Path("d:/lib4_project/libr4")
 LOG_DIR = BASE / "e2e-logs"
 LOG_DIR.mkdir(exist_ok=True)
 
@@ -34,7 +38,7 @@ def start_apis():
             ["dotnet", "run", "--no-build", "--project", str(proj), "--urls", f"http://localhost:{port}"],
             stdout=out, stderr=err,
             env={**dict(subprocess.os.environ), "ASPNETCORE_ENVIRONMENT": "Development"},
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP if platform.system() == "Windows" else 0)
         )
         processes.append((name, port, proc))
         print(f"  {name} -> PID {proc.pid} : {port}")
@@ -53,9 +57,22 @@ def stop_apis():
                 pass
     print("Done.")
 
-def wait_for_apis():
-    print("\n[2/4] Waiting for APIs to be ready (30s)...")
-    time.sleep(30)
+def wait_for_apis(timeout=60):
+    print(f"\n[2/4] Waiting for APIs to be ready (timeout={timeout}s)...")
+    deadline = time.time() + timeout
+    for name, _, port in APIS:
+        while time.time() < deadline:
+            try:
+                status, _ = request("GET", f"http://localhost:{port}/health")
+                if status == 200:
+                    print(f"  {name} ready")
+                    break
+            except Exception:
+                pass
+            time.sleep(1)
+        else:
+            print(f"  WARNING: {name} not ready in {timeout}s")
+
 
 def request(method, url, data=None, headers=None, timeout=10):
     req = urllib.request.Request(url, method=method)
