@@ -3,7 +3,7 @@ namespace Libr4.Tasks.Domain.DisputeResolution.Algorithms
 open System
 open System.Text.Json
 open Libr4.Tasks.Domain.DisputeResolution
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Dispute Classifier
 module DisputeClassifier =

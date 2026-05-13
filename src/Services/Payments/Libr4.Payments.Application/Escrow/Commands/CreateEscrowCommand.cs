@@ -71,6 +71,16 @@ public class CreateEscrowHandler : IRequestHandler<CreateEscrowCommand, Result<E
         // Hold funds from client wallet
         clientWallet.Hold(request.Amount);
 
+        // Explicitly track new entries since EF Core backing field collection tracking may not auto-detect them
+        foreach (var entry in clientWallet.Entries)
+        {
+            var entryState = _dbContext.Entry(entry).State;
+            if (entryState == EntityState.Detached)
+            {
+                _dbContext.WalletEntries.Add(entry);
+            }
+        }
+
         // Create Stripe PaymentIntent with manual capture for escrow
         var (_, paymentIntentId) = await _stripeService.CreatePaymentIntentAsync(
             request.Amount,
@@ -89,7 +99,21 @@ public class CreateEscrowHandler : IRequestHandler<CreateEscrowCommand, Result<E
             paymentIntentId);
 
         _dbContext.Escrows.Add(escrow);
-        await _dbContext.SaveChangesAsync(ct);
+
+        // Retry once on concurrency conflict (common when wallet entries are added rapidly)
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            try
+            {
+                await _dbContext.SaveChangesAsync(ct);
+                break;
+            }
+            catch (DbUpdateConcurrencyException) when (attempt == 0)
+            {
+                // Pause briefly and retry (sequential e2e tests rarely have true contention)
+                await Task.Delay(100, ct);
+            }
+        }
 
         var dto = new EscrowDto(
             escrow.Id,

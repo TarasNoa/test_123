@@ -3,6 +3,7 @@ using Libr4.Payments.Application.Abstractions;
 using Libr4.Payments.Application.Dtos;
 using Libr4.Payments.Domain;
 using Libr4.Payments.Domain.Escrow;
+using Libr4.Payments.Domain.Wallets;
 using Libr4.Payments.Domain.Transactions.Events;
 using Libr4.Shared.Contracts.IntegrationEvents.Payments;
 using Libr4.Shared.Kernel.Domain;
@@ -62,31 +63,21 @@ public class ReleaseEscrowHandler : IRequestHandler<ReleaseEscrowCommand, Result
         if (escrow.Status != EscrowStatus.Held)
             return Result.Failure<EscrowDto>(Error.Conflict("Escrow.NotHeld", "Escrow is not in held status"));
 
-        // Get wallets
+        // Get wallets (lightweight, no entity mutation to avoid batching bugs)
         var clientWallet = await _dbContext.Wallets
+            .AsNoTracking()
             .FirstAsync(w => w.UserId == escrow.ClientId, ct);
 
         var freelancerWallet = await _dbContext.Wallets
+            .AsNoTracking()
             .FirstOrDefaultAsync(w => w.UserId == escrow.FreelancerId, ct);
 
         if (freelancerWallet == null)
         {
-            // Create freelancer wallet if not exists
             freelancerWallet = Libr4.Payments.Domain.Wallets.Wallet.Create(Guid.NewGuid(), escrow.FreelancerId, escrow.Currency);
             _dbContext.Wallets.Add(freelancerWallet);
+            await _dbContext.SaveChangesAsync(ct);
         }
-
-        // Release hold and transfer to freelancer
-        clientWallet.ReleaseHoldToBeneficiary(
-            escrow.Amount,
-            freelancerWallet.Id,
-            escrow.Id,
-            $"Escrow release for task {escrow.TaskId}");
-
-        freelancerWallet.Credit(
-            escrow.Amount,
-            escrow.Id,
-            $"Payment for task {escrow.TaskId}");
 
         // Capture Stripe payment if exists
         if (!string.IsNullOrEmpty(escrow.StripePaymentIntentId))
@@ -94,8 +85,36 @@ public class ReleaseEscrowHandler : IRequestHandler<ReleaseEscrowCommand, Result
             await _stripeService.CapturePaymentIntentAsync(escrow.StripePaymentIntentId, ct);
         }
 
-        // Release escrow
+        // Release escrow status
         escrow.Release();
+        _dbContext.Escrows.Update(escrow);
+
+        // Update client wallet (release hold)
+        await _dbContext.Wallets
+            .Where(w => w.Id == clientWallet.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(w => w.Balance, w => w.Balance - escrow.Amount)
+                .SetProperty(w => w.HeldBalance, w => w.HeldBalance - escrow.Amount)
+                .SetProperty(w => w.UpdatedAt, w => DateTime.UtcNow), ct);
+
+        // Update freelancer wallet (credit)
+        await _dbContext.Wallets
+            .Where(w => w.Id == freelancerWallet.Id)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(w => w.Balance, w => w.Balance + escrow.Amount)
+                .SetProperty(w => w.UpdatedAt, w => DateTime.UtcNow), ct);
+
+        // Add wallet entries directly
+        _dbContext.WalletEntries.Add(WalletEntry.Create(
+            Guid.NewGuid(), clientWallet.Id, escrow.Id,
+            0, escrow.Amount, clientWallet.Balance - escrow.Amount,
+            $"Escrow release for task {escrow.TaskId}"));
+        _dbContext.WalletEntries.Add(WalletEntry.Create(
+            Guid.NewGuid(), freelancerWallet.Id, escrow.Id,
+            escrow.Amount, 0, freelancerWallet.Balance + escrow.Amount,
+            $"Payment for task {escrow.TaskId}"));
+
+        await _dbContext.SaveChangesAsync(ct);
 
         // Publish integration event for cross-service consumers (e.g. Chat notifications)
         await _eventBus.PublishAsync(new EscrowReleasedIntegrationEvent(
@@ -106,8 +125,6 @@ public class ReleaseEscrowHandler : IRequestHandler<ReleaseEscrowCommand, Result
             escrow.Amount,
             escrow.Currency,
             DateTimeOffset.UtcNow), ct);
-
-        await _dbContext.SaveChangesAsync(ct);
 
         var dto = new EscrowDto(
             escrow.Id,

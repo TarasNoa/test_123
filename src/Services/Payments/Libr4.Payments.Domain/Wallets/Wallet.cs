@@ -14,7 +14,7 @@ public class Wallet : AggregateRoot<Guid>
     public DateTime UpdatedAt { get; private set; }
 
     private readonly List<WalletEntry> _entries = new();
-    public IReadOnlyCollection<WalletEntry> Entries => _entries.AsReadOnly();
+    public IReadOnlyCollection<WalletEntry> Entries => _entries;
 
     private Wallet() { } // EF Core
 

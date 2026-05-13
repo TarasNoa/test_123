@@ -15,7 +15,7 @@ public static class WalletEndpoints
             .WithOpenApi()
             .RequireAuthorization();
 
-        // Get or create wallet
+        // Get or create wallet (/my)
         group.MapGet("/my", async (
             IMediator mediator,
             CurrentUser user,
@@ -27,7 +27,6 @@ public static class WalletEndpoints
             if (result.IsSuccess)
                 return Results.Ok(result.Value);
 
-            // Create wallet if not exists
             if (result.Error.Code == "Wallet.NotFound")
             {
                 var createCmd = new CreateWalletCommand(user.Id, "USD");
@@ -39,6 +38,55 @@ public static class WalletEndpoints
         })
         .WithName("GetMyWallet")
         .WithSummary("Get or create user wallet");
+
+        // Alias /me
+        group.MapGet("/me", async (
+            IMediator mediator,
+            CurrentUser user,
+            CancellationToken ct) =>
+        {
+            var query = new GetWalletQuery(user.Id);
+            var result = await mediator.Send(query, ct);
+
+            if (result.IsSuccess)
+                return Results.Ok(result.Value);
+
+            if (result.Error.Code == "Wallet.NotFound")
+            {
+                var createCmd = new CreateWalletCommand(user.Id, "USD");
+                var createResult = await mediator.Send(createCmd, ct);
+                return createResult.IsSuccess ? Results.Ok(createResult.Value) : Results.BadRequest(createResult.Error);
+            }
+
+            return Results.BadRequest(result.Error);
+        })
+        .WithName("GetMeWallet")
+        .WithSummary("Get or create user wallet (alias)");
+
+        // Withdraw funds
+        group.MapPost("/withdraw", async (
+            WithdrawWalletRequest request,
+            IMediator mediator,
+            CurrentUser user,
+            CancellationToken ct) =>
+        {
+            // Resolve wallet from current user if walletId not provided explicitly
+            var walletId = request.WalletId;
+            if (walletId == Guid.Empty)
+            {
+                var walletQuery = new GetWalletQuery(user.Id);
+                var walletResult = await mediator.Send(walletQuery, ct);
+                if (!walletResult.IsSuccess)
+                    return Results.BadRequest(walletResult.Error);
+                walletId = walletResult.Value.Id;
+            }
+
+            var command = new WithdrawWalletCommand(walletId, request.Amount, request.Currency, request.StripeAccountId);
+            var result = await mediator.Send(command, ct);
+            return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
+        })
+        .WithName("WithdrawWallet")
+        .WithSummary("Withdraw funds from wallet");
 
         // Get wallet entries (ledger)
         group.MapGet("/{walletId:guid}/entries", async (
@@ -58,3 +106,9 @@ public static class WalletEndpoints
         return app;
     }
 }
+
+public record WithdrawWalletRequest(
+    Guid WalletId,
+    decimal Amount,
+    string Currency,
+    string? StripeAccountId);

@@ -3,7 +3,7 @@ namespace Libr4.Tasks.Domain.MarketInsights.Algorithms
 open System
 open System.Text.Json
 open Libr4.Tasks.Domain.MarketInsights
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Pricing Analyzer
 module PricingAnalyzer =

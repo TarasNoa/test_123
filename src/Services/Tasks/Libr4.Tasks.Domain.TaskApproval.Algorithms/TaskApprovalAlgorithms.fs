@@ -3,7 +3,7 @@ namespace Libr4.Tasks.Domain.TaskApproval.Algorithms
 open System
 open System.Text.Json
 open Libr4.Tasks.Domain.TaskApproval
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Completion Verifier
 module CompletionVerifier =

@@ -1,7 +1,10 @@
 namespace Libr4.Auth.Domain.Algorithms
 
 open System
+open System.Text
 open System.Security.Cryptography
+open System.Text.Json
+open Libr4.AI.Application.Abstractions
 
 [<CLIMutable>]
 type ApiKeyData =
@@ -80,7 +83,7 @@ module ApiKeyGenerator =
             
             let! aiResponse = aiService.AnalyzeTextAsync(prompt, "auth") |> Async.AwaitTask
             
-            let jsonDoc = JsonDocument.Parse(aiResponse)
+            let jsonDoc = JsonDocument.Parse(aiResponse : string)
             let root = jsonDoc.RootElement
             
             let suggestedPrefix = 
@@ -159,7 +162,7 @@ module SecurityAnalyzer =
             
             let! aiResponse = aiService.AnalyzeTextAsync(prompt, "auth") |> Async.AwaitTask
             
-            let jsonDoc = JsonDocument.Parse(aiResponse)
+            let jsonDoc = JsonDocument.Parse(aiResponse : string)
             let root = jsonDoc.RootElement
             
             let riskLevel = 
@@ -229,7 +232,7 @@ module RateLimiter =
             
             let! aiResponse = aiService.AnalyzeTextAsync(prompt, "auth") |> Async.AwaitTask
             
-            let jsonDoc = JsonDocument.Parse(aiResponse)
+            let jsonDoc = JsonDocument.Parse(aiResponse : string)
             let root = jsonDoc.RootElement
             
             let willBreach = 
@@ -246,6 +249,18 @@ module RateLimiter =
                 ResetAt = resetAt
             }
         }
+
+type ApiKeyScope =
+    | None = 0
+    | ReadProfile = 1
+    | WriteProfile = 2
+    | ReadTasks = 4
+    | WriteTasks = 8
+    | ReadPayments = 16
+    | WritePayments = 32
+    | ReadChat = 64
+    | WriteChat = 128
+    | Admin = 256
 
 // Scope Validator
 module ScopeValidator =
@@ -269,7 +284,7 @@ module ScopeValidator =
             
             let! aiResponse = aiService.AnalyzeTextAsync(prompt, "auth") |> Async.AwaitTask
             
-            let jsonDoc = JsonDocument.Parse(aiResponse)
+            let jsonDoc = JsonDocument.Parse(aiResponse : string)
             let root = jsonDoc.RootElement
             
             let scopeStrings = 

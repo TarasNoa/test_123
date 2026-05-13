@@ -3,7 +3,7 @@ namespace Libr4.Payments.Domain.Algorithms
 open System
 open System.Text.Json
 open Libr4.Payments.Domain.PaymentMethods
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
 
 // Payment Method Validator
 module PaymentMethodValidator =

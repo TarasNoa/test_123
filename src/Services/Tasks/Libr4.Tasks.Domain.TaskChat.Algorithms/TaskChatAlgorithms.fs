@@ -3,20 +3,22 @@ namespace Libr4.Tasks.Domain.TaskChat.Algorithms
 open System
 open System.Text.Json
 open Libr4.Tasks.Domain.TaskChat
-open Libr4.AI.Infrastructure.AI
+open Libr4.AI.Application.Abstractions
+
+type TaskChatMessage = Libr4.Tasks.Domain.TaskChat.ChatMessage
 
 // Message Filter
 module MessageFilter =
 
     type FilteredMessages = {
-        All: ChatMessage list
-        BySender: Map<Guid, ChatMessage list>
-        ByRole: Map<string, ChatMessage list>
-        Recent: ChatMessage list
+        All: TaskChatMessage list
+        BySender: Map<Guid, TaskChatMessage list>
+        ByRole: Map<string, TaskChatMessage list>
+        Recent: TaskChatMessage list
     }
 
     // Filter and organize chat messages
-    let filterMessages (messages: ChatMessage list) (senderId: Guid option) (role: string option) (recentHours: int) : FilteredMessages =
+    let filterMessages (messages: TaskChatMessage list) (senderId: Guid option) (role: string option) (recentHours: int) : FilteredMessages =
         let bySender = 
             messages
             |> List.groupBy (fun m -> m.SenderId)
@@ -62,7 +64,7 @@ module ActivityTracker =
     }
 
     // Track chat activity metrics using AI
-    let trackActivity (aiService: IAIService) (messages: ChatMessage list) (createdAt: DateTimeOffset) : Async<ActivityMetrics> =
+    let trackActivity (aiService: IAIService) (messages: TaskChatMessage list) (createdAt: DateTimeOffset) : Async<ActivityMetrics> =
         async {
             let totalMessages = messages.Length
             
@@ -87,7 +89,7 @@ module ActivityTracker =
             
             let! aiResponse = aiService.AnalyzeTextAsync(prompt, "chat") |> Async.AwaitTask
             
-            let jsonDoc = JsonDocument.Parse(aiResponse)
+            let jsonDoc = JsonDocument.Parse(aiResponse : string)
             let root = jsonDoc.RootElement
             
             let engagementScore = 
@@ -123,7 +125,7 @@ module ChatAnalytics =
     }
 
     // Analyze chat patterns and provide insights using AI
-    let analyzeChat (aiService: IAIService) (messages: ChatMessage list) : Async<ChatInsight> =
+    let analyzeChat (aiService: IAIService) (messages: TaskChatMessage list) : Async<ChatInsight> =
         async {
             if messages.IsEmpty then
                 return {
@@ -154,7 +156,7 @@ module ChatAnalytics =
                 
                 let! aiResponse = aiService.AnalyzeTextAsync(prompt, "chat") |> Async.AwaitTask
                 
-                let jsonDoc = JsonDocument.Parse(aiResponse)
+                let jsonDoc = JsonDocument.Parse(aiResponse : string)
                 let root = jsonDoc.RootElement
                 
                 let recommendation = 

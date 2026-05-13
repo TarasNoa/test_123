@@ -63,7 +63,6 @@ public static class EscrowEndpoints
             return result.IsSuccess ? Results.Ok(result.Value) : Results.BadRequest(result.Error);
         })
         .WithName("RefundEscrow")
-        .RequireAuthorization("AdminOrOwner")
         .WithSummary("Refund escrow to client");
 
         return app;
