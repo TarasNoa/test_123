@@ -415,9 +415,12 @@ app.MapGet("/ws/events/{runId}", async (string runId, AgentEventWebSocketHandler
 app.MapHub<ShadowWorkspaceHub>("/hubs/shadow-workspace");
 
 using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
-}
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        if (app.Environment.IsDevelopment())
+            db.Database.EnsureCreated();
+        else
+            db.Database.Migrate();
+    }
 
 app.Run();

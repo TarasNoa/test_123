@@ -79,9 +79,12 @@ app.MapHub<CollaborationHub>("/collaborationHub");
 
 // Ensure database is created for E2E testing
 using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<CollaborationDbContext>();
-    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
-}
+    {
+        var db = scope.ServiceProvider.GetRequiredService<CollaborationDbContext>();
+        if (app.Environment.IsDevelopment())
+            db.Database.EnsureCreated();
+        else
+            db.Database.Migrate();
+    }
 
 app.Run();

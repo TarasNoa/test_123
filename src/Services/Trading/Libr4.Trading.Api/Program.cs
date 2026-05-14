@@ -42,9 +42,12 @@ app.MapPortfolioEndpoints();
 
 // Ensure DB created on startup
 using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<Libr4.Trading.Infrastructure.Persistence.TradingDbContext>();
-    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
-}
+    {
+        var db = scope.ServiceProvider.GetRequiredService<Libr4.Trading.Infrastructure.Persistence.TradingDbContext>();
+        if (app.Environment.IsDevelopment())
+            db.Database.EnsureCreated();
+        else
+            db.Database.Migrate();
+    }
 
 app.Run();

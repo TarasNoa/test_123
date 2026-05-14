@@ -51,9 +51,12 @@ app.MapWalletEndpoints();
 
 // Ensure database is created for E2E testing
 using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
-    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
-}
+    {
+        var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
+        if (app.Environment.IsDevelopment())
+            db.Database.EnsureCreated();
+        else
+            db.Database.Migrate();
+    }
 
 app.Run();

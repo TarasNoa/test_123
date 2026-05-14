@@ -62,9 +62,12 @@ app.MapSocialNetworkEndpoints();
 
 // Apply pending migrations on startup
 using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<SocialDbContext>();
-    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
-}
+    {
+        var db = scope.ServiceProvider.GetRequiredService<SocialDbContext>();
+        if (app.Environment.IsDevelopment())
+            db.Database.EnsureCreated();
+        else
+            db.Database.Migrate();
+    }
 
 await app.RunAsync();
