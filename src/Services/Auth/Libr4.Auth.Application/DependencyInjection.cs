@@ -4,7 +4,6 @@ using MediatR;
 using MediatR.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 using Libr4.Auth.Application.Abstractions;
-using Libr4.Auth.Application.Services;
 
 namespace Libr4.Auth.Application;
 
@@ -16,7 +15,7 @@ public static class DependencyInjection
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(asm));
         services.AddValidatorsFromAssembly(asm);
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
-        services.AddSingleton<IPasswordHasher, RustPasswordHasher>();
+        // IPasswordHasher is registered in Infrastructure DI (BcryptPasswordHasher)
         return services;
     }
 }

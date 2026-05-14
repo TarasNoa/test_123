@@ -27,6 +27,7 @@ public static class DependencyInjection
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<ITokenGenerator, TokenGenerator>();
         services.AddScoped<ITotpService, TotpService>();
+        services.AddScoped<IEmailService, SmtpEmailService>();
 
         var amlProvider = configuration.GetValue<string>("Aml:Provider") ?? "sumsub";
         var amlApiKey = configuration.GetValue<string>("Aml:ApiKey") ?? "";

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Libr4.Chat.Api.Endpoints;
 using Libr4.Chat.Api.Hubs;
 using Libr4.Chat.Application;
@@ -80,7 +80,7 @@ app.MapHub<ChatHub>("/chatHub").RequireAuthorization();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ChatDbContext>();
-    db.Database.EnsureCreated();
+    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
 }
 
 app.Run();

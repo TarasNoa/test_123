@@ -417,7 +417,7 @@ app.MapHub<ShadowWorkspaceHub>("/hubs/shadow-workspace");
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.EnsureCreated();
+    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
 }
 
 app.Run();

@@ -5,6 +5,7 @@ using Libr4.Chat.Application.Servers;
 using Libr4.Chat.Infrastructure.Hubs;
 using Libr4.Chat.Infrastructure.Persistence;
 using Libr4.Chat.Infrastructure.Repositories;
+using Libr4.Chat.Infrastructure.Services;
 using Libr4.Chat.Infrastructure.Storage;
 using Libr4.Shared.Infrastructure.Messaging;
 using MassTransit;
@@ -48,8 +49,16 @@ public static class DependencyInjection
             x.AddConsumers(typeof(DependencyInjection).Assembly);
         });
 
-        // Storage service (S3/MinIO)
-        services.AddSingleton<IStorageService, S3StorageService>();
+        // Storage service (S3/MinIO) — conditional registration
+        var awsKey = configuration["AWS:AccessKey"];
+        if (!string.IsNullOrEmpty(awsKey))
+        {
+            services.AddSingleton<IStorageService, S3StorageService>();
+        }
+        else
+        {
+            services.AddSingleton<IStorageService, LocalStorageService>();
+        }
 
         // Server feature
         services.AddScoped<IServerRepository, ServerRepository>();
@@ -65,6 +74,9 @@ public static class DependencyInjection
 
         // File storage (local disk for dev)
         services.AddSingleton<IFileStorageService, LocalFileStorageService>();
+
+        // Media service (WebRTC) — dev stub
+        services.AddScoped<IMediaService, NullMediaService>();
 
         // Health checks
         services.AddHealthChecks()

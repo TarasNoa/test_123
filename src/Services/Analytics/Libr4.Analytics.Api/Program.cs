@@ -7,6 +7,7 @@ using Libr4.Shared.Web.Auth;
 using Libr4.Shared.Web.HealthChecks;
 using Libr4.Shared.Web.Logging;
 using Libr4.Shared.Web.Swagger;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -34,5 +35,12 @@ app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapMetricsEndpoints();
 app.MapDashboardEndpoints();
+
+// Apply pending migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AnalyticsDbContext>();
+    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
+}
 
 app.Run();

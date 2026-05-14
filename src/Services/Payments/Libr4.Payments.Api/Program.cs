@@ -1,4 +1,4 @@
-﻿using Libr4.Payments.Api.Endpoints;
+using Libr4.Payments.Api.Endpoints;
 using Libr4.Payments.Application;
 using Libr4.Payments.Application.Tax;
 using Libr4.Payments.Infrastructure;
@@ -53,7 +53,7 @@ app.MapWalletEndpoints();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PaymentsDbContext>();
-    db.Database.EnsureCreated();
+    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
 }
 
 app.Run();

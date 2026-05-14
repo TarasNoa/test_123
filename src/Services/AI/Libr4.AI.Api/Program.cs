@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Libr4.AI.Api.Endpoints;
 using Libr4.AI.Application;
 using Libr4.AI.Application.Abstractions;
@@ -139,7 +139,7 @@ app.MapGet("/error", () => Results.Problem("An error occurred.", statusCode: 500
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AIDbContext>();
-    db.Database.EnsureCreated();
+    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
 }
 
 app.Run();

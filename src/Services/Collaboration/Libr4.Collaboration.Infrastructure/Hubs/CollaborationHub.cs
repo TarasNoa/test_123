@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Libr4.Collaboration.Application.Abstractions;
 using System.Security.Claims;
 
 namespace Libr4.Collaboration.Infrastructure.Hubs;
 
+[Authorize]
 public class CollaborationHub : Hub
 {
     private readonly ICollaborationService _service;

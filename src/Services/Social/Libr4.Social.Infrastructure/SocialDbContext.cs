@@ -38,6 +38,17 @@ public class SocialDbContext : DbContext
                     cnav.HasKey("Id");
                     cnav.Property(c => c.Text).IsRequired();
                 });
+
+                nav.OwnsMany(p => p.Shares, cnav =>
+                {
+                    cnav.HasKey("Id");
+                    cnav.Property(c => c.SharedByUserId).IsRequired();
+                    cnav.Property(c => c.SharedAt).IsRequired();
+                });
+
+                nav.Property(p => p.Tags);
+                nav.Property(p => p.AttachmentUrls);
+                nav.Property(p => p.Likes);
             });
 
             entity.OwnsOne(e => e.Profile, nav =>

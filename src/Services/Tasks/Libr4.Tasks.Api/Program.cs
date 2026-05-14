@@ -1,4 +1,4 @@
-﻿using Libr4.Shared.Infrastructure.Observability;
+using Libr4.Shared.Infrastructure.Observability;
 using Libr4.Shared.Web.Auth;
 using Libr4.Shared.Web.CurrentUser;
 using Libr4.Shared.Web.HealthChecks;
@@ -24,13 +24,6 @@ builder.Services.AddLibr4Swagger("Libr4 Tasks API");
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    // using var scope = app.Services.CreateScope();
-    // var db = scope.ServiceProvider.GetRequiredService<TasksDbContext>();
-    // await db.Database.MigrateAsync();
-}
-
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -40,11 +33,11 @@ app.MapLibr4Metrics();
 
 app.MapTaskEndpoints();
 
-// Ensure database is created for E2E testing
+// Apply pending migrations on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<TasksDbContext>();
-    db.Database.EnsureCreated();
+    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
 }
 
 app.Run();

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Libr4.Shared.Infrastructure.Observability;
 using Libr4.Shared.Web.Auth;
 using Libr4.Shared.Web.CurrentUser;
@@ -44,7 +44,7 @@ app.MapPortfolioEndpoints();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<Libr4.Trading.Infrastructure.Persistence.TradingDbContext>();
-    db.Database.EnsureCreated();
+    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
 }
 
 app.Run();

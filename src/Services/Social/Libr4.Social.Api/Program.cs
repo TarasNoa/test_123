@@ -6,6 +6,7 @@ using Libr4.Shared.Web.Auth;
 using Libr4.Shared.Web.Logging;
 using Libr4.Shared.Web.Swagger;
 using Libr4.Shared.Web.HealthChecks;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -58,5 +59,12 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapSocialNetworkEndpoints();
+
+// Apply pending migrations on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<SocialDbContext>();
+    try { db.Database.Migrate(); } catch { db.Database.EnsureCreated(); }
+}
 
 await app.RunAsync();

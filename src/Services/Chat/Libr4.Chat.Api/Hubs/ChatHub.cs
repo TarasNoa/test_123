@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Libr4.Chat.Application.Abstractions;
 using System.Security.Claims;
@@ -8,6 +9,7 @@ using Libr4.Chat.Domain.Messages;
 
 namespace Libr4.Chat.Api.Hubs;
 
+[Authorize]
 public class ChatHub : Hub
 {
     private readonly IChatService _chatService;
