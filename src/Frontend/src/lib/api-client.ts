@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { config } from './config';
 
 export interface AgentEvent {
   status: string;
@@ -200,7 +201,7 @@ export const loginRequestSchema = z.object({
 
 export const registerRequestSchema = z.object({
   email: z.string().email(),
-  username: z.string().min(3),
+  displayName: z.string().min(2).max(64),
   password: z.string().min(8),
 });
 
@@ -217,7 +218,7 @@ export type AuthResponse = z.infer<typeof authResponseSchema>;
 class ApiClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = '/api') {
+  constructor(baseUrl: string = config.apiBaseUrl) {
     this.baseUrl = baseUrl;
   }
 
@@ -239,43 +240,43 @@ class ApiClient {
   }
 
   async suggestOrder(request: OrderAssistantRequest): Promise<OrderAssistantResult> {
-    return this.request('/ai/order-assistant/suggest', {
+    return this.request('/api/v1/ai/order-assistant/suggest', {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
 
   async recommendTasks(request: TaskRecommendationRequest): Promise<TaskRecommendationResult[]> {
-    return this.request('/ai/task-recommendations/recommend', {
+    return this.request('/api/v1/ai/task-recommendations/recommend', {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
 
   async checkOrderAssistantHealth(): Promise<string> {
-    return this.request('/ai/order-assistant/health');
+    return this.request('/api/v1/ai/order-assistant/health');
   }
 
   async checkTaskRecommendationsHealth(): Promise<string> {
-    return this.request('/ai/task-recommendations/health');
+    return this.request('/api/v1/ai/task-recommendations/health');
   }
 
   async generateCode(request: GenerateCodeRequest): Promise<LLMResponse> {
-    return this.request('/ai/llm/generate-code', {
+    return this.request('/api/v1/ai/llm/generate-code', {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
 
   async explainCode(request: ExplainCodeRequest): Promise<LLMResponse> {
-    return this.request('/ai/llm/explain-code', {
+    return this.request('/api/v1/ai/llm/explain-code', {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
 
   async getEmbeddings(request: EmbeddingsRequest): Promise<LLMResponse> {
-    return this.request('/ai/llm/embeddings', {
+    return this.request('/api/v1/ai/llm/embeddings', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -286,61 +287,61 @@ class ApiClient {
     if (name) params.append('name', name);
     if (from) params.append('from', from);
     if (to) params.append('to', to);
-    return this.request(`/analytics/metrics?${params}`);
+    return this.request(`/api/v1/analytics/metrics?${params}`);
   }
 
   async createMetric(request: CreateMetricRequest): Promise<MetricDto> {
-    return this.request('/analytics/metrics', {
+    return this.request('/api/v1/analytics/metrics', {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
 
   async getDashboards(ownerId: string): Promise<DashboardDto[]> {
-    return this.request(`/analytics/dashboards?ownerId=${ownerId}`);
+    return this.request(`/api/v1/analytics/dashboards?ownerId=${ownerId}`);
   }
 
   async createDashboard(request: CreateDashboardRequest): Promise<DashboardDto> {
-    return this.request('/analytics/dashboards', {
+    return this.request('/api/v1/analytics/dashboards', {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
 
   async login(request: LoginRequest): Promise<AuthResponse> {
-    return this.request('/auth/login', {
+    return this.request('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
 
   async register(request: RegisterRequest): Promise<AuthResponse> {
-    return this.request('/auth/register', {
+    return this.request('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify(request),
     });
   }
 
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
-    return this.request('/auth/refresh', {
+    return this.request('/api/v1/auth/refresh', {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
     });
   }
 
   async logout(refreshToken: string): Promise<{ message: string }> {
-    return this.request('/auth/logout', {
+    return this.request('/api/v1/auth/logout', {
       method: 'POST',
       body: JSON.stringify({ refreshToken }),
     });
   }
 
   async getUserChats(): Promise<ChatDto[]> {
-    return this.request('/chat/chats');
+    return this.request('/api/v1/chat/chats');
   }
 
   async createChat(request: CreateChatRequest): Promise<ChatDto> {
-    return this.request('/chat/chats', {
+    return this.request('/api/v1/chat/chats', {
       method: 'POST',
       body: JSON.stringify(request),
     });
@@ -350,7 +351,7 @@ class ApiClient {
     const params = new URLSearchParams();
     if (page) params.append('page', page.toString());
     if (pageSize) params.append('pageSize', pageSize.toString());
-    return this.request(`/chat/chats/${chatId}/messages?${params}`);
+    return this.request(`/api/v1/chat/chats/${chatId}/messages?${params}`);
   }
 }
 

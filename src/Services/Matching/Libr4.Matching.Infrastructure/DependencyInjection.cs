@@ -8,6 +8,7 @@ using Libr4.Matching.Infrastructure.Matching;
 using Libr4.Matching.Infrastructure.Persistence;
 using Libr4.Matching.Infrastructure.VectorStore;
 using Libr4.Shared.Infrastructure.Messaging;
+using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

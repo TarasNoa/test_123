@@ -38,7 +38,7 @@ export interface ExecutionContext {
 }
 
 export class AgentExecutionService {
-  static readonly BASE_URL = '/api/agent/execution';
+  static readonly BASE_URL = '/api/v1/agent/execution';
 
   static async executeCode(
     code: string,

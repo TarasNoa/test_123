@@ -1,15 +1,16 @@
 import { defineConfig } from "@solidjs/start/config";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   ssr: false,
   server: {
-    port: 3000,
-    preset: "node",
+    preset: "static",
   },
   vite: {
     build: {
       target: "esnext",
     },
     envPrefix: "VITE_",
+    plugins: [tailwindcss()],
   },
 });

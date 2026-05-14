@@ -1,4 +1,6 @@
 mod embedder;
+mod onnx_embedder;
+mod unified_embedder;
 mod server;
 
 use tonic::transport::Server;
@@ -18,14 +20,8 @@ async fn main() -> anyhow::Result<()> {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let dmr_url = std::env::var("DMR_URL")
-        .unwrap_or_else(|_| "http://host.docker.internal:12434/engines/v1".to_string());
-    let model = std::env::var("DMR_EMBEDDING_MODEL")
-        .unwrap_or_else(|_| "hf.co/nomic-ai/nomic-embed-text-v1.5-GGUF".to_string());
-
-    info!("Connecting to DMR at {} using model {}", dmr_url, model);
-    let embedder = embedder::Embedder::new(dmr_url, model);
-    info!("DMR embedder ready");
+    let embedder = unified_embedder::UnifiedEmbedder::new().await?;
+    info!("Embedder backend ready");
 
     let port = std::env::var("GRPC_PORT").unwrap_or_else(|_| "50061".to_string());
     let addr = format!("0.0.0.0:{}", port).parse()?;

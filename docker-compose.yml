@@ -110,9 +110,13 @@ services:
       Cors__AllowedOrigins__1: http://frontend:3000
     ports:
       - "5005:8080"
-
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - default
+      - libr4-shadow-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || nc -z localhost 8080 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -474,11 +478,6 @@ services:
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
 
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/healthz"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   rust-embeddings:
     build:
@@ -496,7 +495,7 @@ services:
       - "host.docker.internal:host-gateway"
 
     healthcheck:
-      test: ["CMD-SHELL", "grpc_health_probe -addr=:50061 || exit 1"]
+      test: ["CMD-SHELL", "nc -z localhost 50061 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -514,7 +513,7 @@ services:
       GRPC_PORT: "50060"
 
     healthcheck:
-      test: ["CMD-SHELL", "grpc_health_probe -addr=:50060 || exit 1"]
+      test: ["CMD-SHELL", "nc -z localhost 50060 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -530,9 +529,9 @@ services:
       redis:
         condition: service_healthy
       qdrant:
-        condition: service_healthy
+        condition: service_started
       rust-embeddings:
-        condition: service_healthy
+        condition: service_started
       rust-crawler:
         condition: service_started
     environment:
@@ -540,12 +539,15 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Postgres: >-
         Host=postgres;Database=libr4_matching;
-        Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4pass}
+        Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
       ConnectionStrings__Redis: redis:6379
       Grpc__EmbeddingsUrl: http://rust-embeddings:50061
       Grpc__CrawlerUrl: http://rust-crawler:50060
       Qdrant__Host: qdrant
-      Qdrant__Port: "6334"
+      Qdrant__Port: "6333"
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
     ports:
       - "5010:8080"
 
@@ -562,4 +564,9 @@ volumes:
   workspace_target:
   binary_uploads:
   qdrant_data:
+
+networks:
+  libr4-shadow-network:
+    driver: bridge
+    name: libr4-shadow-network
 

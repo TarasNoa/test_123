@@ -21,55 +21,62 @@ const Settings: Component = () => {
   };
 
   return (
-    <div class="p-8">
-      <h1 class="text-2xl font-bold mb-6">Settings</h1>
+    <div class="min-h-screen bg-background text-foreground p-6">
+      <div class="max-w-2xl mx-auto space-y-6">
+        <h1 class="text-2xl font-bold mb-6">Settings</h1>
 
-      <div class="space-y-6">
-        <div class="p-4 border rounded-lg">
-          <h2 class="font-semibold mb-2">gRPC Connection</h2>
-          <p class="text-sm text-muted-foreground mb-4">Rust Sandbox Endpoint</p>
+        <div class="p-6 bg-surface border border-surface-3 rounded-2xl space-y-4">
+          <div>
+            <h2 class="font-semibold text-foreground">gRPC Connection</h2>
+            <p class="text-sm text-muted-foreground">Rust Sandbox Endpoint</p>
+          </div>
           <input
             type="text"
             value={grpcUrl()}
             onInput={(e) => setGrpcUrl(e.currentTarget.value)}
-            class="w-full p-2 border rounded"
+            class="w-full px-4 py-2.5 bg-surface-2 border border-surface-3 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
             placeholder="http://localhost:50051"
           />
-          <p class="text-xs text-muted-foreground mt-1">
-            Изменение применяется при следующем выполнении кода
+          <p class="text-xs text-muted-foreground">
+            Changes apply on next code execution
           </p>
         </div>
 
-        <div class="p-4 border rounded-lg">
-          <h2 class="font-semibold mb-2">AI Configuration</h2>
-          <p class="text-sm text-muted-foreground mb-4">TanStack AI SDK Settings</p>
-          <div class="space-y-2">
+        <div class="p-6 bg-surface border border-surface-3 rounded-2xl space-y-4">
+          <div>
+            <h2 class="font-semibold text-foreground">AI Configuration</h2>
+            <p class="text-sm text-muted-foreground">AI SDK Settings</p>
+          </div>
+          <div class="space-y-4">
             <div>
-              <label class="text-sm">Provider</label>
-              <select class="w-full p-2 border rounded mt-1">
+              <label class="block text-sm font-medium text-muted-foreground mb-1">Provider</label>
+              <select class="w-full px-4 py-2.5 bg-surface-2 border border-surface-3 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all">
                 <option>Local LLM (Ollama)</option>
                 <option>OpenAI</option>
                 <option>Anthropic</option>
               </select>
             </div>
             <div>
-              <label class="text-sm">Model</label>
+              <label class="block text-sm font-medium text-muted-foreground mb-1">Model</label>
               <input
                 type="text"
                 value="qwen3:8b"
-                class="w-full p-2 border rounded mt-1"
+                class="w-full px-4 py-2.5 bg-surface-2 border border-surface-3 rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
               />
             </div>
           </div>
         </div>
 
-        <div class="p-4 border rounded-lg">
-          <h2 class="font-semibold mb-2">Theme</h2>
+        <div class="p-6 bg-surface border border-surface-3 rounded-2xl space-y-4">
+          <h2 class="font-semibold text-foreground">Theme</h2>
           <div class="flex gap-2">
             {(["light", "dark", "system"] as const).map((t) => (
               <button
-                class="px-4 py-2 border rounded hover:bg-muted"
-                classList={{ "bg-primary text-primary-foreground": theme() === t }}
+                class={
+                  theme() === t
+                    ? 'px-4 py-2 bg-primary text-primary-foreground font-medium rounded-lg transition-colors'
+                    : 'px-4 py-2 bg-surface-2 border border-surface-3 text-muted-foreground rounded-lg hover:text-foreground hover:bg-surface-3 transition-colors'
+                }
                 onClick={() => applyTheme(t)}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}

@@ -23,7 +23,7 @@ export default function Social() {
   });
 
   const loadProfile = async () => {
-    const res = await fetch('/api/social/profile', {
+    const res = await fetch('/api/v1/social/profile', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
     const data = await res.json();
@@ -31,7 +31,7 @@ export default function Social() {
   };
 
   const loadPosts = async () => {
-    const res = await fetch('/api/social/feed', {
+    const res = await fetch('/api/v1/social/feed', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
     const data = await res.json();
@@ -39,7 +39,7 @@ export default function Social() {
   };
 
   const loadConnections = async () => {
-    const res = await fetch('/api/social/connections', {
+    const res = await fetch('/api/v1/social/connections', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
     const data = await res.json();
@@ -47,7 +47,7 @@ export default function Social() {
   };
 
   const loadActivityFeed = async () => {
-    const res = await fetch('/api/social/activity', {
+    const res = await fetch('/api/v1/social/activity', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
     const data = await res.json();
@@ -55,7 +55,7 @@ export default function Social() {
   };
 
   const loadRecommendations = async () => {
-    const res = await fetch('/api/social/recommendations?topN=5', {
+    const res = await fetch('/api/v1/social/recommendations?topN=5', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
     const data = await res.json();
@@ -63,7 +63,7 @@ export default function Social() {
   };
 
   const updateProfile = async (name, bio, imageUrl, location) => {
-    await fetch('/api/social/profile', {
+    await fetch('/api/v1/social/profile', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -75,7 +75,7 @@ export default function Social() {
   };
 
   const createPost = async (content, tags, attachments) => {
-    await fetch('/api/social/posts', {
+    await fetch('/api/v1/social/posts', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ export default function Social() {
   };
 
   const likePost = async (postId) => {
-    await fetch(`/api/social/posts/${postId}/like`, {
+    await fetch(`/api/v1/social/posts/${postId}/like`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
@@ -95,7 +95,7 @@ export default function Social() {
   };
 
   const commentOnPost = async (postId, text) => {
-    await fetch(`/api/social/posts/${postId}/comment`, {
+    await fetch(`/api/v1/social/posts/${postId}/comment`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -107,7 +107,7 @@ export default function Social() {
   };
 
   const sharePost = async (postId, message) => {
-    await fetch(`/api/social/posts/${postId}/share`, {
+    await fetch(`/api/v1/social/posts/${postId}/share`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -119,7 +119,7 @@ export default function Social() {
   };
 
   const followUser = async (userId) => {
-    await fetch(`/api/social/follow/${userId}`, {
+    await fetch(`/api/v1/social/follow/${userId}`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
@@ -127,7 +127,7 @@ export default function Social() {
   };
 
   const unfollowUser = async (userId) => {
-    await fetch(`/api/social/follow/${userId}`, {
+    await fetch(`/api/v1/social/follow/${userId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
@@ -135,7 +135,7 @@ export default function Social() {
   };
 
   const loadFollowing = async () => {
-    const res = await fetch('/api/social/following', {
+    const res = await fetch('/api/v1/social/following', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
     const data = await res.json();

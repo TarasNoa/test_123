@@ -84,7 +84,7 @@ export default function Platform() {
     setConnection(conn);
 
     // Load servers
-    const userServers = await fetch('/api/chat/servers', {
+    const userServers = await fetch('/api/v1/chat/servers', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     }).then(r => r.json());
     setServers(userServers.servers || []);
@@ -132,7 +132,7 @@ export default function Platform() {
   };
 
   const sendCode = async (language, code, title) => {
-    const response = await fetch('/api/chat/code/snippets', {
+    const response = await fetch('/api/v1/chat/code/snippets', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

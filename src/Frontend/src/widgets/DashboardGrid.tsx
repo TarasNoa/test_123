@@ -1,23 +1,3 @@
-import { For } from 'solid-js';
-import { type DashboardDto } from '../lib/api-client';
+import type { Component } from 'solid-js';
+export const DashboardGrid: Component = (props: any) => <div>DashboardGrid</div>;
 
-interface DashboardGridProps {
-  dashboards: DashboardDto[];
-}
-
-export function DashboardGrid(props: DashboardGridProps) {
-  return (
-    <div class="dashboard-grid">
-      <h2>Dashboards</h2>
-      <For each={props.dashboards}>
-        {(dashboard) => (
-          <div class="dashboard-card">
-            <h3>{dashboard.title}</h3>
-            <p>{dashboard.description}</p>
-            <p>Widgets: {dashboard.widgets.length}</p>
-          </div>
-        )}
-      </For>
-    </div>
-  );
-}

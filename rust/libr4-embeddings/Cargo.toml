@@ -25,6 +25,10 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 anyhow = "1"
 
+# Local ONNX embedding inference
+fastembed = { version = "5", default-features = false, features = ["hf-hub"] }
+ort = { version = "2.0.0-rc.12", features = ["download-binaries"] }
+
 libr4-shared = { path = "../shared" }
 
 [build-dependencies]

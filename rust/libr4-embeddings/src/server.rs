@@ -9,16 +9,17 @@ use crate::embeddings_proto::{
     EmbedRequest, EmbedResponse,
     SimilarityRequest, SimilarityResponse,
 };
-use crate::embedder::{cosine_similarity, Embedder};
+use crate::embedder::cosine_similarity;
+use crate::unified_embedder::{EmbedderBackend, UnifiedEmbedder};
 
 pub struct EmbeddingServiceImpl {
-    embedder: Arc<Embedder>,
+    embedder: Arc<EmbedderBackend>,
 }
 
 impl EmbeddingServiceImpl {
-    pub fn new(embedder: Embedder) -> Self {
+    pub fn new(unified: UnifiedEmbedder) -> Self {
         Self {
-            embedder: Arc::new(embedder),
+            embedder: unified.backend(),
         }
     }
 }

@@ -26,7 +26,7 @@ export interface AgentExecutionTrace {
 }
 
 export class AgentHierarchyService {
-  static readonly BASE_URL = '/api/ai/agents';
+  static readonly BASE_URL = '/api/v1/ai/agents';
 
   static async executeWithHierarchy(
     task: string,

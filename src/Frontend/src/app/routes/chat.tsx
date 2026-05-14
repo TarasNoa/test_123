@@ -106,7 +106,7 @@ export default function Chat() {
     formData.append('file', file);
 
     try {
-      const response = await fetch('/api/chat/files/upload', {
+      const response = await fetch('/api/v1/chat/files/upload', {
         method: 'POST',
         body: formData,
         headers: {

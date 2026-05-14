@@ -26,7 +26,7 @@ export class GrpcSandboxClient {
     timeoutSeconds: number;
   }): Promise<ExecutionResult> {
     const token = localStorage.getItem("access_token");
-    const response = await fetch(`${this.baseUrl}/api/ide/agent-states/run`, {
+    const response = await fetch(`${this.baseUrl}/api/v1/ide/agent-states/run`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

@@ -48,7 +48,7 @@ export default function Collaboration() {
     setConnection(conn);
 
     // Load user rooms
-    const response = await fetch('/api/collaboration/rooms', {
+    const response = await fetch('/api/v1/collaboration/rooms', {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
     });
     const data = await response.json();
