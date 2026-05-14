@@ -4,12 +4,12 @@ WORKDIR /build
 
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
-COPY Cargo.toml Cargo.lock* ./
-COPY src ./src
-COPY build.rs ./
-COPY proto ./proto
+COPY rust/libr4-embeddings/Cargo.toml rust/libr4-embeddings/Cargo.lock* ./
+COPY rust/libr4-embeddings/src ./src
+COPY rust/libr4-embeddings/build.rs ./
+COPY rust/libr4-embeddings/proto ./proto
 
-COPY ../shared /build-shared
+COPY rust/shared ./shared
 RUN cargo build --release
 
 FROM debian:bookworm-slim

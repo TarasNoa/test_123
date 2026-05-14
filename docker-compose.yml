@@ -15,6 +15,17 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
+      ReverseProxy__Clusters__auth__Destinations__d1__Address: http://auth-api:8080/
+      ReverseProxy__Clusters__tasks__Destinations__d1__Address: http://tasks-api:8080/
+      ReverseProxy__Clusters__payments__Destinations__d1__Address: http://payments-api:8080/
+      ReverseProxy__Clusters__chat__Destinations__d1__Address: http://chat-api:8080/
+      ReverseProxy__Clusters__social__Destinations__d1__Address: http://social-api:8080/
+      ReverseProxy__Clusters__analytics__Destinations__d1__Address: http://analytics-api:8080/
+      ReverseProxy__Clusters__collaboration__Destinations__d1__Address: http://collaboration-api:8080/
+      ReverseProxy__Clusters__trading__Destinations__d1__Address: http://trading-api:8080/
+      ReverseProxy__Clusters__ide__Destinations__d1__Address: http://ide-api:8080/
+      ReverseProxy__Clusters__matching__Destinations__d1__Address: http://matching-api:8080/
+      ReverseProxy__Clusters__ai__Destinations__d1__Address: http://ai-api:8080/
     ports:
       - "5000:8080"
     healthcheck:
@@ -70,8 +81,7 @@ services:
       VITE_GRPC_BASE_URL: http://ide-api:8080
     ports:
       - "3000:3000"
-    networks:
-      - libr4-network
+
 
   ide-api:
     build:
@@ -100,8 +110,7 @@ services:
       Cors__AllowedOrigins__1: http://frontend:3000
     ports:
       - "5005:8080"
-    networks:
-      - libr4-network
+
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 10s
@@ -188,6 +197,99 @@ services:
     ports:
       - "5004:8080"
 
+  social-api:
+    build:
+      context: .
+      dockerfile: src/Services/Social/Libr4.Social.Api/Dockerfile
+    container_name: libr4-social-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_social;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      ConnectionStrings__Redis: redis:6379
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      Jwt__Authority: http://gateway:8080
+      Jwt__Audience: libr4-clients
+    ports:
+      - "5013:8080"
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  analytics-api:
+    build:
+      context: .
+      dockerfile: src/Services/Analytics/Libr4.Analytics.Api/Dockerfile
+    container_name: libr4-analytics-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_analytics;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      Jwt__Authority: http://gateway:8080
+      Jwt__Audience: libr4-clients
+    ports:
+      - "5014:8080"
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  collaboration-api:
+    build:
+      context: .
+      dockerfile: src/Services/Collaboration/Libr4.Collaboration.Api/Dockerfile
+    container_name: libr4-collaboration-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_collaboration;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      ConnectionStrings__Redis: redis:6379
+      RabbitMq__Host: rabbitmq
+      RabbitMq__User: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      Jwt__Authority: http://gateway:8080
+      Jwt__Audience: libr4-clients
+    ports:
+      - "5015:8080"
+
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   trading-api:
     build:
       context: .
@@ -208,7 +310,7 @@ services:
       Jwt__Authority: http://gateway:8080
       Jwt__Audience: libr4-clients
     ports:
-      - "5005:8080"
+      - "5009:8080"
 
   ai-api:
     build:
@@ -296,8 +398,7 @@ services:
     volumes:
       - workspace_source:/workspace/source
       - workspace_target:/workspace/target
-    networks:
-      - libr4-network
+
 
   # Rust Sandbox Controller - Resource monitoring and kill switch
   sandbox-controller:
@@ -315,8 +416,7 @@ services:
       - "9090:9090"  # API port
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    networks:
-      - libr4-network
+
 
   # Docker socket proxy for security (optional, for production)
   docker-socket:
@@ -329,8 +429,7 @@ services:
     environment:
       CONTAINERS: 1
       POST: 0
-    networks:
-      - libr4-network
+
 
   # Rust Security Scanner - Autonomous offensive security
   security-scanner:
@@ -347,8 +446,7 @@ services:
       SCAN_TIMEOUT_SECS: 30
     ports:
       - "7070:7070"  # API port
-    networks:
-      - libr4-network
+
 
   # Rust Binary Archeology - Legacy code migration
   binary-archeology:
@@ -363,8 +461,7 @@ services:
       - "6060:6060"  # API port
     volumes:
       - binary_uploads:/uploads
-    networks:
-      - libr4-network
+
 
   qdrant:
     image: qdrant/qdrant:v1.9.0
@@ -376,8 +473,7 @@ services:
       - qdrant_data:/qdrant/storage
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
-    networks:
-      - libr4-network
+
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:6333/healthz"]
       interval: 10s
@@ -386,8 +482,8 @@ services:
 
   rust-embeddings:
     build:
-      context: ./rust/libr4-embeddings
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: rust/libr4-embeddings/Dockerfile
     container_name: libr4-rust-embeddings
     ports:
       - "50061:50061"
@@ -398,8 +494,7 @@ services:
       DMR_EMBEDDING_MODEL: ${DMR_EMBEDDING_MODEL:-docker.io/ai/nomic-embed-text:latest}
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    networks:
-      - libr4-network
+
     healthcheck:
       test: ["CMD-SHELL", "grpc_health_probe -addr=:50061 || exit 1"]
       interval: 15s
@@ -409,16 +504,15 @@ services:
 
   rust-crawler:
     build:
-      context: ./rust/libr4-crawler
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: rust/libr4-crawler/Dockerfile
     container_name: libr4-rust-crawler
     ports:
       - "50060:50060"
     environment:
       RUST_LOG: info,libr4_crawler=debug
       GRPC_PORT: "50060"
-    networks:
-      - libr4-network
+
     healthcheck:
       test: ["CMD-SHELL", "grpc_health_probe -addr=:50060 || exit 1"]
       interval: 15s
@@ -454,8 +548,7 @@ services:
       Qdrant__Port: "6334"
     ports:
       - "5010:8080"
-    networks:
-      - libr4-network
+
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 10s
@@ -470,6 +563,3 @@ volumes:
   binary_uploads:
   qdrant_data:
 
-networks:
-  libr4-network:
-    driver: bridge
