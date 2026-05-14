@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Logging
-builder.Services.AddLibr4Logging();
+builder.AddLibr4Serilog("social");
 
 // Auth
 builder.Services.AddLibr4JwtAuth(builder.Configuration);

@@ -16,7 +16,7 @@ using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddLibr4Logging();
+builder.AddLibr4Serilog("chat");
 builder.Services.AddChatApplication();
 builder.Services.AddChatInfrastructure(builder.Configuration);
 

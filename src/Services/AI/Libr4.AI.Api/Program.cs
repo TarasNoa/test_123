@@ -20,7 +20,7 @@ using Libr4.AI.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddLibr4Logging();
+builder.AddLibr4Serilog("ai");
 builder.Services.AddAIApplication();
 builder.Services.AddAIInfrastructure(builder.Configuration);
 

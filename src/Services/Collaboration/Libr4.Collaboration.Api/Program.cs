@@ -19,7 +19,7 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddLibr4Logging();
+builder.AddLibr4Serilog("collaboration");
 builder.Services.AddSharedInfrastructure(builder.Configuration);
 builder.Services.AddCollaborationApplication();
 

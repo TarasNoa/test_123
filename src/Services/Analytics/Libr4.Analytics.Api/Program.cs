@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddLibr4Logging();
+builder.AddLibr4Serilog("analytics");
 builder.Services.AddSharedInfrastructure(builder.Configuration);
 builder.Services.AddAnalyticsApplication();
 builder.Services.AddAnalyticsInfrastructure(builder.Configuration);
