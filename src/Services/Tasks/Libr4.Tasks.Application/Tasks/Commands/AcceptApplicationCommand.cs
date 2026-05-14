@@ -1,6 +1,8 @@
 using Libr4.Tasks.Application.Abstractions;
 using Libr4.Tasks.Application.Dtos;
 using Libr4.Tasks.Domain;
+using Libr4.Shared.Contracts.IntegrationEvents.Tasks;
+using Libr4.Shared.Kernel.Application;
 using Libr4.Shared.Kernel.Errors;
 using Libr4.Shared.Kernel.Results;
 using Libr4.Shared.Kernel.Time;
@@ -15,11 +17,13 @@ public sealed class AcceptApplicationHandler : IRequestHandler<AcceptApplication
 {
     private readonly ITasksDbContext _db;
     private readonly IClock _clock;
+    private readonly IEventBus _eventBus;
 
-    public AcceptApplicationHandler(ITasksDbContext db, IClock clock)
+    public AcceptApplicationHandler(ITasksDbContext db, IClock clock, IEventBus eventBus)
     {
         _db = db;
         _clock = clock;
+        _eventBus = eventBus;
     }
 
     public async Task<Result<TaskDto>> Handle(AcceptApplicationCommand request, CancellationToken ct)
@@ -61,6 +65,15 @@ public sealed class AcceptApplicationHandler : IRequestHandler<AcceptApplication
         }
 
         await _db.SaveChangesAsync(ct);
+
+        await _eventBus.PublishAsync(new ApplicationAcceptedIntegrationEvent(
+            TaskId: task.Id,
+            ApplicationId: request.ApplicationId,
+            ClientId: task.ClientId,
+            FreelancerId: application.FreelancerId,
+            Amount: application.ProposedBudget,
+            Currency: task.Currency,
+            OccurredOn: _clock.UtcNow), ct);
 
         var applicationCount = await _db.Applications
             .CountAsync(a => a.TaskId == request.TaskId, ct);

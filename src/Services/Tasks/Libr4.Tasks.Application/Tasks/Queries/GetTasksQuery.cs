@@ -12,15 +12,15 @@ public sealed record GetTasksQuery(
     string? Category = null,
     Guid? ClientId = null,
     int Page = 1,
-    int PageSize = 20) : IRequest<IReadOnlyList<TaskDto>>;
+    int PageSize = 20) : IRequest<PagedResult<TaskDto>>;
 
-public sealed class GetTasksHandler : IRequestHandler<GetTasksQuery, IReadOnlyList<TaskDto>>
+public sealed class GetTasksHandler : IRequestHandler<GetTasksQuery, PagedResult<TaskDto>>
 {
     private readonly ITasksDbContext _db;
 
     public GetTasksHandler(ITasksDbContext db) => _db = db;
 
-    public async Task<IReadOnlyList<TaskDto>> Handle(GetTasksQuery request, CancellationToken ct)
+    public async Task<PagedResult<TaskDto>> Handle(GetTasksQuery request, CancellationToken ct)
     {
         var query = _db.Tasks.AsNoTracking().AsQueryable();
 
@@ -37,15 +37,21 @@ public sealed class GetTasksHandler : IRequestHandler<GetTasksQuery, IReadOnlyLi
         if (!request.ClientId.HasValue)
             query = query.Where(t => t.Status == TaskStatus.Published);
 
+        var total = await query.CountAsync(ct);
+
         var tasks = await query
             .OrderByDescending(t => t.PublishedAt)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .ToListAsync(ct);
 
-        return tasks.Select(t => new TaskDto(
+        var items = tasks.Select(t => new TaskDto(
             t.Id, t.Title, t.Description, t.Category.ToString(), t.Status.ToString(),
             t.ClientId, t.AssignedFreelancerId, t.Budget, t.Currency, t.Deadline,
             t.CreatedAt, t.UpdatedAt, t.Applications.Count)).ToList();
+
+        return new PagedResult<TaskDto>(
+            items, total, request.Page, request.PageSize,
+            (int)Math.Ceiling(total / (double)request.PageSize));
     }
 }

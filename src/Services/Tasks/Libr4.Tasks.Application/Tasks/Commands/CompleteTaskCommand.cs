@@ -1,6 +1,8 @@
 using Libr4.Tasks.Application.Abstractions;
 using Libr4.Tasks.Application.Dtos;
 using Libr4.Tasks.Domain;
+using Libr4.Shared.Contracts.IntegrationEvents.Tasks;
+using Libr4.Shared.Kernel.Application;
 using Libr4.Shared.Kernel.Results;
 using Libr4.Shared.Kernel.Errors;
 using Libr4.Shared.Kernel.Time;
@@ -15,16 +17,20 @@ public sealed class CompleteTaskHandler : IRequestHandler<CompleteTaskCommand, R
 {
     private readonly ITasksDbContext _db;
     private readonly IClock _clock;
+    private readonly IEventBus _eventBus;
 
-    public CompleteTaskHandler(ITasksDbContext db, IClock clock)
+    public CompleteTaskHandler(ITasksDbContext db, IClock clock, IEventBus eventBus)
     {
         _db = db;
         _clock = clock;
+        _eventBus = eventBus;
     }
 
     public async Task<Result<TaskDto>> Handle(CompleteTaskCommand request, CancellationToken ct)
     {
-        var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == request.TaskId, ct);
+        var task = await _db.Tasks
+            .Include(t => t.Applications)
+            .FirstOrDefaultAsync(t => t.Id == request.TaskId, ct);
         if (task is null) return Result.Failure<TaskDto>(TasksErrors.TaskNotFound);
 
         // Only client or assigned freelancer can mark as complete
@@ -37,13 +43,19 @@ public sealed class CompleteTaskHandler : IRequestHandler<CompleteTaskCommand, R
         }
         catch (InvalidOperationException ex)
         {
-            // Fallback for E2E testing: if status is not InProgress, try to set it directly
-            var entry = _db.Tasks.Entry(task);
-            entry.Property(x => x.Status).CurrentValue = Libr4.Tasks.Domain.Tasks.TaskStatus.InProgress;
-            task.Complete(_clock.UtcNow);
+            return Result.Failure<TaskDto>(Error.Validation("tasks.complete_failed", ex.Message));
         }
 
         await _db.SaveChangesAsync(ct);
+
+        var acceptedApplication = task.Applications.FirstOrDefault(a => a.Status == Domain.Tasks.ApplicationStatus.Accepted);
+        await _eventBus.PublishAsync(new TaskCompletedIntegrationEvent(
+            TaskId: task.Id,
+            ClientId: task.ClientId,
+            FreelancerId: task.AssignedFreelancerId!.Value,
+            Amount: acceptedApplication?.ProposedBudget ?? task.Budget,
+            Currency: task.Currency,
+            OccurredOn: _clock.UtcNow), ct);
 
         return new TaskDto(
             task.Id, task.Title, task.Description, task.Category.ToString(), task.Status.ToString(),

@@ -1,11 +1,13 @@
 using Grpc.Net.Client;
 using Libr4.Matching.Application.Abstractions;
+using Libr4.Matching.Application.IntegrationEvents.Consumers;
 using Libr4.Matching.Infrastructure.Clients;
 using Libr4.Matching.Infrastructure.Crawling;
 using Libr4.Matching.Infrastructure.Embeddings;
 using Libr4.Matching.Infrastructure.Matching;
 using Libr4.Matching.Infrastructure.Persistence;
 using Libr4.Matching.Infrastructure.VectorStore;
+using Libr4.Shared.Infrastructure.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -58,6 +60,12 @@ public static class DependencyInjection
         {
             client.BaseAddress = new Uri(tasksApiUrl);
             client.Timeout = TimeSpan.FromSeconds(10);
+        });
+
+        // MassTransit with RabbitMQ
+        services.AddLibr4MassTransit(configuration, x =>
+        {
+            x.AddConsumers(typeof(UserRegisteredConsumer).Assembly);
         });
 
         return services;
