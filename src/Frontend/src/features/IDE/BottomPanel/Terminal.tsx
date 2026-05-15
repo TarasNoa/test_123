@@ -2,7 +2,6 @@ import { onMount, onCleanup, type Component } from 'solid-js';
 import { store } from '../IDEStore';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import '@xterm/xterm/css/xterm.css';
 
 export const Terminal: Component = () => {
   let containerRef!: HTMLDivElement;

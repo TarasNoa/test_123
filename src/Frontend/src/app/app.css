@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@xterm/xterm/css/xterm.css";
 @source "../src/**/*.{tsx,ts,jsx,js}";
 
 @theme {

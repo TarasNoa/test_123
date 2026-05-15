@@ -1,5 +1,6 @@
 import { For, Show, type Component } from 'solid-js';
 import { store, setStore, addTab } from '../IDEStore';
+import { config } from '../../../lib/config';
 import type { FileNode } from '../IDEStore';
 
 const FileIcon: Component<{ node: FileNode }> = (props) => {
@@ -25,19 +26,44 @@ const TreeNode: Component<{ node: FileNode; depth?: number }> = (props) => {
   const depth = props.depth ?? 0;
   const isFolder = props.node.type === 'folder';
 
-  const toggle = () => {
+  const toggle = async () => {
     if (isFolder) {
       setStore('fileTree', (tree) => toggleNode(tree, props.node.path));
     } else {
-      addTab({
-        id: props.node.path,
-        path: props.node.path,
-        name: props.node.name,
-        language: props.node.language || 'text',
-        content: '',
-        isDirty: false,
-        isAgentEditing: false,
-      });
+      const existing = store.openTabs.find((t) => t.path === props.node.path);
+      if (!existing) {
+        addTab({
+          id: props.node.path,
+          path: props.node.path,
+          name: props.node.name,
+          language: props.node.language || 'text',
+          content: '// Loading...',
+          isDirty: false,
+          isAgentEditing: false,
+        });
+      } else {
+        setStore('activeTabId', existing.id);
+      }
+
+      const token = localStorage.getItem('accessToken') || '';
+      try {
+        const res = await fetch(
+          `${config.apiBaseUrl}/api/v1/ide/files/content?path=${encodeURIComponent(props.node.path)}&sessionId=${store.sessionId}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setStore('openTabs', (tabs) =>
+            tabs.map((t) =>
+              t.path === props.node.path
+                ? { ...t, content: data.content || '', isDirty: false }
+                : t
+            )
+          );
+        }
+      } catch {
+        // Leave loading text or empty on failure
+      }
     }
   };
 

@@ -1,4 +1,4 @@
-import { onMount, onCleanup } from 'solid-js';
+import { onMount, onCleanup, createEffect } from 'solid-js';
 import * as SignalR from '@microsoft/signalr';
 import { store, setStore, addMessage, updateAgentProgress, updateFileInEditor, markFileAgentEditing, addTimelineEvent, updateTimelineEvent, addOutputLog } from './IDEStore';
 import { config } from '../../lib/config';
@@ -132,15 +132,19 @@ export function useIDERoot() {
     });
 
     conn.start()
-      .then(() => {
-        setStore('isConnected', true);
-        return conn.invoke('JoinSession', store.sessionId || 'default');
-      })
+      .then(() => setStore('isConnected', true))
       .catch(() => setStore('isConnected', false));
 
     onCleanup(() => {
       conn?.stop();
     });
+  });
+
+  createEffect(() => {
+    const sessionId = store.sessionId;
+    if (sessionId && store.isConnected && conn) {
+      conn.invoke('JoinSession', sessionId).catch(console.warn);
+    }
   });
 
   onMount(async () => {
@@ -153,31 +157,81 @@ export function useIDERoot() {
     const savedAutonomy = localStorage.getItem('libr4_autonomy') as 'supervised' | 'semi-auto' | 'full-auto' | null;
     if (savedAutonomy) setStore('autonomyLevel', savedAutonomy);
 
+    const token = localStorage.getItem('accessToken') || '';
     const saved = localStorage.getItem('libr4_ide_session');
-    if (saved) {
-      setStore('sessionId', saved);
-    } else {
-      const newId = crypto.randomUUID();
-      setStore('sessionId', newId);
-      localStorage.setItem('libr4_ide_session', newId);
+
+    try {
+      if (saved) {
+        const checkRes = await fetch(`${config.apiBaseUrl}/api/ide/sessions/${saved}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (checkRes.ok) {
+          setStore('sessionId', saved);
+        } else {
+          throw new Error('Session expired');
+        }
+      } else {
+        throw new Error('No saved session');
+      }
+    } catch {
+      try {
+        const res = await fetch(`${config.apiBaseUrl}/api/ide/sessions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ projectName: 'libr4-frontend' }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStore('sessionId', data.sessionId);
+          localStorage.setItem('libr4_ide_session', data.sessionId);
+        } else {
+          throw new Error('Failed to create session');
+        }
+      } catch {
+        const localId = crypto.randomUUID();
+        setStore('sessionId', localId);
+        localStorage.setItem('libr4_ide_session', localId);
+        addOutputLog('warning', 'IDE backend unavailable — working in local mode');
+      }
     }
 
-    setStore('fileTree', [
-      { id: 'src', path: 'src', name: 'src', type: 'folder', isOpen: true, children: [
-        { id: 'src/app', path: 'src/app', name: 'app', type: 'folder', isOpen: false, children: [
-          { id: 'src/app/app.tsx', path: 'src/app/app.tsx', name: 'app.tsx', type: 'file', language: 'typescript' },
-          { id: 'src/app/app.css', path: 'src/app/app.css', name: 'app.css', type: 'file', language: 'css' },
-        ]},
-        { id: 'src/lib', path: 'src/lib', name: 'lib', type: 'folder', isOpen: false, children: [
-          { id: 'src/lib/api-client.ts', path: 'src/lib/api-client.ts', name: 'api-client.ts', type: 'file', language: 'typescript' },
-          { id: 'src/lib/config.ts', path: 'src/lib/config.ts', name: 'config.ts', type: 'file', language: 'typescript' },
-        ]},
-        { id: 'src/features', path: 'src/features', name: 'features', type: 'folder', isOpen: true, children: [
-          { id: 'src/features/IDE', path: 'src/features/IDE', name: 'IDE', type: 'folder', isOpen: false, children: [] },
-        ]},
-      ]},
-      { id: 'package.json', path: 'package.json', name: 'package.json', type: 'file', language: 'json' },
-      { id: 'tsconfig.json', path: 'tsconfig.json', name: 'tsconfig.json', type: 'file', language: 'json' },
-    ]);
+    await loadFileTree();
   });
+}
+
+async function loadFileTree() {
+  const token = localStorage.getItem('accessToken') || '';
+  try {
+    const res = await fetch(`${config.apiBaseUrl}/api/v1/ide/files?sessionId=${store.sessionId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const tree = await res.json();
+      setStore('fileTree', tree);
+      return;
+    }
+  } catch {
+    // fallback
+  }
+
+  setStore('fileTree', [
+    { id: 'src', path: 'src', name: 'src', type: 'folder', isOpen: true, children: [
+      { id: 'src/app', path: 'src/app', name: 'app', type: 'folder', isOpen: false, children: [
+        { id: 'src/app/app.tsx', path: 'src/app/app.tsx', name: 'app.tsx', type: 'file', language: 'typescript' },
+        { id: 'src/app/app.css', path: 'src/app/app.css', name: 'app.css', type: 'file', language: 'css' },
+      ]},
+      { id: 'src/lib', path: 'src/lib', name: 'lib', type: 'folder', isOpen: false, children: [
+        { id: 'src/lib/api-client.ts', path: 'src/lib/api-client.ts', name: 'api-client.ts', type: 'file', language: 'typescript' },
+        { id: 'src/lib/config.ts', path: 'src/lib/config.ts', name: 'config.ts', type: 'file', language: 'typescript' },
+      ]},
+      { id: 'src/features', path: 'src/features', name: 'features', type: 'folder', isOpen: true, children: [
+        { id: 'src/features/IDE', path: 'src/features/IDE', name: 'IDE', type: 'folder', isOpen: false, children: [] },
+      ]},
+    ]},
+    { id: 'package.json', path: 'package.json', name: 'package.json', type: 'file', language: 'json' },
+    { id: 'tsconfig.json', path: 'tsconfig.json', name: 'tsconfig.json', type: 'file', language: 'json' },
+  ]);
 }

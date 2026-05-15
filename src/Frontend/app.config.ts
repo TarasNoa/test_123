@@ -12,6 +12,12 @@ export default defineConfig({
     },
     envPrefix: "VITE_",
     plugins: [tailwindcss()],
+    optimizeDeps: {
+      exclude: ['monaco-editor'],
+    },
+    worker: {
+      format: 'es',
+    },
     server: {
       proxy: {
         "/api": {
@@ -20,6 +26,12 @@ export default defineConfig({
           secure: false,
         },
         "/hubs": {
+          target: "http://localhost:5000",
+          changeOrigin: true,
+          ws: true,
+          secure: false,
+        },
+        "/ws": {
           target: "http://localhost:5000",
           changeOrigin: true,
           ws: true,

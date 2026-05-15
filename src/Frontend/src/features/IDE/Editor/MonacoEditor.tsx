@@ -1,5 +1,5 @@
 import { onCleanup, createEffect, Show, type Component } from 'solid-js';
-import { store, setStore, setTabDirty } from '../IDEStore';
+import { store, setStore, setTabDirty, markFileDirty } from '../IDEStore';
 
 // @ts-ignore
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
@@ -121,7 +121,7 @@ export const MonacoEditor: Component = () => {
       if (!tab) return;
       setTabDirty(tab.id, true);
       clearTimeout(saveTimeout);
-      saveTimeout = setTimeout(() => saveFile(tab.id, editor.getValue()), 1000);
+      saveTimeout = setTimeout(() => saveFile(tab.path, editor.getValue()), 1000);
     });
   };
 
@@ -174,15 +174,19 @@ export const MonacoEditor: Component = () => {
   });
 
   const saveFile = async (path: string, content: string) => {
-    if (!store.sessionId) return;
+    const foundTab = store.openTabs.find((t) => t.path === path);
+    if (!foundTab || !store.sessionId) return;
     try {
       const token = localStorage.getItem('accessToken');
-      await fetch(`${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000'}/api/v1/ide/files/save`, {
+      const res = await fetch(`${import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000'}/api/v1/ide/files/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ path, content, sessionId: store.sessionId }),
       });
-      setTabDirty(path, false);
+      if (res.ok) {
+        setTabDirty(foundTab.id, false);
+        markFileDirty(path, false);
+      }
     } catch {
       // silently fail
     }
