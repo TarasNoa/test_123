@@ -53,16 +53,14 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapAuthEndpoints();
+app.MapExternalAuthEndpoints();
 app.MapSession1Endpoints();
 
 // Ensure database is created for E2E testing
 using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
-        if (app.Environment.IsDevelopment())
-            db.Database.EnsureCreated();
-        else
-            db.Database.Migrate();
+        db.Database.Migrate();
     }
 
 app.Run();

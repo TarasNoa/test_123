@@ -29,15 +29,16 @@ public sealed class DockerTerminalService : ITerminalService
         Dictionary<string, string>? environmentVariables = null,
         int rows = 24,
         int cols = 80,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? sessionId = null)
     {
-        var sessionId = Guid.NewGuid().ToString();
+        sessionId ??= Guid.NewGuid().ToString();
         var cwd = workingDirectory ?? $"/workspace/{workspaceId}";
         var containerId = workspaceId; // Use workspaceId as containerId for now
 
         var session = new TerminalSession
         {
-            Id = Guid.Parse(sessionId),
+            Id = Guid.TryParse(sessionId, out var parsedId) ? parsedId : Guid.NewGuid(),
             UserId = Guid.Empty, // TODO: Get from user context
             Shell = shell,
             WorkingDirectory = cwd,

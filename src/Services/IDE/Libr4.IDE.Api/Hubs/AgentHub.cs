@@ -51,4 +51,16 @@ public class AgentHub : Hub
     {
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, agentId);
     }
+
+    // ─── Session-based grouping for unified chat stream ───
+    public async Task JoinSession(string sessionId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, sessionId);
+        await Clients.Caller.SendAsync("JoinedSession", new { SessionId = sessionId });
+    }
+
+    public async Task LeaveSession(string sessionId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, sessionId);
+    }
 }

@@ -45,6 +45,21 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
                 c => c.ToList()));
         e.Property(x => x.HourlyRate).HasColumnType("decimal(10,2)");
         e.Property(x => x.AvatarUrl).HasMaxLength(500);
+        e.Property(x => x.CoverUrl).HasMaxLength(500);
+
+        // Extended profile
+        e.Property(x => x.Role).HasMaxLength(32);
+        e.Property(x => x.Phone).HasMaxLength(32);
+        e.Property(x => x.Country).HasMaxLength(64);
+        e.Property(x => x.City).HasMaxLength(64);
+        e.Property(x => x.CompanyName).HasMaxLength(128);
+        e.Property(x => x.Industry).HasMaxLength(64);
+        e.Property(x => x.CompanySize).HasMaxLength(32);
+        e.Property(x => x.Website).HasMaxLength(256);
+        e.Property(x => x.Experience).HasMaxLength(32);
+        e.Property(x => x.Specialization).HasMaxLength(128);
+        e.Property(x => x.LinkedInUrl).HasMaxLength(500);
+        e.Property(x => x.CvUrl).HasMaxLength(500);
 
         // Stats
         e.Property(x => x.Rating);

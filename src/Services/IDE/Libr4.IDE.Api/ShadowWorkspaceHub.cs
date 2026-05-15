@@ -1,4 +1,5 @@
 using Libr4.IDE.Application.ShadowWorkspace;
+using Libr4.IDE.Application.AgentEvents;
 using Microsoft.AspNetCore.SignalR;
 
 namespace Libr4.IDE.Api;
@@ -13,6 +14,7 @@ public class ShadowWorkspaceHub : Hub
     private readonly IPreWarmedContainerPool _containerPool;
     private readonly IContainerLifecycleService _lifecycle;
     private readonly ISelfHealingBuildPipeline _buildPipeline;
+    private readonly IAgentStreamEmitter _streamEmitter;
     private readonly ILogger<ShadowWorkspaceHub> _logger;
 
     public ShadowWorkspaceHub(
@@ -21,6 +23,7 @@ public class ShadowWorkspaceHub : Hub
         IPreWarmedContainerPool containerPool,
         IContainerLifecycleService lifecycle,
         ISelfHealingBuildPipeline buildPipeline,
+        IAgentStreamEmitter streamEmitter,
         ILogger<ShadowWorkspaceHub> logger)
     {
         _crdtService = crdtService;
@@ -28,6 +31,7 @@ public class ShadowWorkspaceHub : Hub
         _containerPool = containerPool;
         _lifecycle = lifecycle;
         _buildPipeline = buildPipeline;
+        _streamEmitter = streamEmitter;
         _logger = logger;
     }
 
@@ -184,10 +188,19 @@ public class ShadowWorkspaceHub : Hub
         _logger.LogInformation("Starting build for workspace {WorkspaceId}", workspaceId);
 
         await Clients.Group(workspaceId).SendAsync("BuildStarted", new { WorkspaceId = workspaceId, StartedAt = DateTime.UtcNow });
+        await _streamEmitter.BroadcastShadowBuildAsync(workspaceId, "running", Array.Empty<BuildStreamError>(), null, 0);
 
         try
         {
             var result = await _buildPipeline.BuildAsync(projectPath);
+            var errors = result.Errors.Select(e => new BuildStreamError
+            {
+                File = e.FilePath ?? "",
+                Line = e.LineNumber ?? 0,
+                Message = e.Message,
+                Code = e.Code
+            }).ToList();
+
             await Clients.Group(workspaceId).SendAsync("BuildCompleted", new
             {
                 Success = result.Success,
@@ -195,11 +208,22 @@ public class ShadowWorkspaceHub : Hub
                 ErrorCount = result.Errors.Length,
                 RetryCount = result.RetryCount
             });
+
+            await _streamEmitter.BroadcastShadowBuildAsync(
+                workspaceId,
+                result.Success ? "success" : "failed",
+                errors,
+                result.Duration,
+                result.RetryCount);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Build failed for workspace {WorkspaceId}", workspaceId);
             await Clients.Group(workspaceId).SendAsync("BuildFailed", new { Error = ex.Message });
+            await _streamEmitter.BroadcastShadowBuildAsync(
+                workspaceId, "failed",
+                new[] { new BuildStreamError { File = "", Line = 0, Message = ex.Message, Code = "EX" } },
+                null, 0);
         }
     }
 
@@ -211,6 +235,7 @@ public class ShadowWorkspaceHub : Hub
         _logger.LogInformation("Starting self-healing build for {WorkspaceId}", workspaceId);
 
         await Clients.Group(workspaceId).SendAsync("SelfHealingBuildStarted", new { MaxIterations = maxIterations });
+        await _streamEmitter.BroadcastShadowBuildAsync(workspaceId, "running", Array.Empty<BuildStreamError>(), null, 0);
 
         for (int i = 0; i < maxIterations; i++)
         {
@@ -218,11 +243,23 @@ public class ShadowWorkspaceHub : Hub
 
             var result = await _buildPipeline.BuildAsync(projectPath, new BuildOptions { MaxRetries = 1 });
 
+            var errors = result.Errors.Select(e => new BuildStreamError
+            {
+                File = e.FilePath ?? "",
+                Line = e.LineNumber ?? 0,
+                Message = e.Message,
+                Code = e.Code
+            }).ToList();
+
             if (result.Success)
             {
                 await Clients.Group(workspaceId).SendAsync("BuildCompleted", new { Success = true, Iteration = i + 1, Duration = result.Duration });
+                await _streamEmitter.BroadcastShadowBuildAsync(workspaceId, "success", errors, result.Duration, i);
                 return;
             }
+
+            // Emit attempt failure with errors
+            await _streamEmitter.BroadcastShadowBuildAsync(workspaceId, "running", errors, result.Duration, i + 1);
 
             if (i < maxIterations - 1 && result.Errors.Length > 0)
             {
@@ -237,5 +274,9 @@ public class ShadowWorkspaceHub : Hub
         }
 
         await Clients.Group(workspaceId).SendAsync("BuildFailed", new { Message = $"Failed after {maxIterations} attempts" });
+        await _streamEmitter.BroadcastShadowBuildAsync(
+            workspaceId, "failed",
+            new[] { new BuildStreamError { File = "", Line = 0, Message = $"Failed after {maxIterations} attempts", Code = "BUILD" } },
+            null, maxIterations);
     }
 }

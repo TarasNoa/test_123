@@ -1,6 +1,22 @@
 namespace Libr4.Auth.Application.Dtos;
 
-public sealed record RegisterRequest(string Email, string DisplayName, string Password);
+public sealed record RegisterRequest(
+    string Email,
+    string DisplayName,
+    string Password,
+    string Role,
+    string? Phone = null,
+    string? Country = null,
+    string? City = null,
+    string? CompanyName = null,
+    string? Industry = null,
+    string? CompanySize = null,
+    string? Website = null,
+    string? Skills = null,
+    string? Experience = null,
+    string? HourlyRate = null,
+    string? Specialization = null,
+    string? LinkedInUrl = null);
 
 public sealed record LoginRequest(string Email, string Password, string? TwoFactorCode);
 
@@ -21,7 +37,30 @@ public sealed record UserDto(
     IReadOnlyCollection<string> Roles,
     bool EmailConfirmed,
     bool TwoFactorEnabled,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? Role = null,
+    string? Phone = null,
+    string? Country = null,
+    string? City = null,
+    string? CompanyName = null,
+    string? Industry = null,
+    string? CompanySize = null,
+    string? Website = null,
+    IReadOnlyCollection<string>? Skills = null,
+    string? Experience = null,
+    decimal? HourlyRate = null,
+    string? Specialization = null,
+    string? LinkedInUrl = null,
+    string? CvUrl = null,
+    string? AvatarUrl = null,
+    string? CoverUrl = null,
+    string? Bio = null,
+    decimal? Rating = null,
+    decimal? TotalEarnings = null,
+    decimal? TotalSpent = null,
+    int? CompletedTasks = null,
+    bool? IsFreelancer = null,
+    bool? IsClient = null);
 
 public sealed record TwoFactorSetupResponse(string OtpAuthUri, string QrPngBase64);
 

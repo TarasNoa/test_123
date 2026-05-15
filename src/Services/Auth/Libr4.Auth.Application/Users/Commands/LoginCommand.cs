@@ -84,7 +84,14 @@ public sealed class LoginHandler : IRequestHandler<LoginCommand, Result<AuthToke
 
         await _db.SaveChangesAsync(ct);
 
-        await _bus.Publish(new UserLoggedInIntegrationEvent(user.Id, user.Email, request.IpAddress, _clock.UtcNow), ct);
+        try
+        {
+            await _bus.Publish(new UserLoggedInIntegrationEvent(user.Id, user.Email, request.IpAddress, _clock.UtcNow), ct);
+        }
+        catch
+        {
+            // Graceful degradation: login succeeds even if message bus is unavailable
+        }
 
         return new AuthTokens(access.Token, access.ExpiresAt, refreshPlain, _clock.UtcNow.Add(RefreshLifetime));
     }

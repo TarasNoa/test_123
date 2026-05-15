@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS base
 WORKDIR /app
 EXPOSE 8080
-RUN apk add --no-cache icu-libs tzdata docker-cli netcat-openbsd wget
+RUN apk add --no-cache icu-libs tzdata docker-cli netcat-openbsd wget bash
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build

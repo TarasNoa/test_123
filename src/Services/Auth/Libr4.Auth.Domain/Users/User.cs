@@ -40,6 +40,21 @@ public class User : AggregateRoot<Guid>
     public List<string> Skills { get; private set; } = new();
     public decimal? HourlyRate { get; private set; }
     public string? AvatarUrl { get; private set; }
+    public string? CoverUrl { get; private set; }
+
+    // Extended profile
+    public string? Role { get; private set; }
+    public string? Phone { get; private set; }
+    public string? Country { get; private set; }
+    public string? City { get; private set; }
+    public string? CompanyName { get; private set; }
+    public string? Industry { get; private set; }
+    public string? CompanySize { get; private set; }
+    public string? Website { get; private set; }
+    public string? Experience { get; private set; }
+    public string? Specialization { get; private set; }
+    public string? LinkedInUrl { get; private set; }
+    public string? CvUrl { get; private set; }
 
     // Stats
     public decimal? Rating { get; private set; }
@@ -76,9 +91,42 @@ public class User : AggregateRoot<Guid>
         return user;
     }
 
-    public static User Register(string email, string displayName, string passwordHash, DateTimeOffset now)
+    public static User Register(
+        string email, string displayName, string passwordHash, DateTimeOffset now,
+        string? role = null, string? phone = null, string? country = null, string? city = null,
+        string? companyName = null, string? industry = null, string? companySize = null,
+        string? website = null, List<string>? skills = null, string? experience = null,
+        decimal? hourlyRate = null, string? specialization = null, string? linkedInUrl = null)
     {
-        return Create(email, displayName, passwordHash);
+        var user = new User
+        {
+            Id = Guid.NewGuid(),
+            Email = email,
+            Username = displayName,
+            PasswordHash = passwordHash,
+            IsEmailVerified = false,
+            IsActive = true,
+            CreatedAt = now,
+            Role = role,
+            Phone = phone,
+            Country = country,
+            City = city,
+            CompanyName = companyName,
+            Industry = industry,
+            CompanySize = companySize,
+            Website = website,
+            Skills = skills ?? new(),
+            Experience = experience,
+            HourlyRate = hourlyRate,
+            Specialization = specialization,
+            LinkedInUrl = linkedInUrl
+        };
+
+        if (role == "freelancer") user.IsFreelancer = true;
+        if (role == "client") user.IsClient = true;
+
+        user.RaiseDomainEvent(new UserCreatedEvent(user.Id, email, displayName, now));
+        return user;
     }
 
     public void VerifyEmail()
@@ -177,5 +225,11 @@ public class User : AggregateRoot<Guid>
         foreach (var rt in RefreshTokens.Where(r => r.IsActive()))
             rt.Revoke();
         return true;
+    }
+
+    public void UpdateCoverUrl(string? url)
+    {
+        CoverUrl = url;
+        UpdatedAt = DateTimeOffset.UtcNow;
     }
 }

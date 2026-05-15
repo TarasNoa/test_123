@@ -24,8 +24,15 @@ public sealed class GetCurrentUserHandler : IRequestHandler<GetCurrentUserQuery,
         if (u is null)
             return Result.Failure<UserDto>(AuthErrors.UserNotFound);
 
-        return new UserDto(u.Id, u.Email, u.DisplayName,
+        return new UserDto(
+            u.Id, u.Email, u.DisplayName,
             u.Roles.Select(r => r.Name).ToList(),
-            u.EmailConfirmed, u.TwoFactorEnabled, u.CreatedAt);
+            u.EmailConfirmed, u.TwoFactorEnabled, u.CreatedAt,
+            u.Role, u.Phone, u.Country, u.City,
+            u.CompanyName, u.Industry, u.CompanySize, u.Website,
+            u.Skills.AsReadOnly(), u.Experience, u.HourlyRate,
+            u.Specialization, u.LinkedInUrl, u.CvUrl,
+            u.AvatarUrl, u.CoverUrl, u.Bio, u.Rating, u.TotalEarnings,
+            u.TotalSpent, u.CompletedTasks, u.IsFreelancer, u.IsClient);
     }
 }

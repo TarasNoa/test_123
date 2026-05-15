@@ -2,14 +2,8 @@ import { Component } from "solid-js";
 
 const Home: Component = () => {
   const modules = [
-    { name: 'IDE', path: '/ide', desc: 'Code editor with AI assistance', color: 'bg-primary' },
-    { name: 'Marketplace', path: '/marketplace', desc: 'AI-powered freelance exchange', color: 'bg-secondary' },
-    { name: 'Social', path: '/social', desc: 'Developer network & feed', color: 'bg-accent' },
-    { name: 'Chat', path: '/chat', desc: 'Real-time messaging', color: 'bg-info' },
-    { name: 'Platform', path: '/platform', desc: 'Team workspace & channels', color: 'bg-success' },
-    { name: 'Collaboration', path: '/collaboration', desc: 'Shared docs & whiteboards', color: 'bg-warning' },
-    { name: 'Analytics', path: '/analytics', desc: 'Metrics & dashboards', color: 'bg-error' },
-    { name: 'Settings', path: '/settings', desc: 'Configuration', color: 'bg-muted' },
+    { name: 'Dashboard', path: '/dashboard', desc: 'Your profile, posts & stats', color: 'bg-primary' },
+    { name: 'IDE', path: '/ide', desc: 'AI-powered code editor with agents', color: 'bg-secondary' },
   ];
 
   return (

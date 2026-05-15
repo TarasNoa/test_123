@@ -5,6 +5,7 @@ namespace Libr4.Tasks.Domain;
 
 public static class TasksErrors
 {
+    public static readonly Error NotFound = Error.NotFound("tasks.not_found", "Not found");
     public static readonly Error TaskNotFound = Error.NotFound("tasks.not_found", "Task not found");
     public static readonly Error ApplicationNotFound = Error.NotFound("tasks.application_not_found", "Application not found");
     public static readonly Error ReviewNotFound = Error.NotFound("tasks.review_not_found", "Review not found");

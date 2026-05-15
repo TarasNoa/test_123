@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.EntityFrameworkCore;
 
 namespace Libr4.Auth.Api.Endpoints;
 
@@ -149,6 +150,89 @@ public static class AuthEndpoints
                     .ToDictionary(g => g.Key, g => g.Select(e => e.ErrorMessage).ToArray()));
             }
         }).RequireAuthorization();
+
+        // CV Upload
+        grp.MapPost("/cv", async (IFormFile file, ClaimsPrincipal user, Application.Abstractions.IAuthDbContext db) =>
+        {
+            if (!Guid.TryParse(user.FindFirstValue("sub"), out var userId))
+                return Results.Unauthorized();
+
+            if (file == null || file.Length == 0)
+                return Results.BadRequest(new { error = "No file uploaded" });
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext != ".pdf" && ext != ".doc" && ext != ".docx")
+                return Results.BadRequest(new { error = "Only PDF, DOC, DOCX allowed" });
+
+            if (file.Length > 10 * 1024 * 1024)
+                return Results.BadRequest(new { error = "File size exceeds 10MB" });
+
+            var uploadsDir = "/app/uploads/cv";
+            Directory.CreateDirectory(uploadsDir);
+            var fileName = $"{userId}_{Guid.NewGuid():N}{ext}";
+            var filePath = Path.Combine(uploadsDir, fileName);
+
+            await using var stream = File.Create(filePath);
+            await file.CopyToAsync(stream);
+
+            var u = await db.Users.FirstOrDefaultAsync(x => x.Id == userId);
+            if (u == null) return Results.NotFound();
+            // Update CV URL via reflection or direct EF update
+            db.Users.Entry(u).Property("CvUrl").CurrentValue = $"/uploads/cv/{fileName}";
+            await db.SaveChangesAsync();
+
+            return Results.Ok(new { cvUrl = $"/uploads/cv/{fileName}" });
+        }).RequireAuthorization().DisableAntiforgery();
+
+        // Avatar Upload
+        grp.MapPost("/avatar", async (IFormFile file, ClaimsPrincipal user, Application.Abstractions.IAuthDbContext db) =>
+        {
+            if (!Guid.TryParse(user.FindFirstValue("sub"), out var userId))
+                return Results.Unauthorized();
+            if (file == null || file.Length == 0)
+                return Results.BadRequest(new { error = "No file uploaded" });
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp")
+                return Results.BadRequest(new { error = "Only images allowed" });
+            if (file.Length > 5 * 1024 * 1024)
+                return Results.BadRequest(new { error = "File size exceeds 5MB" });
+            var uploadsDir = "/app/uploads/avatars";
+            Directory.CreateDirectory(uploadsDir);
+            var fileName = $"{userId}_{Guid.NewGuid():N}{ext}";
+            var filePath = Path.Combine(uploadsDir, fileName);
+            await using var stream = File.Create(filePath);
+            await file.CopyToAsync(stream);
+            var u = await db.Users.FirstOrDefaultAsync(x => x.Id == userId);
+            if (u == null) return Results.NotFound();
+            db.Users.Entry(u).Property("AvatarUrl").CurrentValue = $"/uploads/avatars/{fileName}";
+            await db.SaveChangesAsync();
+            return Results.Ok(new { avatarUrl = $"/uploads/avatars/{fileName}" });
+        }).RequireAuthorization().DisableAntiforgery();
+
+        // Cover Upload
+        grp.MapPost("/cover", async (IFormFile file, ClaimsPrincipal user, Application.Abstractions.IAuthDbContext db) =>
+        {
+            if (!Guid.TryParse(user.FindFirstValue("sub"), out var userId))
+                return Results.Unauthorized();
+            if (file == null || file.Length == 0)
+                return Results.BadRequest(new { error = "No file uploaded" });
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp")
+                return Results.BadRequest(new { error = "Only images allowed" });
+            if (file.Length > 10 * 1024 * 1024)
+                return Results.BadRequest(new { error = "File size exceeds 10MB" });
+            var uploadsDir = "/app/uploads/covers";
+            Directory.CreateDirectory(uploadsDir);
+            var fileName = $"{userId}_{Guid.NewGuid():N}{ext}";
+            var filePath = Path.Combine(uploadsDir, fileName);
+            await using var stream = File.Create(filePath);
+            await file.CopyToAsync(stream);
+            var u = await db.Users.FirstOrDefaultAsync(x => x.Id == userId);
+            if (u == null) return Results.NotFound();
+            db.Users.Entry(u).Property("CoverUrl").CurrentValue = $"/uploads/covers/{fileName}";
+            await db.SaveChangesAsync();
+            return Results.Ok(new { coverUrl = $"/uploads/covers/{fileName}" });
+        }).RequireAuthorization().DisableAntiforgery();
 
         return app;
     }

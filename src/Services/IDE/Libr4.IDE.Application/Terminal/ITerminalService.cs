@@ -11,7 +11,8 @@ public interface ITerminalService
         Dictionary<string, string>? environmentVariables = null,
         int rows = 24,
         int cols = 80,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        string? sessionId = null);
 
     Task<TerminalSession?> GetSessionAsync(string sessionId, CancellationToken ct = default);
     

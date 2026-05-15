@@ -1,3 +1,4 @@
+using Libr4.Auth.Domain.Users;
 using Libr4.Shared.Kernel.Domain;
 
 namespace Libr4.Auth.Domain.Sso;
@@ -5,6 +6,7 @@ namespace Libr4.Auth.Domain.Sso;
 public sealed class ExternalLogin : AggregateRoot<Guid>
 {
     public Guid UserId { get; private set; }
+    public User User { get; private set; } = null!;
     public SsoProvider Provider { get; private set; }
     public string ProviderUserId { get; private set; } = "";
     public string? Email { get; private set; }
@@ -46,5 +48,20 @@ public enum SsoProvider
     Telegram = 6,
     LinkedIn = 7,
     Discord = 8,
+    Vk = 9,
+    WeChat = 10,
+    Twitter = 11,
+    Yandex = 12,
+    Odnoklassniki = 13,
+    QQ = 14,
+    Weibo = 15,
+    Alipay = 16,
+    Baidu = 17,
+    Line = 18,
+    KakaoTalk = 19,
+    Naver = 20,
+    Zalo = 21,
+    Amazon = 22,
+    Reddit = 23,
     Saml = 99
 }

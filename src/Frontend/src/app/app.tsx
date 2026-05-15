@@ -1,20 +1,22 @@
-import { Component, Suspense } from "solid-js";
+import { Component, Suspense, onMount } from "solid-js";
 import { Router, Route } from "@solidjs/router";
 import { lazy } from "solid-js";
+import { useI18n, detectLocale } from "../lib/i18n";
 import "./app.css";
 
 const Home = lazy(() => import("./routes/home"));
 const Auth = lazy(() => import("./routes/auth"));
+const AuthCallback = lazy(() => import("./routes/auth-callback"));
+const Dashboard = lazy(() => import("./routes/dashboard"));
 const IDE = lazy(() => import("./routes/ide"));
-const Marketplace = lazy(() => import("./routes/marketplace"));
-const Analytics = lazy(() => import("./routes/analytics"));
-const Chat = lazy(() => import("./routes/chat"));
-const Platform = lazy(() => import("./routes/platform"));
-const Social = lazy(() => import("./routes/social"));
-const Collaboration = lazy(() => import("./routes/collaboration"));
-const Settings = lazy(() => import("./routes/settings"));
 
 const App: Component = () => {
+  const { changeLocale } = useI18n();
+
+  onMount(() => {
+    changeLocale(detectLocale());
+  });
+
   return (
     <Router>
       <Suspense fallback={
@@ -24,14 +26,9 @@ const App: Component = () => {
       }>
         <Route path="/" component={Home} />
         <Route path="/auth" component={Auth} />
+        <Route path="/auth/callback" component={AuthCallback} />
+        <Route path="/dashboard" component={Dashboard} />
         <Route path="/ide" component={IDE} />
-        <Route path="/marketplace" component={Marketplace} />
-        <Route path="/analytics" component={Analytics} />
-        <Route path="/chat" component={Chat} />
-        <Route path="/platform" component={Platform} />
-        <Route path="/social" component={Social} />
-        <Route path="/collaboration" component={Collaboration} />
-        <Route path="/settings" component={Settings} />
       </Suspense>
     </Router>
   );

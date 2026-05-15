@@ -9,6 +9,7 @@ using Libr4.Tasks.Domain.Projects;
 using Libr4.Tasks.Domain.Reviews;
 using Libr4.Tasks.Domain.Tasks;
 using Libr4.Tasks.Domain.TeamsPortfolio;
+using Libr4.Tasks.Domain.Posts;
 using Libr4.Tasks.Domain.TimeTracking;
 using Libr4.Tasks.Domain.WorkDelivery;
 using Libr4.Shared.Infrastructure.Persistence;
@@ -67,6 +68,9 @@ public sealed class TasksDbContext : DbContextBase, ITasksDbContext
     public DbSet<SkillTestResult> SkillTestResults => Set<SkillTestResult>();
     public DbSet<ClientVerification> ClientVerifications => Set<ClientVerification>();
     public DbSet<PortfolioAnalytics> PortfolioAnalytics => Set<PortfolioAnalytics>();
+    public DbSet<Post> Posts => Set<Post>();
+    public DbSet<PostLike> PostLikes => Set<PostLike>();
+    public DbSet<PostComment> PostComments => Set<PostComment>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {

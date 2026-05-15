@@ -53,6 +53,19 @@ grafanadata/
 
 ## Misc temp
 *.zip
+*.sql
+ws-test*.ps1
+client.js
+login.json
+
+## Frontend build artifacts
+.output/
+.vinxi/
+*.config.timestamp_*.js
+node_modules.tar.gz
+netlify.toml
+ide-api-publish/
+publish/
 
 ## Rust
 rust/target/

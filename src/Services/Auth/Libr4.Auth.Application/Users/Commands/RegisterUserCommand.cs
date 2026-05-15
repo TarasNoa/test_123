@@ -24,6 +24,7 @@ public sealed class RegisterUserValidator : AbstractValidator<RegisterUserComman
             .MinimumLength(8)
             .Matches(@"[A-Za-z]").WithMessage("Password must contain letters")
             .Matches(@"\d").WithMessage("Password must contain digits");
+        RuleFor(x => x.Payload.Role).NotEmpty().Must(r => r is "client" or "company" or "freelancer").WithMessage("Invalid role");
     }
 }
 
@@ -50,12 +51,36 @@ public sealed class RegisterUserHandler : IRequestHandler<RegisterUserCommand, R
         if (exists)
             return Result.Failure<UserDto>(AuthErrors.EmailAlreadyExists);
 
-        var user = User.Register(email, request.Payload.DisplayName, _hasher.Hash(request.Payload.Password), _clock.UtcNow);
+        var skills = request.Payload.Skills?.Split(',').Select(s => s.Trim()).Where(s => !string.IsNullOrEmpty(s)).ToList();
+        var hourlyRate = decimal.TryParse(request.Payload.HourlyRate, out var hr) ? hr : (decimal?)null;
+
+        var user = User.Register(
+            email, request.Payload.DisplayName, _hasher.Hash(request.Payload.Password), _clock.UtcNow,
+            request.Payload.Role,
+            request.Payload.Phone,
+            request.Payload.Country,
+            request.Payload.City,
+            request.Payload.CompanyName,
+            request.Payload.Industry,
+            request.Payload.CompanySize,
+            request.Payload.Website,
+            skills,
+            request.Payload.Experience,
+            hourlyRate,
+            request.Payload.Specialization,
+            request.Payload.LinkedInUrl);
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
 
-        await _bus.Publish(new UserRegisteredIntegrationEvent(user.Id, user.Email, user.DisplayName, _clock.UtcNow), ct);
+        try
+        {
+            await _bus.Publish(new UserRegisteredIntegrationEvent(user.Id, user.Email, user.DisplayName, _clock.UtcNow), ct);
+        }
+        catch
+        {
+            // Graceful degradation: registration succeeds even if message bus is unavailable
+        }
 
         return new UserDto(
             user.Id, user.Email, user.DisplayName,

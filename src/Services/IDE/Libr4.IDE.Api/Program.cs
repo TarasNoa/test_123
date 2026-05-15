@@ -10,9 +10,11 @@ using Libr4.IDE.Application.Queries;
 using Libr4.IDE.Application.DTOs;
 // using Libr4.IDE.Domain.Algorithms;
 using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Infrastructure;
 // using Libr4.IDE.Application.AI.Algorithms;
 using Libr4.IDE.Application.Translation;
 using Libr4.IDE.Application.Terminal;
+using Libr4.IDE.Application.AgentEvents;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentOrchestration;
 using Microsoft.Extensions.DependencyInjection;
@@ -74,9 +76,12 @@ builder.Services.AddScoped<ITerminalService, DockerTerminalService>();
 builder.Services.AddScoped<IAgentEventEmitter, AgentEventEmitter>();
 builder.Services.AddScoped<IAgentOrchestrationTracker, AgentOrchestrationTracker>();
 builder.Services.AddScoped<ICodeSessionRepository, InMemoryCodeSessionRepository>();
+builder.Services.AddSingleton<IAgentStreamEmitter, AgentStreamEmitter>();
+builder.Services.AddScoped<IAgentSpawnerService, AgentSpawnerService>();
 builder.Services.AddHealthChecks();
 
 // Shadow Workspace - Golden Stack Architecture
+builder.Services.AddSingleton<Libr4.IDE.Application.ShadowWorkspace.ICrdtDocumentService, Libr4.IDE.Application.ShadowWorkspace.CrdtDocumentService>();
 builder.Services.AddSingleton<Libr4.IDE.Infrastructure.Containers.IContainerManager, Libr4.IDE.Infrastructure.Containers.ContainerManager>();
 builder.Services.AddSingleton<Libr4.IDE.Application.ShadowWorkspace.IContainerManager, Libr4.IDE.Infrastructure.ShadowWorkspace.ContainerManagerAdapter>();
 builder.Services.AddSingleton<Libr4.IDE.Infrastructure.Containers.IPreWarmedContainerPool, Libr4.IDE.Infrastructure.Containers.PreWarmedContainerPool>();
@@ -91,6 +96,9 @@ builder.Services.AddSingleton<IDomToMarkdownConverter, DomToMarkdownConverter>()
 builder.Services.AddSingleton<ISubagentObscuraIntegration, SubagentObscuraIntegration>();
 builder.Services.AddSingleton<IAgentOrchestrator, Libr4.IDE.Application.MultiAgentOrchestration.MultiAgentOrchestrator>();
 builder.Services.AddSingleton<IObscuraBrowserTool, Libr4.IDE.Application.Obscura.ObscuraBrowserTool>();
+
+// AI Infrastructure (required by UnifiedChatEndpoints)
+builder.Services.AddAIInfrastructure(builder.Configuration);
 
 // Semantic Code Index (SocratiCode analog) - Ollama embeddings + Qdrant vector store + BM25 RRF
 builder.Services.AddSemanticCodeIndex(builder.Configuration);
@@ -305,6 +313,9 @@ app.MapHackerAgentEndpoints();
 // Golden Stack: Agent State endpoints for Frontend synchronization
 app.MapAgentStateEndpoints();
 
+// Unified Chat — backend decides text vs agent spawn, streams via SignalR
+app.MapUnifiedChatEndpoints();
+
 // SignalR Hub for real-time agent updates
 app.MapHub<Libr4.IDE.Api.Hubs.AgentHub>("/hubs/agents");
 
@@ -337,6 +348,32 @@ app.MapPut("/api/ide/sessions/{sessionId}/files/{fileId}", async (Guid sessionId
     command = command with { SessionId = sessionId, FileId = fileId };
     await mediator.Send(command);
     return Results.Ok();
+});
+
+app.MapGet("/api/ide/sessions/{sessionId}/files/{fileId}/content", async (
+    Guid sessionId,
+    Guid fileId,
+    ICodeSessionRepository repo,
+    CancellationToken ct) =>
+{
+    var session = await repo.GetByIdAsync(sessionId, ct);
+    if (session is null) return Results.NotFound();
+    var file = session.Files.FirstOrDefault(f => f.Id == fileId);
+    if (file is null) return Results.NotFound();
+    return Results.Ok(new { file.Id, file.FileName, file.Content, file.Language });
+});
+
+app.MapDelete("/api/ide/sessions/{sessionId}/files/{fileId}", async (
+    Guid sessionId,
+    Guid fileId,
+    ICodeSessionRepository repo,
+    CancellationToken ct) =>
+{
+    var session = await repo.GetByIdAsync(sessionId, ct);
+    if (session is null) return Results.NotFound();
+    session.Files.RemoveAll(f => f.Id == fileId);
+    await repo.UpdateAsync(session, ct);
+    return Results.NoContent();
 });
 
 app.MapPost("/api/ide/sessions/{sessionId}/participants", async (Guid sessionId, AddParticipantCommand command, IMediator mediator) =>

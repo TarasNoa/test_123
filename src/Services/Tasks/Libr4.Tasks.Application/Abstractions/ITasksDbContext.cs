@@ -9,6 +9,7 @@ using Libr4.Tasks.Domain.Reviews;
 using Libr4.Tasks.Domain.Tasks;
 using Libr4.Tasks.Domain.TeamsPortfolio;
 using Libr4.Tasks.Domain.TimeTracking;
+using Libr4.Tasks.Domain.Posts;
 using Libr4.Tasks.Domain.WorkDelivery;
 using Microsoft.EntityFrameworkCore;
 
@@ -62,6 +63,9 @@ public interface ITasksDbContext
     DbSet<SkillTestResult> SkillTestResults { get; }
     DbSet<ClientVerification> ClientVerifications { get; }
     DbSet<PortfolioAnalytics> PortfolioAnalytics { get; }
+    DbSet<Post> Posts { get; }
+    DbSet<PostLike> PostLikes { get; }
+    DbSet<PostComment> PostComments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -1,4 +1,5 @@
 using Libr4.Auth.Application.Abstractions;
+using Libr4.Auth.Application.Sso;
 using Libr4.Auth.Infrastructure.Persistence;
 using Libr4.Auth.Infrastructure.Services;
 using Libr4.Shared.Infrastructure.Caching;
@@ -28,6 +29,8 @@ public static class DependencyInjection
         services.AddSingleton<ITokenGenerator, TokenGenerator>();
         services.AddScoped<ITotpService, TotpService>();
         services.AddScoped<IEmailService, SmtpEmailService>();
+        services.AddScoped<OAuthService>();
+        services.AddHttpClient();
 
         var amlProvider = configuration.GetValue<string>("Aml:Provider") ?? "sumsub";
         var amlApiKey = configuration.GetValue<string>("Aml:ApiKey") ?? "";

@@ -1467,6 +1467,52 @@ namespace Libr4.Tasks.Infrastructure.Migrations
                     b.ToTable("portfolio_items", (string)null);
                 });
 
+            modelBuilder.Entity("Libr4.Tasks.Domain.Posts.Post", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsPublished")
+                        .HasColumnType("boolean");
+
+                    b.PrimitiveCollection<List<string>>("MediaUrls")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.PrimitiveCollection<List<string>>("Tags")
+                        .IsRequired()
+                        .HasColumnType("text[]");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTimeOffset?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("ViewCount")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.ToTable("Posts");
+                });
+
             modelBuilder.Entity("Libr4.Tasks.Domain.Projects.Milestone", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3539,6 +3585,68 @@ namespace Libr4.Tasks.Infrastructure.Migrations
                         .HasForeignKey("DisputeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Libr4.Tasks.Domain.Posts.Post", b =>
+                {
+                    b.OwnsMany("Libr4.Tasks.Domain.Posts.PostComment", "Comments", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("Content")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<DateTimeOffset>("CreatedAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<Guid>("PostId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("PostId");
+
+                            b1.ToTable("PostComment");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PostId");
+                        });
+
+                    b.OwnsMany("Libr4.Tasks.Domain.Posts.PostLike", "Likes", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("uuid");
+
+                            b1.Property<DateTimeOffset>("CreatedAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<Guid>("PostId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("UserId")
+                                .HasColumnType("uuid");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("PostId", "UserId")
+                                .IsUnique();
+
+                            b1.ToTable("PostLike");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PostId");
+                        });
+
+                    b.Navigation("Comments");
+
+                    b.Navigation("Likes");
                 });
 
             modelBuilder.Entity("Libr4.Tasks.Domain.Projects.Milestone", b =>

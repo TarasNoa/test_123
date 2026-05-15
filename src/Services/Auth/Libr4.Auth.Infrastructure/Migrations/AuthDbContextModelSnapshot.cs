@@ -17,7 +17,7 @@ namespace Libr4.Auth.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.10")
+                .HasAnnotation("ProductVersion", "9.0.0")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -696,9 +696,8 @@ namespace Libr4.Auth.Infrastructure.Migrations
 
             modelBuilder.Entity("Libr4.Auth.Domain.Users.RefreshToken", b =>
                 {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                    b.Property<string>("Id")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -710,7 +709,13 @@ namespace Libr4.Auth.Infrastructure.Migrations
                     b.Property<DateTimeOffset>("ExpiresAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("ReplacedByTokenHash")
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("IsRevoked")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("ReplacedByHash")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
@@ -721,7 +726,7 @@ namespace Libr4.Auth.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
-                    b.Property<string>("TokenHash")
+                    b.Property<string>("Token")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
@@ -731,12 +736,42 @@ namespace Libr4.Auth.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TokenHash")
+                    b.HasIndex("Token")
                         .IsUnique();
 
                     b.HasIndex("UserId");
 
                     b.ToTable("refresh_tokens", (string)null);
+                });
+
+            modelBuilder.Entity("Libr4.Auth.Domain.Users.Role", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<string>("Permissions")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("roles", (string)null);
                 });
 
             modelBuilder.Entity("Libr4.Auth.Domain.Users.User", b =>
@@ -755,24 +790,43 @@ namespace Libr4.Auth.Infrastructure.Migrations
                     b.Property<string>("Bio")
                         .HasColumnType("text");
 
+                    b.Property<string>("City")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("CompanyName")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("CompanySize")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<int>("CompletedTasks")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("CoverUrl")
+                        .HasColumnType("text");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("DisplayName")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
+                    b.Property<string>("CvUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)");
 
-                    b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("boolean");
+                    b.Property<string>("Experience")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<int>("FailedLoginAttempts")
                         .HasColumnType("integer");
@@ -781,8 +835,12 @@ namespace Libr4.Auth.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<decimal>("HourlyRate")
+                    b.Property<decimal?>("HourlyRate")
                         .HasColumnType("decimal(10,2)");
+
+                    b.Property<string>("Industry")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -794,6 +852,9 @@ namespace Libr4.Auth.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsDeveloper")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsEmailVerified")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("IsFreelancer")
@@ -809,7 +870,6 @@ namespace Libr4.Auth.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("KycStatus")
-                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
@@ -819,10 +879,14 @@ namespace Libr4.Auth.Infrastructure.Migrations
                     b.Property<DateTimeOffset?>("LastLoginAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<int>("Level")
+                    b.Property<int?>("Level")
                         .HasColumnType("integer");
 
-                    b.Property<DateTimeOffset?>("LockedOutUntil")
+                    b.Property<string>("LinkedInUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("PasswordHash")
@@ -830,23 +894,35 @@ namespace Libr4.Auth.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<float>("Rating")
-                        .HasColumnType("real");
+                    b.Property<string>("Phone")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<decimal?>("Rating")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<bool>("SanctionsChecked")
                         .HasColumnType("boolean");
 
-                    b.Property<float>("SkillScore")
-                        .HasColumnType("real");
+                    b.Property<int?>("SkillScore")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Skills")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<decimal>("TotalEarnings")
+                    b.Property<string>("Specialization")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<decimal?>("TotalEarnings")
                         .HasColumnType("decimal(10,2)");
 
-                    b.Property<decimal>("TotalSpent")
+                    b.Property<decimal?>("TotalSpent")
                         .HasColumnType("decimal(10,2)");
 
                     b.Property<bool>("TwoFactorEnabled")
@@ -856,8 +932,17 @@ namespace Libr4.Auth.Infrastructure.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
-                    b.Property<DateTimeOffset>("UpdatedAt")
+                    b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Website")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.HasKey("Id");
 
@@ -865,20 +950,6 @@ namespace Libr4.Auth.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("users", (string)null);
-                });
-
-            modelBuilder.Entity("Libr4.Auth.Domain.Users.UserRole", b =>
-                {
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Role")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.HasKey("UserId", "Role");
-
-                    b.ToTable("user_roles", (string)null);
                 });
 
             modelBuilder.Entity("Libr4.Auth.Domain.Users.UserToken", b =>
@@ -1263,6 +1334,17 @@ namespace Libr4.Auth.Infrastructure.Migrations
                     b.Navigation("Socials");
                 });
 
+            modelBuilder.Entity("Libr4.Auth.Domain.Sso.ExternalLogin", b =>
+                {
+                    b.HasOne("Libr4.Auth.Domain.Users.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("Libr4.Auth.Domain.Users.RefreshToken", b =>
                 {
                     b.HasOne("Libr4.Auth.Domain.Users.User", null)
@@ -1272,7 +1354,7 @@ namespace Libr4.Auth.Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Libr4.Auth.Domain.Users.UserRole", b =>
+            modelBuilder.Entity("Libr4.Auth.Domain.Users.Role", b =>
                 {
                     b.HasOne("Libr4.Auth.Domain.Users.User", null)
                         .WithMany("Roles")

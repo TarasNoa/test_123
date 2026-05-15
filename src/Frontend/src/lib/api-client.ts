@@ -166,10 +166,117 @@ export const messageDtoSchema = z.object({
   })),
 });
 
+export const userDtoSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string(),
+  displayName: z.string(),
+  roles: z.array(z.string()),
+  emailConfirmed: z.boolean(),
+  twoFactorEnabled: z.boolean(),
+  createdAt: z.string().datetime(),
+  role: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  country: z.string().nullable().optional(),
+  city: z.string().nullable().optional(),
+  companyName: z.string().nullable().optional(),
+  industry: z.string().nullable().optional(),
+  companySize: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  skills: z.array(z.string()).nullable().optional(),
+  experience: z.string().nullable().optional(),
+  hourlyRate: z.number().nullable().optional(),
+  specialization: z.string().nullable().optional(),
+  linkedInUrl: z.string().nullable().optional(),
+  cvUrl: z.string().nullable().optional(),
+  avatarUrl: z.string().nullable().optional(),
+  coverUrl: z.string().nullable().optional(),
+  bio: z.string().nullable().optional(),
+  rating: z.number().nullable().optional(),
+  totalEarnings: z.number().nullable().optional(),
+  totalSpent: z.number().nullable().optional(),
+  completedTasks: z.number().int().nullable().optional(),
+  isFreelancer: z.boolean().nullable().optional(),
+  isClient: z.boolean().nullable().optional(),
+});
+
+export const userProjectDtoSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  description: z.string(),
+  category: z.string(),
+  status: z.string(),
+  budget: z.number().nullable().optional(),
+  currency: z.string(),
+  progress: z.number().int(),
+  teamSize: z.number().int(),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+
+export const userPortfolioItemDtoSchema = z.object({
+  id: z.string().uuid(),
+  title: z.string(),
+  description: z.string(),
+  itemType: z.string(),
+  status: z.string(),
+  tags: z.array(z.string()),
+  skillsUsed: z.array(z.string()),
+  client: z.string().nullable().optional(),
+  projectUrl: z.string().nullable().optional(),
+  githubUrl: z.string().nullable().optional(),
+  liveUrl: z.string().nullable().optional(),
+  completionDate: z.string().datetime().nullable().optional(),
+  viewCount: z.number().int(),
+  likeCount: z.number().int(),
+  featured: z.boolean(),
+  createdAt: z.string().datetime(),
+});
+
+export const userStatsDtoSchema = z.object({
+  totalProjects: z.number().int(),
+  completedProjects: z.number().int(),
+  inProgressProjects: z.number().int(),
+  totalTasks: z.number().int(),
+  completedTasks: z.number().int(),
+  totalEarnings: z.number(),
+  totalSpent: z.number(),
+  averageRating: z.number(),
+  portfolioItemsCount: z.number().int(),
+  reviewsCount: z.number().int(),
+});
+
+export const postDtoSchema = z.object({
+  id: z.string().uuid(),
+  authorId: z.string().uuid(),
+  content: z.string(),
+  title: z.string().nullable().optional(),
+  tags: z.array(z.string()),
+  mediaUrls: z.array(z.string()),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime().nullable().optional(),
+  likeCount: z.number().int(),
+  commentCount: z.number().int(),
+  viewCount: z.number().int(),
+  isLikedByCurrentUser: z.boolean(),
+});
+
+export const postCommentDtoSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  content: z.string(),
+  createdAt: z.string().datetime(),
+});
+
 export type MetricDto = z.infer<typeof metricDtoSchema>;
 export type DashboardDto = z.infer<typeof dashboardDtoSchema>;
 export type ChatDto = z.infer<typeof chatDtoSchema>;
 export type MessageDto = z.infer<typeof messageDtoSchema>;
+export type UserDto = z.infer<typeof userDtoSchema>;
+export type UserProjectDto = z.infer<typeof userProjectDtoSchema>;
+export type UserPortfolioItemDto = z.infer<typeof userPortfolioItemDtoSchema>;
+export type UserStatsDto = z.infer<typeof userStatsDtoSchema>;
+export type PostDto = z.infer<typeof postDtoSchema>;
+export type PostCommentDto = z.infer<typeof postCommentDtoSchema>;
 
 export const createMetricRequestSchema = z.object({
   name: z.string().min(1),
@@ -203,6 +310,19 @@ export const registerRequestSchema = z.object({
   email: z.string().email(),
   displayName: z.string().min(2).max(64),
   password: z.string().min(8),
+  role: z.enum(['client', 'company', 'freelancer']),
+  phone: z.string().optional(),
+  country: z.string().optional(),
+  city: z.string().optional(),
+  companyName: z.string().optional(),
+  industry: z.string().optional(),
+  companySize: z.string().optional(),
+  website: z.string().optional(),
+  skills: z.string().optional(),
+  experience: z.string().optional(),
+  hourlyRate: z.string().optional(),
+  specialization: z.string().optional(),
+  linkedInUrl: z.string().optional(),
 });
 
 export const authResponseSchema = z.object({
@@ -224,10 +344,12 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const token = localStorage.getItem('accessToken');
     const response = await fetch(url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
     });
@@ -237,6 +359,13 @@ class ApiClient {
     }
 
     return response.json();
+  }
+
+  async externalAuth(provider: string, data: { providerUserId: string; email: string; displayName?: string; avatarUrl?: string }): Promise<AuthResponse> {
+    return this.request(`/api/v1/auth/external/${provider}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async suggestOrder(request: OrderAssistantRequest): Promise<OrderAssistantResult> {
@@ -322,6 +451,24 @@ class ApiClient {
     });
   }
 
+  async uploadCv(file: File): Promise<{ cvUrl: string }> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const url = `${this.baseUrl}/api/v1/auth/cv`;
+    const token = localStorage.getItem('accessToken');
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: formData,
+    });
+    if (!response.ok) {
+      throw new Error(`CV upload failed: ${response.status} ${response.statusText}`);
+    }
+    return response.json();
+  }
+
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
     return this.request('/api/v1/auth/refresh', {
       method: 'POST',
@@ -352,6 +499,72 @@ class ApiClient {
     if (page) params.append('page', page.toString());
     if (pageSize) params.append('pageSize', pageSize.toString());
     return this.request(`/api/v1/chat/chats/${chatId}/messages?${params}`);
+  }
+
+  /* ─── Dashboard ─── */
+  async getMe(): Promise<UserDto> {
+    return this.request('/api/v1/auth/me');
+  }
+
+  async getMyProjects(): Promise<UserProjectDto[]> {
+    return this.request('/api/v1/tasks/my/projects');
+  }
+
+  async getMyPortfolio(): Promise<UserPortfolioItemDto[]> {
+    return this.request('/api/v1/tasks/my/portfolio');
+  }
+
+  async getMyStats(): Promise<UserStatsDto> {
+    return this.request('/api/v1/tasks/my/stats');
+  }
+
+  /* ─── Posts ─── */
+  async getFeed(page?: number, pageSize?: number): Promise<PostDto[]> {
+    const params = new URLSearchParams();
+    if (page) params.append('page', page.toString());
+    if (pageSize) params.append('pageSize', pageSize.toString());
+    return this.request(`/api/v1/tasks/posts/feed?${params}`);
+  }
+
+  async getMyPosts(): Promise<PostDto[]> {
+    return this.request('/api/v1/tasks/posts/my');
+  }
+
+  async createPost(content: string, title?: string, tags?: string[], mediaUrls?: string[]): Promise<PostDto> {
+    return this.request('/api/v1/tasks/posts', {
+      method: 'POST',
+      body: JSON.stringify({ content, title, tags, mediaUrls }),
+    });
+  }
+
+  async likePost(postId: string): Promise<void> {
+    return this.request(`/api/v1/tasks/posts/${postId}/like`, { method: 'POST' });
+  }
+
+  async addComment(postId: string, content: string): Promise<PostCommentDto> {
+    return this.request(`/api/v1/tasks/posts/${postId}/comment`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  /* ─── Uploads ─── */
+  async uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.request('/api/v1/auth/avatar', {
+      method: 'POST',
+      body: form,
+    });
+  }
+
+  async uploadCover(file: File): Promise<{ coverUrl: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.request('/api/v1/auth/cover', {
+      method: 'POST',
+      body: form,
+    });
   }
 }
 

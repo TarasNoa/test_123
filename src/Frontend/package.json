@@ -1,6 +1,7 @@
 {
   "name": "libr4-frontend",
   "version": "1.0.0",
+  "type": "module",
   "scripts": {
     "dev": "vinxi dev",
     "build": "vinxi build",
@@ -9,22 +10,25 @@
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
-    "solid-js": "^1.8.0",
-    "@solidjs/start": "^0.7.7",
-    "@solidjs/router": "^0.13.3",
-    "monaco-editor": "^0.45.0",
-    "zod": "^3.22.0",
     "@microsoft/signalr": "^8.0.0",
+    "@solidjs/router": "^0.13.3",
+    "@solidjs/start": "^0.7.7",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "monaco-editor": "^0.55.1",
     "prismjs": "^1.29.0",
-    "tailwindcss": "^4.0.0"
+    "solid-js": "^1.8.0",
+    "tailwindcss": "^4.0.0",
+    "xterm": "^5.3.0",
+    "zod": "^3.22.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
+    "@types/prismjs": "^1.26.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0",
     "vinxi": "^0.3.10",
     "vite": "^5.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^1.0.0",
-    "eslint": "^8.0.0",
-    "@types/prismjs": "^1.26.0"
+    "vitest": "^1.0.0"
   }
 }

@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Libr4.IDE.Api;
 
+using Microsoft.Extensions.Logging;
+
 /// <summary>
 /// WebSocket handler for real-time terminal output
 /// </summary>
@@ -13,10 +15,14 @@ public class TerminalWebSocketHandler
     private readonly Dictionary<string, System.Threading.CancellationTokenSource> _outputTasks = new();
     private readonly object _lock = new();
     private readonly ITerminalService _terminalService;
+    private readonly IDockerService _dockerService;
+    private readonly ILogger<TerminalWebSocketHandler> _logger;
 
-    public TerminalWebSocketHandler(ITerminalService terminalService)
+    public TerminalWebSocketHandler(ITerminalService terminalService, IDockerService dockerService, ILogger<TerminalWebSocketHandler> logger)
     {
         _terminalService = terminalService;
+        _dockerService = dockerService;
+        _logger = logger;
     }
 
     public async Task HandleWebSocketAsync(HttpContext context, string sessionId)
@@ -45,6 +51,20 @@ public class TerminalWebSocketHandler
             _outputTasks[sessionId] = cts;
         }
 
+        // Ensure session exists (create on-the-fly if client connects before explicit creation)
+        try
+        {
+            var session = await _terminalService.GetSessionAsync(sessionId, cts.Token);
+            if (session is null)
+            {
+                await _terminalService.CreateSessionAsync("default", ct: cts.Token, sessionId: sessionId);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to auto-create terminal session {SessionId}", sessionId);
+        }
+
         var outputTask = StreamOutputAsync(sessionId, cts.Token);
 
         var buffer = new byte[1024 * 4];
@@ -65,10 +85,16 @@ public class TerminalWebSocketHandler
                 if (result.MessageType == WebSocketMessageType.Text)
                 {
                     var message = System.Text.Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    
-                    // Execute command and stream output
-                    var entry = await _terminalService.ExecuteCommandAsync(sessionId, message);
-                    await BroadcastToSession(sessionId, FormatOutput(entry));
+
+                    // Write keystrokes to shell stdin for interactive terminal
+                    try
+                    {
+                        await _dockerService.WriteToShellAsync(sessionId, message);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogDebug(ex, "Failed to write to shell {SessionId}", sessionId);
+                    }
                 }
             }
         }

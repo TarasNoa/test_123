@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text;
 using Libr4.AI.Domain.Terminal;
 using Microsoft.Extensions.Logging;
 
@@ -12,6 +13,7 @@ public class ProcessDockerService : IDockerService
 {
     private readonly ILogger<ProcessDockerService> _logger;
     private readonly Dictionary<string, Process> _shellProcesses = new();
+    private readonly Dictionary<string, StringBuilder> _outputBuffers = new();
     private readonly object _lock = new();
 
     public ProcessDockerService(ILogger<ProcessDockerService> logger)
@@ -86,7 +88,7 @@ public class ProcessDockerService : IDockerService
         CancellationToken ct = default)
     {
         var shellPath = GetShellPath(shell);
-        
+
         var startInfo = new ProcessStartInfo
         {
             FileName = shellPath,
@@ -98,13 +100,21 @@ public class ProcessDockerService : IDockerService
         };
 
         var process = new Process { StartInfo = startInfo };
-        
-        process.Start();
+
+        if (!process.Start())
+        {
+            throw new InvalidOperationException($"Failed to start shell {shellPath}");
+        }
 
         lock (_lock)
         {
             _shellProcesses[sessionId] = process;
+            _outputBuffers[sessionId] = new StringBuilder();
         }
+
+        // Start background readers for stdout and stderr
+        _ = Task.Run(() => StreamReaderAsync(sessionId, process.StandardOutput, ct), ct);
+        _ = Task.Run(() => StreamReaderAsync(sessionId, process.StandardError, ct), ct);
 
         _logger.LogInformation(
             "Created shell session {SessionId} in container {Container} with shell {Shell}",
@@ -113,6 +123,31 @@ public class ProcessDockerService : IDockerService
             shell);
 
         await Task.CompletedTask;
+    }
+
+    private async Task StreamReaderAsync(string sessionId, StreamReader reader, CancellationToken ct)
+    {
+        try
+        {
+            var buffer = new char[1024];
+            while (!ct.IsCancellationRequested)
+            {
+                var read = await reader.ReadAsync(buffer.AsMemory(0, buffer.Length), ct);
+                if (read == 0) break;
+                lock (_lock)
+                {
+                    if (_outputBuffers.TryGetValue(sessionId, out var sb))
+                    {
+                        sb.Append(buffer, 0, read);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Stream reader ended for session {SessionId}", sessionId);
+        }
     }
 
     public async Task<string> GetShellOutputAsync(
@@ -136,11 +171,33 @@ public class ProcessDockerService : IDockerService
             return string.Empty;
         }
 
-        // Read available output
-        var output = await process.StandardOutput.ReadToEndAsync(ct);
-        var error = await process.StandardError.ReadToEndAsync(ct);
+        // Return buffered output without blocking
+        lock (_lock)
+        {
+            if (_outputBuffers.TryGetValue(sessionId, out var sb))
+            {
+                var output = sb.ToString();
+                sb.Clear();
+                return output;
+            }
+        }
+        return string.Empty;
+    }
 
-        return string.IsNullOrEmpty(error) ? output : output + "\n" + error;
+    public async Task WriteToShellAsync(string sessionId, string input, CancellationToken ct = default)
+    {
+        Process? process;
+        lock (_lock)
+        {
+            if (!_shellProcesses.TryGetValue(sessionId, out process))
+                throw new KeyNotFoundException($"Shell session {sessionId} not found");
+        }
+
+        if (process.HasExited)
+            throw new InvalidOperationException($"Shell session {sessionId} has exited");
+
+        await process.StandardInput.WriteAsync(input.AsMemory(), ct);
+        await process.StandardInput.FlushAsync(ct);
     }
 
     public async Task TerminateShellSessionAsync(
@@ -153,15 +210,15 @@ public class ProcessDockerService : IDockerService
         {
             if (!_shellProcesses.TryGetValue(sessionId, out process))
                 return;
-
             _shellProcesses.Remove(sessionId);
+            _outputBuffers.Remove(sessionId);
         }
 
         try
         {
             if (!process.HasExited)
             {
-                process.Kill(entireProcessTree: true);
+                process.Kill();
                 await process.WaitForExitAsync(ct);
             }
         }
@@ -177,12 +234,12 @@ public class ProcessDockerService : IDockerService
     {
         return shell switch
         {
-            ShellType.Bash => "/bin/bash",
-            ShellType.Zsh => "/bin/zsh",
-            ShellType.Fish => "/usr/bin/fish",
-            ShellType.PowerShell => "/usr/bin/pwsh",
-            ShellType.Cmd => "/bin/sh", // Fallback for Windows
-            _ => "/bin/bash"
+            ShellType.Bash => "/bin/sh", // Alpine fallback; change to /bin/bash if available
+            ShellType.Zsh => "/bin/sh",
+            ShellType.Fish => "/bin/sh",
+            ShellType.PowerShell => "/bin/sh",
+            ShellType.Cmd => "/bin/sh",
+            _ => "/bin/sh"
         };
     }
 }

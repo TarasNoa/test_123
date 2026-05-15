@@ -2,6 +2,10 @@ using System.Security.Claims;
 using FluentValidation;
 using Libr4.Shared.Web.Results;
 using Libr4.Tasks.Application.Dtos;
+using Libr4.Tasks.Application.Dashboard.Queries;
+using Libr4.Tasks.Application.Posts.Commands;
+using Libr4.Tasks.Application.Posts.Dtos;
+using Libr4.Tasks.Application.Posts.Queries;
 using Libr4.Tasks.Application.Reviews.Commands;
 using Libr4.Tasks.Application.Reviews.Queries;
 using Libr4.Tasks.Application.Tasks.Commands;
@@ -176,6 +180,70 @@ public static class TaskEndpoints
             var result = await mediator.Send(new GetUserReviewsQuery(userId, asReviewee));
             return Results.Ok(result);
         }).AllowAnonymous();
+
+        // Dashboard
+        grp.MapGet("/my/projects", async (ClaimsPrincipal user, ISender mediator) =>
+        {
+            var userId = GetUserId(user);
+            if (userId is null) return Results.Unauthorized();
+            var result = await mediator.Send(new GetUserProjectsQuery(userId.Value));
+            return Results.Ok(result);
+        }).RequireAuthorization();
+
+        grp.MapGet("/my/portfolio", async (ClaimsPrincipal user, ISender mediator) =>
+        {
+            var userId = GetUserId(user);
+            if (userId is null) return Results.Unauthorized();
+            var result = await mediator.Send(new GetUserPortfolioQuery(userId.Value));
+            return Results.Ok(result);
+        }).RequireAuthorization();
+
+        grp.MapGet("/my/stats", async (ClaimsPrincipal user, ISender mediator) =>
+        {
+            var userId = GetUserId(user);
+            if (userId is null) return Results.Unauthorized();
+            var result = await mediator.Send(new GetUserStatsQuery(userId.Value));
+            return Results.Ok(result);
+        }).RequireAuthorization();
+
+        // Posts
+        grp.MapGet("/posts/feed", async ([AsParameters] GetFeedQuery query, ISender mediator) =>
+        {
+            var result = await mediator.Send(query);
+            return Results.Ok(result);
+        }).AllowAnonymous();
+
+        grp.MapGet("/posts/my", async (ClaimsPrincipal user, ISender mediator) =>
+        {
+            var userId = GetUserId(user);
+            if (userId is null) return Results.Unauthorized();
+            var result = await mediator.Send(new GetMyPostsQuery(userId.Value));
+            return Results.Ok(result);
+        }).RequireAuthorization();
+
+        grp.MapPost("/posts", async (CreatePostRequest req, ClaimsPrincipal user, ISender mediator) =>
+        {
+            var userId = GetUserId(user);
+            if (userId is null) return Results.Unauthorized();
+            var result = await mediator.Send(new CreatePostCommand(userId.Value, req.Content, req.Title, req.Tags, req.MediaUrls));
+            return result.ToHttpResult();
+        }).RequireAuthorization();
+
+        grp.MapPost("/posts/{id:guid}/like", async (Guid id, ClaimsPrincipal user, ISender mediator) =>
+        {
+            var userId = GetUserId(user);
+            if (userId is null) return Results.Unauthorized();
+            var result = await mediator.Send(new LikePostCommand(id, userId.Value));
+            return result.ToHttpResult();
+        }).RequireAuthorization();
+
+        grp.MapPost("/posts/{id:guid}/comment", async (Guid id, AddCommentRequest req, ClaimsPrincipal user, ISender mediator) =>
+        {
+            var userId = GetUserId(user);
+            if (userId is null) return Results.Unauthorized();
+            var result = await mediator.Send(new AddCommentCommand(id, userId.Value, req.Content));
+            return result.ToHttpResult();
+        }).RequireAuthorization();
 
         return app;
     }

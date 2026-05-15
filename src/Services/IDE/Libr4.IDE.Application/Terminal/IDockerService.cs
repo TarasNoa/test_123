@@ -26,6 +26,11 @@ public interface IDockerService
         string sessionId,
         CancellationToken ct = default);
 
+    Task WriteToShellAsync(
+        string sessionId,
+        string input,
+        CancellationToken ct = default);
+
     Task TerminateShellSessionAsync(
         string containerId,
         string sessionId,
