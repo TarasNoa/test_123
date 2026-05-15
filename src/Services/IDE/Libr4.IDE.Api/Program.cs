@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using System.IO;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -381,6 +382,49 @@ app.MapPost("/api/ide/sessions/{sessionId}/participants", async (Guid sessionId,
     command = command with { SessionId = sessionId };
     await mediator.Send(command);
     return Results.Ok();
+});
+
+// ─── File operations (v1) — used by Web IDE frontend ───
+app.MapGet("/api/v1/ide/files", async ([FromQuery] Guid sessionId, ICodeSessionRepository repo, CancellationToken ct) =>
+{
+    var session = await repo.GetByIdAsync(sessionId, ct);
+    if (session is null) return Results.NotFound();
+    var tree = session.Files.Select(f => new
+    {
+        id = f.FileName,
+        path = f.FileName,
+        name = Path.GetFileName(f.FileName),
+        type = "file",
+        language = f.Language ?? "text",
+    }).ToList();
+    return Results.Ok(tree);
+});
+
+app.MapGet("/api/v1/ide/files/content", async ([FromQuery] Guid sessionId, [FromQuery] string path, ICodeSessionRepository repo, CancellationToken ct) =>
+{
+    var session = await repo.GetByIdAsync(sessionId, ct);
+    if (session is null) return Results.NotFound();
+    var file = session.Files.FirstOrDefault(f => f.FileName == path);
+    if (file is null) return Results.NotFound();
+    return Results.Ok(new { content = file.Content });
+});
+
+app.MapPost("/api/v1/ide/files/save", async ([FromBody] SaveFileRequest req, ICodeSessionRepository repo, CancellationToken ct) =>
+{
+    var session = await repo.GetByIdAsync(req.SessionId, ct);
+    if (session is null) return Results.NotFound();
+    var existing = session.Files.FirstOrDefault(f => f.FileName == req.Path);
+    if (existing is null)
+    {
+        var ext = Path.GetExtension(req.Path).TrimStart('.');
+        session.AddFile(req.Path, req.Content, ext);
+    }
+    else
+    {
+        existing.UpdateContent(req.Content);
+    }
+    await repo.UpdateAsync(session, ct);
+    return Results.Ok(new { saved = true });
 });
 
 // AI Code Assistance endpoints - commented out due to missing Algorithms namespace
