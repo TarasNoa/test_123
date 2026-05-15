@@ -50,6 +50,25 @@ public class AIProviderFactory
             {
                 return regionProvider;
             }
+
+            // Allow direct provider selection via kebab-case or lowercase names
+            var normalized = region.Replace("-", "").ToLowerInvariant();
+            var known = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["dockermodelrunner"] = "DockerModelRunner",
+                ["openrouter"] = "OpenRouter",
+                ["ollama"] = "Ollama",
+                ["openai"] = "OpenAI",
+                ["claude"] = "Claude",
+                ["google"] = "Google",
+                ["deepseek"] = "DeepSeek",
+                ["glm"] = "GLM",
+                ["alibabacloud"] = "AlibabaCloud",
+            };
+            if (known.TryGetValue(normalized, out var provider))
+            {
+                return provider;
+            }
         }
 
         // Fall back to default provider

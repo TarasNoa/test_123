@@ -21,7 +21,7 @@ public static class UnifiedChatEndpoints
                 ? sid
                 : Guid.NewGuid();
 
-            var command = new ChatCommand(conversationId, request.Message);
+            var command = new ChatCommand(conversationId, request.Message, request.Provider);
             var result = await mediator.Send(command);
 
             if (result.IsSuccess)
@@ -49,6 +49,7 @@ public class ChatMessageRequest
     public string SessionId { get; set; } = "";
     public string Message { get; set; } = "";
     public string AutonomyLevel { get; set; } = "semi-auto";
+    public string? Provider { get; set; }
     public ChatContext? Context { get; set; }
 }
 

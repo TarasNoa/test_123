@@ -32,6 +32,7 @@ export const AIInput: Component = () => {
           sessionId: store.sessionId,
           message: text,
           autonomyLevel: store.autonomyLevel,
+          provider: store.selectedModel,
           context: {
             currentFile: store.activeTabId,
             selectedCode: store.contextSelectedCode,
