@@ -57,10 +57,27 @@ export const AIInput: Component = () => {
         });
       }
     } catch (err: any) {
+      const rawMessage: string = err?.message || 'Unknown error';
+      const firstLine = rawMessage
+        .split('\n')[0]
+        .split(' at ')[0]
+        .trim();
+
+      let userMessage: string;
+      if (rawMessage.includes('401') || rawMessage.includes('Unauthorized')) {
+        userMessage = '⚠️ AI provider не настроен. Добавьте API ключ в docker-compose.yml.';
+      } else if (rawMessage.includes('Failed to fetch') || rawMessage.includes('NetworkError')) {
+        userMessage = '⚠️ Нет соединения с бэкендом. Проверьте что IDE API запущен.';
+      } else if (rawMessage.includes('404')) {
+        userMessage = '⚠️ Endpoint не найден. Проверьте маршруты в Gateway.';
+      } else {
+        userMessage = `⚠️ Ошибка: ${firstLine}`;
+      }
+
       addMessage({
         type: 'ai',
         id: crypto.randomUUID(),
-        text: `⚠️ Failed to reach AI backend: ${err?.message || 'Unknown error'}`,
+        text: userMessage,
         timestamp: new Date(),
         isStreaming: false,
       });
