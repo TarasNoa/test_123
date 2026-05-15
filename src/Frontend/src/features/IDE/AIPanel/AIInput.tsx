@@ -44,6 +44,17 @@ export const AIInput: Component = () => {
         const err = await res.text();
         throw new Error(err || `HTTP ${res.status}`);
       }
+
+      const data = await res.json();
+      if (data.response) {
+        addMessage({
+          type: 'ai',
+          id: data.messageId || crypto.randomUUID(),
+          text: data.response,
+          timestamp: new Date(),
+          isStreaming: false,
+        });
+      }
     } catch (err: any) {
       addMessage({
         type: 'ai',

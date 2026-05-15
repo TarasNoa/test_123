@@ -1,5 +1,7 @@
 using Libr4.IDE.Application.AgentEvents;
+using Libr4.IDE.Application.AI.Commands;
 using Microsoft.AspNetCore.Mvc;
+using MediatR;
 
 namespace Libr4.IDE.Api;
 
@@ -10,11 +12,32 @@ public static class UnifiedChatEndpoints
         app.MapPost("/api/v1/ai/chat/message", async (
             [FromBody] ChatMessageRequest request,
             IAgentSpawnerService spawner,
+            IMediator mediator,
             ILogger<ChatMessageRequest> logger) =>
         {
             logger.LogInformation("Chat message from session {SessionId}", request.SessionId);
-            // TODO: Route to AI service or spawn agent based on message content
-            return Results.Ok(new { messageId = Guid.NewGuid(), status = "accepted" });
+
+            var conversationId = Guid.TryParse(request.SessionId, out var sid)
+                ? sid
+                : Guid.NewGuid();
+
+            var command = new ChatCommand(conversationId, request.Message);
+            var result = await mediator.Send(command);
+
+            if (result.IsSuccess)
+            {
+                return Results.Ok(new
+                {
+                    messageId = result.Value.Id,
+                    status = "completed",
+                    response = result.Value.Content,
+                    model = result.Value.Model,
+                    tokensUsed = result.Value.TokensUsed,
+                    responseTimeMs = result.Value.ResponseTimeMs,
+                });
+            }
+
+            return Results.BadRequest(new { error = result.Error?.Message ?? "AI service error" });
         });
 
         return app;
