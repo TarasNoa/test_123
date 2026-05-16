@@ -8,6 +8,7 @@ const Home = lazy(() => import("./app/routes/home"));
 const Auth = lazy(() => import("./app/routes/auth"));
 const AuthCallback = lazy(() => import("./app/routes/auth-callback"));
 const Dashboard = lazy(() => import("./app/routes/dashboard"));
+const Social = lazy(() => import("./app/routes/social"));
 const IDE = lazy(() => import("./app/routes/ide"));
 
 const App: Component = () => {
@@ -28,6 +29,7 @@ const App: Component = () => {
         <Route path="/auth" component={Auth} />
         <Route path="/auth/callback" component={AuthCallback} />
         <Route path="/dashboard" component={Dashboard} />
+        <Route path="/social" component={Social} />
         <Route path="/ide" component={IDE} />
       </Suspense>
     </Router>

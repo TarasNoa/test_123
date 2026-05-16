@@ -68,14 +68,17 @@ export function useI18n() {
 }
 
 export function detectLocale() {
+  if (typeof navigator === 'undefined') return 'en';
   return navigator.language?.split('-')[0] || 'en';
 }
 
 export function getRegion() {
+  if (typeof navigator === 'undefined') return 'US';
   return navigator.language?.split('-')[1] || 'US';
 }
 
 export function getBrowserLocale() {
+  if (typeof navigator === 'undefined') return 'en-US';
   return navigator.language || 'en-US';
 }
 
