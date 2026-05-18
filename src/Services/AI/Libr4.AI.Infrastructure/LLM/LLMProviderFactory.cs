@@ -14,9 +14,8 @@ public class LLMProviderFactory : ILLMProviderFactory
         _serviceProvider = serviceProvider;
         _providers = new Dictionary<AIProviderType, Type>
         {
-            // Ollama moved to AI.Providers namespace
+            [AIProviderType.Ollama] = typeof(OllamaLLMProvider),
             [AIProviderType.OpenAI] = typeof(OpenAIProvider),
-            // Additional providers can be registered here
         };
     }
 

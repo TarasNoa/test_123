@@ -1,8 +1,22 @@
 import { createSignal, Show, For, onMount } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
-import { apiClient } from '../../lib/api-client';
+import { apiClient, type AuthResponse } from '../../lib/api-client';
 import { useI18n, getRegion, getBrowserLocale } from '../../lib/i18n';
+import { config } from '../../lib/config';
 import type { Component } from 'solid-js';
+
+/* ─── Save full session after login/register ─── */
+const saveSession = (response: AuthResponse) => {
+  localStorage.setItem('accessToken', response.accessToken);
+  localStorage.setItem('refreshToken', response.refreshToken);
+  try {
+    const payload = JSON.parse(atob(response.accessToken.split('.')[1]));
+    localStorage.setItem('userId',      payload.sub       ?? '');
+    localStorage.setItem('email',       payload.email     ?? '');
+    localStorage.setItem('displayName', payload.display_name ?? payload.displayName ?? '');
+    localStorage.setItem('role',        payload.role      ?? '');
+  } catch { /* ignore if JWT malformed */ }
+};
 
 type UserRole = 'client' | 'company' | 'freelancer';
 type RegisterStep = 0 | 1 | 2 | 3;
@@ -164,6 +178,13 @@ export default function Auth() {
   const [cvFile, setCvFile] = createSignal<File | null>(null);
   const [enable2fa, setEnable2fa] = createSignal(false);
 
+  /* Validation & forgot password */
+  const [emailError, setEmailError] = createSignal('');
+  const [passwordError, setPasswordError] = createSignal('');
+  const [passwordStrength, setPasswordStrength] = createSignal(0);
+  const [forgotMode, setForgotMode] = createSignal(false);
+  const [resetSent, setResetSent] = createSignal(false);
+
   onMount(() => {
     setRegion(getRegion());
     changeLocale(getBrowserLocale());
@@ -175,14 +196,36 @@ export default function Auth() {
     window.location.href = `/api/v1/auth/external/${provider}/challenge`;
   };
 
+  /* ─── Validation helpers ─── */
+  const validateEmail = (val: string) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    setEmailError(re.test(val) ? '' : 'Enter a valid email address');
+  };
+
+  const validatePassword = (val: string) => {
+    if (val.length < 8) {
+      setPasswordError('At least 8 characters required');
+      setPasswordStrength(0);
+      return;
+    }
+    setPasswordError('');
+    let score = 0;
+    if (/[a-z]/.test(val)) score++;
+    if (/[A-Z]/.test(val)) score++;
+    if (/[0-9]/.test(val)) score++;
+    if (/[^a-zA-Z0-9]/.test(val)) score++;
+    setPasswordStrength(score);
+  };
+
   const handleLogin = async (e: Event) => {
     e.preventDefault();
     setError('');
+    validateEmail(email());
+    if (emailError()) return;
     setLoading(true);
     try {
       const response = await apiClient.login({ email: email(), password: password() });
-      localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
+      saveSession(response);
       navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || t('auth.error.generic'));
@@ -194,6 +237,9 @@ export default function Auth() {
   const handleRegister = async (e: Event) => {
     e.preventDefault();
     setError('');
+    validateEmail(email());
+    validatePassword(password());
+    if (emailError() || passwordError()) return;
     setLoading(true);
     try {
       const r = role()!;
@@ -215,14 +261,28 @@ export default function Auth() {
         specialization: specialization() || undefined,
         linkedInUrl: linkedInUrl() || undefined,
       });
-      localStorage.setItem('accessToken', response.accessToken);
-      localStorage.setItem('refreshToken', response.refreshToken);
-      if (cvFile()) {
-        try { await apiClient.uploadCv(cvFile()!); } catch { /* ignore */ }
-      }
-      navigate('/dashboard');
+      saveSession(response);
+      // Redirect to verification page - must complete identity verification before accessing dashboard
+      navigate('/verification');
     } catch (err: any) {
       setError(err.message || t('auth.error.generic'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotRequest = async (e: Event) => {
+    e.preventDefault();
+    setLoading(true); setError('');
+    try {
+      await fetch(`${config.apiBaseUrl}/api/v1/auth/password/reset-request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email() }),
+      });
+      setResetSent(true);
+    } catch {
+      setResetSent(true);
     } finally {
       setLoading(false);
     }
@@ -283,34 +343,65 @@ export default function Auth() {
 
             {/* ─── LOGIN FORM ─── */}
             <Show when={isLogin()}>
-              <form onSubmit={handleLogin} class="space-y-4">
-                <div class="space-y-3">
+              <Show when={!forgotMode()}>
+                <form onSubmit={handleLogin} class="space-y-4">
+                  <div class="space-y-3">
+                    <div class="space-y-1">
+                      <input type="email" value={email()} onInput={e => { setEmail(e.currentTarget.value); validateEmail(e.currentTarget.value); }} required placeholder={t('auth.email')} class={`${inputCls} ${emailError() ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20' : ''}`} />
+                      <Show when={emailError()}>
+                        <p class="text-xs text-red-400 px-1">{emailError()}</p>
+                      </Show>
+                    </div>
+                    <input type="password" value={password()} onInput={e => setPassword(e.currentTarget.value)} required placeholder={t('auth.password')} class={inputCls} />
+                  </div>
+                  <div class="flex justify-end">
+                    <button type="button" onClick={() => { setForgotMode(true); setError(''); setEmailError(''); }} class="text-xs text-muted-foreground hover:text-primary transition-colors">{t('auth.forgotPassword')}</button>
+                  </div>
+                  <button type="submit" disabled={loading()} class="w-full py-3 bg-gradient-to-r from-[#35E0D0] to-[#2bc4b6] text-black font-bold rounded-xl hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all shadow-lg shadow-primary/20">{loading() ? 'Loading...' : t('auth.login')}</button>
+                </form>
+
+                <div class="relative flex items-center gap-3">
+                  <div class="flex-1 h-px bg-gradient-to-r from-transparent via-surface-3 to-transparent" />
+                  <span class="text-[11px] uppercase tracking-widest text-muted-foreground/60 font-medium shrink-0">{t('auth.orContinueWith')}</span>
+                  <div class="flex-1 h-px bg-gradient-to-r from-transparent via-surface-3 to-transparent" />
+                </div>
+
+                <div class="grid grid-cols-4 gap-2.5">
+                  <For each={filteredProviders()}>{(p) => {
+                    const Icon = ProviderIcons[p.key];
+                    return (
+                      <button type="button" onClick={() => handleOAuth(p.key)} class="group flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-surface-2/40 border border-surface-3/40 hover:bg-surface-2/80 hover:border-primary/30 hover:scale-105 transition-all" title={p.name}>
+                        <div class="text-muted-foreground group-hover:text-foreground transition-colors">{Icon ? <Icon /> : <span class="text-xs">{p.name[0]}</span>}</div>
+                        <span class="text-[10px] text-muted-foreground/70 group-hover:text-foreground/90 transition-colors truncate w-full text-center">{p.name}</span>
+                      </button>
+                    );
+                  }}</For>
+                </div>
+              </Show>
+
+              {/* ─── FORGOT PASSWORD ─── */}
+              <Show when={forgotMode() && !resetSent()}>
+                <form onSubmit={handleForgotRequest} class="space-y-4">
+                  <h2 class="text-base font-semibold text-center">Reset password</h2>
+                  <p class="text-xs text-muted-foreground text-center">Enter your email and we'll send a reset link.</p>
                   <input type="email" value={email()} onInput={e => setEmail(e.currentTarget.value)} required placeholder={t('auth.email')} class={inputCls} />
-                  <input type="password" value={password()} onInput={e => setPassword(e.currentTarget.value)} required placeholder={t('auth.password')} class={inputCls} />
-                </div>
-                <div class="flex justify-end">
-                  <button type="button" class="text-xs text-muted-foreground hover:text-primary transition-colors">{t('auth.forgotPassword')}</button>
-                </div>
-                <button type="submit" disabled={loading()} class="w-full py-3 bg-gradient-to-r from-[#35E0D0] to-[#2bc4b6] text-black font-bold rounded-xl hover:opacity-90 active:scale-[0.98] disabled:opacity-50 transition-all shadow-lg shadow-primary/20">{loading() ? 'Loading...' : t('auth.login')}</button>
-              </form>
+                  <div class="flex gap-3">
+                    <button type="button" onClick={() => { setForgotMode(false); setResetSent(false); }} class="flex-1 py-2.5 rounded-xl bg-surface-2/60 text-sm hover:bg-surface-2/80 transition-all">Back</button>
+                    <button type="submit" disabled={loading()} class="flex-1 py-2.5 bg-gradient-to-r from-[#35E0D0] to-[#2bc4b6] text-black text-sm font-bold rounded-xl hover:opacity-90 disabled:opacity-50 transition-all">{loading() ? 'Sending…' : 'Send reset link'}</button>
+                  </div>
+                </form>
+              </Show>
 
-              <div class="relative flex items-center gap-3">
-                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-surface-3 to-transparent" />
-                <span class="text-[11px] uppercase tracking-widest text-muted-foreground/60 font-medium shrink-0">{t('auth.orContinueWith')}</span>
-                <div class="flex-1 h-px bg-gradient-to-r from-transparent via-surface-3 to-transparent" />
-              </div>
-
-              <div class="grid grid-cols-4 gap-2.5">
-                <For each={filteredProviders()}>{(p) => {
-                  const Icon = ProviderIcons[p.key];
-                  return (
-                    <button type="button" onClick={() => handleOAuth(p.key)} class="group flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-surface-2/40 border border-surface-3/40 hover:bg-surface-2/80 hover:border-primary/30 hover:scale-105 transition-all" title={p.name}>
-                      <div class="text-muted-foreground group-hover:text-foreground transition-colors">{Icon ? <Icon /> : <span class="text-xs">{p.name[0]}</span>}</div>
-                      <span class="text-[10px] text-muted-foreground/70 group-hover:text-foreground/90 transition-colors truncate w-full text-center">{p.name}</span>
-                    </button>
-                  );
-                }}</For>
-              </div>
+              <Show when={forgotMode() && resetSent()}>
+                <div class="text-center space-y-4 py-4">
+                  <div class="w-12 h-12 rounded-full bg-success/10 border border-success/20 flex items-center justify-center mx-auto">
+                    <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  </div>
+                  <p class="text-sm font-medium">Check your email</p>
+                  <p class="text-xs text-muted-foreground">We sent a reset link to {email()}</p>
+                  <button type="button" onClick={() => { setForgotMode(false); setResetSent(false); }} class="text-sm text-primary hover:underline">Back to login</button>
+                </div>
+              </Show>
             </Show>
 
             {/* ─── REGISTRATION WIZARD ─── */}
@@ -335,12 +426,41 @@ export default function Auth() {
 
               {/* Step 1: Basic info */}
               <Show when={regStep() === 1}>
-                <form onSubmit={(e) => { e.preventDefault(); nextStep(); }} class="space-y-4">
+                <form onSubmit={(e) => { e.preventDefault(); validateEmail(email()); validatePassword(password()); if (!emailError() && !passwordError()) nextStep(); }} class="space-y-4">
                   <h2 class="text-lg font-semibold text-center">{t('auth.basicInfo')}</h2>
                   <div class="space-y-3">
-                    <input type="email" value={email()} onInput={e => setEmail(e.currentTarget.value)} required placeholder={t('auth.email')} class={inputCls} />
+                    <div class="space-y-1">
+                      <input type="email" value={email()} onInput={e => { setEmail(e.currentTarget.value); validateEmail(e.currentTarget.value); }} required placeholder={t('auth.email')} class={`${inputCls} ${emailError() ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20' : ''}`} />
+                      <Show when={emailError()}>
+                        <p class="text-xs text-red-400 px-1">{emailError()}</p>
+                      </Show>
+                    </div>
                     <input type="text" value={displayName()} onInput={e => setDisplayName(e.currentTarget.value)} required placeholder={t('auth.displayName')} class={inputCls} />
-                    <input type="password" value={password()} onInput={e => setPassword(e.currentTarget.value)} required minLength={8} placeholder={t('auth.password')} class={inputCls} />
+                    <div class="space-y-1">
+                      <input type="password" value={password()} onInput={e => { setPassword(e.currentTarget.value); validatePassword(e.currentTarget.value); }} required minLength={8} placeholder={t('auth.password')} class={`${inputCls} ${passwordError() ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20' : ''}`} />
+                      <Show when={passwordError()}>
+                        <p class="text-xs text-red-400 px-1">{passwordError()}</p>
+                      </Show>
+                    </div>
+                    <Show when={password().length > 0}>
+                      <div class="space-y-1">
+                        <div class="flex gap-1">
+                          {[1,2,3,4].map(i => (
+                            <div class={`h-1 flex-1 rounded-full transition-all ${
+                              i <= passwordStrength()
+                                ? passwordStrength() <= 1 ? 'bg-red-500'
+                                : passwordStrength() <= 2 ? 'bg-yellow-500'
+                                : passwordStrength() <= 3 ? 'bg-blue-500'
+                                : 'bg-green-500'
+                                : 'bg-surface-3'
+                            }`} />
+                          ))}
+                        </div>
+                        <p class="text-[10px] text-muted-foreground">
+                          {['', 'Weak', 'Fair', 'Good', 'Strong'][passwordStrength()]}
+                        </p>
+                      </div>
+                    </Show>
                     <input type="tel" value={phone()} onInput={e => setPhone(e.currentTarget.value)} placeholder={t('auth.phone')} class={inputCls} />
                     <div class="grid grid-cols-2 gap-3">
                       <input type="text" value={country()} onInput={e => setCountry(e.currentTarget.value)} placeholder={t('auth.country')} class={inputCls} />

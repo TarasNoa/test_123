@@ -267,10 +267,63 @@ export const postCommentDtoSchema = z.object({
   createdAt: z.string().datetime(),
 });
 
+export interface SocialUserDto {
+  id: string;
+  displayName: string;
+  handle: string;
+  avatarUrl?: string;
+  role?: string;
+  isFollowing: boolean;
+}
+
+export interface TrendingTag {
+  tag: string;
+  count: number;
+}
+
 export type MetricDto = z.infer<typeof metricDtoSchema>;
 export type DashboardDto = z.infer<typeof dashboardDtoSchema>;
 export type ChatDto = z.infer<typeof chatDtoSchema>;
 export type MessageDto = z.infer<typeof messageDtoSchema>;
+export interface VerificationStatusDto {
+  userId: string;
+  status: string;
+  isVerified: boolean;
+  rejectionReason: string | null;
+  documents: VerificationDocumentDto[] | null;
+  lastUpdated: string | null;
+}
+
+export interface VerificationDocumentDto {
+  id: string;
+  type: string;
+  url: string;
+  verificationResult: string | null;
+  uploadedAt: string;
+}
+
+export interface UserSkillDto {
+  id: string;
+  name: string;
+  score: number;  // 0-100
+  level: string;
+  source: string;
+  experienceYears: number;
+  contexts: string[];
+  assessmentReason: string | null;
+  assessedAt: string;
+}
+
+export interface UserSkillsSummaryDto {
+  userId: string;
+  skills: UserSkillDto[];
+  overallLevel: string;
+  overallScore: number;
+  primaryExpertise: string;
+  secondaryExpertise: string[];
+  lastAssessedAt: string | null;
+}
+
 export type UserDto = z.infer<typeof userDtoSchema>;
 export type UserProjectDto = z.infer<typeof userProjectDtoSchema>;
 export type UserPortfolioItemDto = z.infer<typeof userPortfolioItemDtoSchema>;
@@ -328,7 +381,9 @@ export const registerRequestSchema = z.object({
 export const authResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
-  expiresAt: z.string().datetime(),
+  expiresAt: z.string().datetime().optional(),
+  tokenType: z.string().default('Bearer'),
+  expiresIn: z.number().int().optional(),
 });
 
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
@@ -342,22 +397,59 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}, retry = true): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     const token = localStorage.getItem('accessToken');
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options.headers,
-      },
-    });
 
-    if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+    const headers: Record<string, string> = {};
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (options.headers) {
+      const opts = options.headers as Record<string, string>;
+      for (const [k, v] of Object.entries(opts)) {
+        headers[k] = v;
+      }
     }
 
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    if (response.status === 401 && retry) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        try {
+          const refreshed = await this.refreshToken(refreshToken);
+          localStorage.setItem('accessToken', refreshed.accessToken);
+          localStorage.setItem('refreshToken', refreshed.refreshToken);
+          return this.request<T>(endpoint, options, false);
+        } catch {
+          localStorage.clear();
+          window.location.href = '/auth';
+          throw new Error('Session expired');
+        }
+      } else {
+        localStorage.clear();
+        window.location.href = '/auth';
+        throw new Error('Unauthorized');
+      }
+    }
+
+    if (!response.ok) {
+      let message = `${response.status} ${response.statusText}`;
+      try {
+        const err = await response.json();
+        message = err.message || err.title || message;
+      } catch {}
+      throw new Error(message);
+    }
+
+    if (response.status === 204) return undefined as T;
     return response.json();
   }
 
@@ -511,11 +603,36 @@ class ApiClient {
   }
 
   async getMyPortfolio(): Promise<UserPortfolioItemDto[]> {
-    return this.request('/api/v1/tasks/my/portfolio');
+    try {
+      return await this.request('/api/v1/tasks/my/portfolio');
+    } catch {
+      return [];
+    }
   }
 
   async getMyStats(): Promise<UserStatsDto> {
-    return this.request('/api/v1/tasks/my/stats');
+    try {
+      return await this.request('/api/v1/tasks/my/stats');
+    } catch {
+      return { totalProjects: 0, completedProjects: 0, inProgressProjects: 0, totalTasks: 0, completedTasks: 0, totalEarnings: 0, totalSpent: 0, averageRating: 0, portfolioItemsCount: 0, reviewsCount: 0 };
+    }
+  }
+
+  async getTaskStats(): Promise<{ total: number; active: number; completed: number }> {
+    const token = localStorage.getItem('accessToken');
+    const [active, done] = await Promise.all([
+      fetch(`${this.baseUrl}/api/v1/tasks?status=InProgress&pageSize=1`,
+            { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : { total: 0 }),
+      fetch(`${this.baseUrl}/api/v1/tasks?status=Completed&pageSize=1`,
+            { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : { total: 0 }),
+    ]);
+    return {
+      active:    active.total ?? 0,
+      completed: done.total   ?? 0,
+      total:     (active.total ?? 0) + (done.total ?? 0),
+    };
   }
 
   /* ─── Posts ─── */
@@ -541,14 +658,14 @@ class ApiClient {
     return this.request(`/api/v1/tasks/posts/${postId}/like`, { method: 'POST' });
   }
 
-  async addComment(postId: string, content: string): Promise<PostCommentDto> {
-    return this.request(`/api/v1/tasks/posts/${postId}/comment`, {
-      method: 'POST',
-      body: JSON.stringify({ content }),
-    });
+  async getRecommendedConnections(): Promise<SocialUserDto[]> {
+    try {
+      return await this.request('/api/v1/social/recommendations');
+    } catch {
+      return [];
+    }
   }
 
-  /* ─── Uploads ─── */
   async uploadAvatar(file: File): Promise<{ avatarUrl: string }> {
     const form = new FormData();
     form.append('file', file);
@@ -566,6 +683,61 @@ class ApiClient {
       body: form,
     });
   }
+
+  async addComment(postId: string, content: string): Promise<PostCommentDto> {
+    return this.request(`/api/v1/tasks/posts/${postId}/comment`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  async updateProfile(name: string, bio?: string, location?: string): Promise<void> {
+    return this.request('/api/v1/social/profile', {
+      method: 'PUT',
+      body: JSON.stringify({ name, bio, location }),
+    });
+  }
+
+  /* ─── Verification ─── */
+  async getVerificationStatus(): Promise<VerificationStatusDto> {
+    return this.request('/api/v1/verification/status');
+  }
+
+  async uploadCvWithLinkedIn(file: File, linkedInUrl: string): Promise<{ cvUrl: string }> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('linkedInUrl', linkedInUrl);
+    return this.request('/api/v1/verification/cv', {
+      method: 'POST',
+      body: form,
+    });
+  }
+
+  async uploadVerificationDocuments(
+    passport: File,
+    selfie: File,
+    additional?: File | null
+  ): Promise<{ message: string; verificationId: string }> {
+    const form = new FormData();
+    form.append('Passport', passport);
+    form.append('SelfieWithPassport', selfie);
+    if (additional) form.append('AdditionalDocument', additional);
+    return this.request('/api/v1/verification/documents', {
+      method: 'POST',
+      body: form,
+    });
+  }
+
+  async triggerVerification(): Promise<{ message: string; verificationId: string; estimatedCompletionMinutes: number }> {
+    return this.request('/api/v1/verification/verify', {
+      method: 'POST',
+    });
+  }
+
+  async getMySkills(): Promise<UserSkillsSummaryDto> {
+    return this.request('/api/v1/users/skills/my');
+  }
+
 }
 
 export const apiClient = new ApiClient();

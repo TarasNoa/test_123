@@ -10,6 +10,7 @@ const AuthCallback = lazy(() => import("./routes/auth-callback"));
 const Dashboard = lazy(() => import("./routes/dashboard"));
 const Social = lazy(() => import("./routes/social"));
 const IDE = lazy(() => import("./routes/ide"));
+const Verification = lazy(() => import("./routes/verification"));
 
 const App: Component = () => {
   const { changeLocale } = useI18n();
@@ -28,7 +29,8 @@ const App: Component = () => {
         <Route path="/" component={Home} />
         <Route path="/auth" component={Auth} />
         <Route path="/auth/callback" component={AuthCallback} />
-        <Route path="/dashboard" component={Social} />
+        <Route path="/verification" component={Verification} />
+        <Route path="/dashboard" component={Dashboard} />
         <Route path="/social" component={Social} />
         <Route path="/ide" component={IDE} />
       </Suspense>

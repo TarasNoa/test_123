@@ -30,6 +30,8 @@ public interface IAuthDbContext
     DbSet<SkillTestAttempt> SkillTestAttempts { get; }
     DbSet<SkillCertificate> SkillCertificates { get; }
     DbSet<SkillCalibration> SkillCalibrations { get; }
+    DbSet<UserSkill> UserSkills { get; }
+    DbSet<SkillAssessment> SkillAssessments { get; }
     DbSet<Organization> Organizations { get; }
     DbSet<SecurityChallenge> SecurityChallenges { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

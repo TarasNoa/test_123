@@ -1,63 +1,229 @@
 import { createSignal, onMount, type Component, For, Show } from "solid-js";
-import { useNavigate } from "@solidjs/router";
+import { useNavigate, useLocation } from "@solidjs/router";
 import { apiClient } from "../../lib/api-client";
-import type { UserDto, UserStatsDto, UserPortfolioItemDto, PostDto } from "../../lib/api-client";
+import type { UserDto, UserStatsDto, UserPortfolioItemDto, PostDto, SocialUserDto, UserSkillsSummaryDto } from "../../lib/api-client";
+import { config } from "../../lib/config";
 
 type Tab = "posts" | "portfolio" | "stats";
 
+/* ─── Inline SVG icons ─── */
+const HomeIcon = (p: { class?: string }) => (
+  <svg class={p.class} fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </svg>
+);
+const CodeIcon = (p: { class?: string }) => (
+  <svg class={p.class} fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <polyline points="16 18 22 12 16 6" />
+    <polyline points="8 6 2 12 8 18" />
+  </svg>
+);
+const ShopIcon = (p: { class?: string }) => (
+  <svg class={p.class} fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+    <line x1="3" y1="6" x2="21" y2="6" />
+    <path stroke-linecap="round" stroke-linejoin="round" d="M16 10a4 4 0 0 1-8 0" />
+  </svg>
+);
+const ChatIcon = (p: { class?: string }) => (
+  <svg class={p.class} fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+  </svg>
+);
+const EditIcon = (p: { class?: string }) => (
+  <svg class={p.class} fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+  </svg>
+);
+const ChartIcon = (p: { class?: string }) => (
+  <svg class={p.class} fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <line x1="18" y1="20" x2="18" y2="10" />
+    <line x1="12" y1="20" x2="12" y2="4" />
+    <line x1="6" y1="20" x2="6" y2="14" />
+  </svg>
+);
+const SocialIcon = (p: { class?: string }) => (
+  <svg class={p.class} fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <circle cx="18" cy="5" r="3" />
+    <circle cx="6" cy="12" r="3" />
+    <circle cx="18" cy="19" r="3" />
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+  </svg>
+);
+const SettingsIcon = (p: { class?: string }) => (
+  <svg class={p.class} fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="3" />
+    <path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.65 1.65 0 0 0 15 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 9 15.37a1.65 1.65 0 0 0-1.82-.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 15 4.6" />
+  </svg>
+);
+const LogoutIcon = (p: { class?: string }) => (
+  <svg class={p.class} fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+  </svg>
+);
+
+const navItems = [
+  { href: "/dashboard", icon: HomeIcon, label: "Dashboard" },
+  { href: "/ide", icon: CodeIcon, label: "IDE" },
+  { href: "/marketplace", icon: ShopIcon, label: "Marketplace" },
+  { href: "/chat", icon: ChatIcon, label: "Chat" },
+  { href: "/collaboration", icon: EditIcon, label: "Collaboration" },
+  { href: "/analytics", icon: ChartIcon, label: "Analytics" },
+  { href: "/social", icon: SocialIcon, label: "Social" },
+];
+
 const Dashboard: Component = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [tab, setTab] = createSignal<Tab>("posts");
   const [user, setUser] = createSignal<UserDto | null>(null);
   const [stats, setStats] = createSignal<UserStatsDto | null>(null);
   const [portfolio, setPortfolio] = createSignal<UserPortfolioItemDto[]>([]);
   const [posts, setPosts] = createSignal<PostDto[]>([]);
   const [newPost, setNewPost] = createSignal("");
+  const [postTitle, setPostTitle] = createSignal("");
+  const [postTags, setPostTags] = createSignal("");
   const [posting, setPosting] = createSignal(false);
+  const [loading, setLoading] = createSignal(true);
+  const [apiError, setApiError] = createSignal("");
 
-  const trending = [
-    { tag: "#web3", posts: 102 },
-    { tag: "#rust", posts: 90 },
-    { tag: "#ai", posts: 170 },
-    { tag: "#freelance", posts: 30 },
-    { tag: "#startup", posts: 40 },
-  ];
+  const [taskStats, setTaskStats] = createSignal<{ total: number; active: number; completed: number } | null>(null);
+  const [recommended, setRecommended] = createSignal<SocialUserDto[]>([]);
+  // Note: trending endpoint doesn't exist, using feed instead
+  const [feedPosts, setFeedPosts] = createSignal<PostDto[]>([]);
+  const [skills, setSkills] = createSignal<UserSkillsSummaryDto | null>(null);
 
-  const whoToFollow = [
-    { name: "Alex Dev", handle: "@alexdev" },
-    { name: "Sarah Design", handle: "@sarahdsgn" },
-    { name: "Mike AI", handle: "@mikeai" },
-  ];
+  /* Edit profile modal */
+  const [editModalOpen, setEditModalOpen] = createSignal(false);
+  const [editName, setEditName] = createSignal("");
+  const [editBio, setEditBio] = createSignal("");
+  const [editLocation, setEditLocation] = createSignal("");
+  const [editSaving, setEditSaving] = createSignal(false);
+
+  let coverInputRef!: HTMLInputElement;
 
   onMount(async () => {
-    const [u, s, p, f] = await Promise.allSettled([
+    const token = localStorage.getItem("accessToken");
+    if (!token) { navigate("/auth"); return; }
+    setApiError("");
+
+    // Check verification status
+    try {
+      const verificationStatus = await apiClient.getVerificationStatus();
+      if (!verificationStatus.isVerified) {
+        navigate("/verification");
+        return;
+      }
+    } catch {
+      // If can't check status, continue anyway
+    }
+
+    const [userRes, taskStatsRes] = await Promise.allSettled([
       apiClient.getMe(),
-      apiClient.getMyStats(),
-      apiClient.getMyPortfolio(),
-      apiClient.getMyPosts(),
+      apiClient.getTaskStats(),
     ]);
-    if (u.status === "fulfilled") setUser(u.value);
-    if (s.status === "fulfilled") setStats(s.value);
-    if (p.status === "fulfilled") setPortfolio(p.value);
-    if (f.status === "fulfilled") setPosts(f.value);
+
+    if (userRes.status === "fulfilled") {
+      setUser(userRes.value);
+      if (userRes.value.displayName) {
+        localStorage.setItem("displayName", userRes.value.displayName);
+      }
+    } else if ((userRes.reason as Error)?.message?.includes("401")) {
+      navigate("/auth");
+      return;
+    } else {
+      setApiError("Failed to load profile");
+      setLoading(false);
+      return;
+    }
+
+    if (taskStatsRes.status === "fulfilled") {
+      setTaskStats(taskStatsRes.value);
+    }
+
+    setLoading(false);
+
+    /* Lazy load */
+    const [postsRes, portfolioRes, statsRes, recRes, feedRes, skillsRes] = await Promise.allSettled([
+      apiClient.getMyPosts(),
+      apiClient.getMyPortfolio(),
+      apiClient.getMyStats(),
+      apiClient.getRecommendedConnections(),
+      apiClient.getFeed(1, 5),
+      apiClient.getMySkills(),
+    ]);
+
+    if (postsRes.status === "fulfilled") setPosts(postsRes.value);
+    if (portfolioRes.status === "fulfilled") setPortfolio(portfolioRes.value);
+    if (statsRes.status === "fulfilled") setStats(statsRes.value);
+    if (recRes.status === "fulfilled" && Array.isArray(recRes.value)) setRecommended(recRes.value.slice(0, 3));
+    if (feedRes.status === "fulfilled" && Array.isArray(feedRes.value)) setFeedPosts(feedRes.value.slice(0, 5));
+    if (skillsRes.status === "fulfilled") setSkills(skillsRes.value);
   });
+
+  const handleLogout = async () => {
+    const refreshToken = localStorage.getItem("refreshToken");
+    try { if (refreshToken) await apiClient.logout(refreshToken); } catch {}
+    localStorage.clear();
+    navigate("/auth");
+  };
 
   const handleCreatePost = async () => {
     if (!newPost().trim()) return;
-    setPosting(true);
+    setPosting(true); setApiError("");
     try {
-      const created = await apiClient.createPost(newPost().trim());
-      setPosts((prev) => [created, ...prev]);
-      setNewPost("");
+      const tags = postTags().split(",").map(t => t.trim()).filter(Boolean);
+      const created = await apiClient.createPost(
+        newPost().trim(),
+        postTitle().trim() || undefined,
+        tags.length ? tags : undefined,
+      );
+      setPosts(prev => [created, ...prev]);
+      setNewPost(""); setPostTitle(""); setPostTags("");
+    } catch (e: any) {
+      setApiError(e.message || "Failed to create post");
     } finally {
       setPosting(false);
     }
   };
 
   const handleLike = async (postId: string) => {
-    await apiClient.likePost(postId);
-    const updated = await apiClient.getMyPosts();
-    setPosts(updated);
+    try {
+      await apiClient.likePost(postId);
+      setPosts(prev => prev.map(p =>
+        p.id === postId
+          ? { ...p, isLikedByCurrentUser: !p.isLikedByCurrentUser, likeCount: p.isLikedByCurrentUser ? p.likeCount - 1 : p.likeCount + 1 }
+          : p
+      ));
+    } catch {}
+  };
+
+  const handleFollow = async (userId: string) => {
+    try {
+      await fetch(`${config.apiBaseUrl}/api/v1/social/follow/${userId}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${localStorage.getItem("accessToken")}` },
+      });
+      setRecommended(prev => prev.map(u =>
+        u.id === userId ? { ...u, isFollowing: true } : u
+      ));
+    } catch {}
+  };
+
+  const handleSaveProfile = async () => {
+    setEditSaving(true);
+    try {
+      await apiClient.updateProfile(editName(), editBio() || undefined, editLocation() || undefined);
+      setUser(u => u ? { ...u, displayName: editName() } : u);
+      localStorage.setItem("displayName", editName());
+      setEditModalOpen(false);
+    } catch {
+      setApiError("Failed to save profile");
+    } finally {
+      setEditSaving(false);
+    }
   };
 
   const avatarLetter = () =>
@@ -71,68 +237,86 @@ const Dashboard: Component = () => {
 
   return (
     <div class="flex min-h-screen bg-[#05050a] text-foreground">
-      {/* Left Sidebar */}
-      <aside class="w-16 md:w-60 border-r border-white/5 flex flex-col fixed h-full z-10">
-        <div class="p-4 md:p-6">
-          <div class="w-8 h-8 rounded-lg bg-[#35E0D0] flex items-center justify-center text-black font-bold text-sm">
+      {/* ─── Left Sidebar ─── */}
+      <aside class="w-16 md:w-60 border-r border-white/5 flex flex-col fixed h-full z-10 bg-[#0F131A]">
+        {/* Logo */}
+        <div class="p-4 flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-[#35E0D0] to-[#2bc4b6] flex items-center justify-center text-black font-bold text-sm shrink-0">
             L4
           </div>
+          <span class="hidden md:block font-bold text-sm text-foreground">Libr4</span>
         </div>
-        <nav class="flex-1 px-2 md:px-4 space-y-1">
-          <a
-            href="/dashboard"
-            class="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5 text-[#35E0D0] text-sm font-medium"
-          >
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-            </svg>
-            <span class="hidden md:inline">Dashboard</span>
-          </a>
-          <a
-            href="/ide"
-            class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 text-sm transition-colors"
-          >
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-            <span class="hidden md:inline">IDE</span>
-          </a>
+
+        {/* Nav items */}
+        <nav class="flex-1 px-2 md:px-3 space-y-0.5">
+          <For each={navItems}>{item => {
+            const isActive = location.pathname === item.href;
+            const Icon = item.icon;
+            return (
+              <a href={item.href} class={[
+                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors",
+                isActive
+                  ? "bg-primary/10 text-primary font-medium"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+              ].join(" ")}>
+                <Icon class="w-5 h-5 shrink-0" />
+                <span class="hidden md:inline truncate">{item.label}</span>
+              </a>
+            );
+          }}</For>
         </nav>
-        <div class="p-2 md:p-4">
-          <button
-            onClick={() => {
-              localStorage.removeItem("accessToken");
-              localStorage.removeItem("refreshToken");
-              navigate("/auth");
-            }}
-            class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 text-sm w-full text-left transition-colors"
-          >
-            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-            </svg>
+
+        {/* Bottom: settings + logout */}
+        <div class="p-2 md:p-3 space-y-0.5 border-t border-white/5">
+          <a href="/settings" class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 text-sm transition-colors">
+            <SettingsIcon class="w-5 h-5 shrink-0" />
+            <span class="hidden md:inline">Settings</span>
+          </a>
+          <button onClick={handleLogout} class="flex items-center gap-3 px-3 py-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 text-sm w-full text-left transition-colors">
+            <LogoutIcon class="w-5 h-5 shrink-0" />
             <span class="hidden md:inline">Logout</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content */}
+      {/* ─── Main Content ─── */}
       <main class="flex-1 ml-16 md:ml-60 min-w-0">
         {/* Banner */}
-        <div class="h-32 bg-gradient-to-r from-[#0a1628] via-[#1a1a2e] to-[#0f131a]" />
+        <div class="relative z-0 h-32 group cursor-pointer overflow-hidden" onClick={() => coverInputRef?.click()}>
+          <Show
+            when={user()?.coverUrl}
+            fallback={
+              <div class="h-full bg-gradient-to-r from-[#0a1628] via-[#1a1a2e] to-[#0f131a]" />
+            }
+          >
+            <img src={user()!.coverUrl!} class="w-full h-full object-cover" alt="cover" />
+          </Show>
+          <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <span class="text-white text-xs font-medium">Change cover</span>
+          </div>
+        </div>
+        <input ref={el => { coverInputRef = el; }} type="file" accept="image/*" class="hidden"
+          onChange={async e => {
+            const file = e.currentTarget.files?.[0];
+            if (!file) return;
+            setApiError("");
+            try {
+              const res = await apiClient.uploadCover(file);
+              setUser(u => u ? { ...u, coverUrl: res.coverUrl } : u);
+            } catch (err: any) {
+              setApiError(err?.message || "Cover upload failed");
+            }
+          }} />
 
         {/* Profile Header */}
-        <div class="px-6 -mt-12 mb-6">
+        <div class="relative z-10 px-6 -mt-12 mb-6">
           <div class="flex items-end gap-4">
             <Show when={user()?.avatarUrl} fallback={
               <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#35E0D0] to-[#2bc4b6] flex items-center justify-center text-black text-3xl font-bold border-4 border-[#05050a] shrink-0">
                 {avatarLetter()}
               </div>
             }>
-              <img
-                src={user()!.avatarUrl!}
-                class="w-24 h-24 rounded-2xl object-cover border-4 border-[#05050a] shrink-0"
-                alt="avatar"
-              />
+              <img src={user()!.avatarUrl!} class="w-24 h-24 rounded-2xl object-cover border-4 border-[#05050a] shrink-0" alt="avatar" />
             </Show>
             <div class="flex-1 pb-2 min-w-0">
               <div class="flex items-center justify-between gap-4">
@@ -143,7 +327,10 @@ const Dashboard: Component = () => {
                     <p class="text-xs text-muted-foreground mt-1">Joined {joinedDate()}</p>
                   </Show>
                 </div>
-                <button class="px-4 py-1.5 text-sm border border-white/10 rounded-lg hover:bg-white/5 transition-colors shrink-0">
+                <button
+                  onClick={() => { setEditModalOpen(true); setEditName(user()?.displayName || ""); setEditBio((user() as any)?.bio || ""); setEditLocation((user() as any)?.location || ""); }}
+                  class="px-4 py-1.5 text-sm border border-white/10 rounded-lg hover:bg-white/5 transition-colors shrink-0"
+                >
                   Edit profile
                 </button>
               </div>
@@ -151,21 +338,41 @@ const Dashboard: Component = () => {
           </div>
 
           {/* Stats row */}
-          <div class="flex items-center gap-6 mt-4 text-sm">
-            <span>
-              <strong class="text-foreground">{stats()?.totalProjects ?? 0}</strong>{" "}
-              <span class="text-muted-foreground">projects</span>
-            </span>
-            <span>
-              <strong class="text-foreground">{stats()?.completedTasks ?? 0}</strong>{" "}
-              <span class="text-muted-foreground">tasks</span>
-            </span>
-            <span>
-              <strong class="text-foreground">{stats()?.averageRating?.toFixed(1) ?? "0.0"}</strong>{" "}
-              <span class="text-muted-foreground">rating</span>
-            </span>
-          </div>
+          <Show when={loading()}>
+            <div class="flex items-center gap-6 mt-4">
+              <div class="h-5 w-16 bg-white/5 rounded animate-pulse" />
+              <div class="h-5 w-16 bg-white/5 rounded animate-pulse" />
+              <div class="h-5 w-16 bg-white/5 rounded animate-pulse" />
+            </div>
+          </Show>
+          <Show when={!loading()}>
+            <div class="flex items-center gap-6 mt-4 text-sm">
+              <span>
+                <strong class="text-foreground">{stats()?.totalProjects ?? taskStats()?.total ?? 0}</strong>{" "}
+                <span class="text-muted-foreground">projects</span>
+              </span>
+              <span>
+                <strong class="text-foreground">{taskStats()?.active ?? 0}</strong>{" "}
+                <span class="text-muted-foreground">active</span>
+              </span>
+              <span>
+                <strong class="text-foreground">{stats()?.averageRating?.toFixed(1) ?? "—"}</strong>{" "}
+                <span class="text-muted-foreground">rating</span>
+              </span>
+            </div>
+          </Show>
         </div>
+
+        {/* API Error */}
+        <Show when={apiError()}>
+          <div class="mx-6 my-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between">
+            <span>{apiError()}</span>
+            <div class="flex items-center gap-3">
+              <button onClick={() => window.location.reload()} class="underline">Retry</button>
+              <button onClick={() => setApiError("")} class="text-lg leading-none hover:text-red-300">×</button>
+            </div>
+          </div>
+        </Show>
 
         {/* Tabs */}
         <div class="px-6 border-b border-white/5">
@@ -192,6 +399,13 @@ const Dashboard: Component = () => {
           <Show when={tab() === "posts"}>
             {/* New post */}
             <div class="mb-6 bg-white/5 rounded-xl p-4 border border-white/5">
+              <input
+                type="text"
+                value={postTitle()}
+                onInput={e => setPostTitle(e.currentTarget.value)}
+                placeholder="Title (optional)"
+                class="w-full bg-transparent text-sm border-b border-white/5 pb-2 mb-2 focus:outline-none focus:border-primary/30 text-foreground placeholder:text-muted-foreground"
+              />
               <textarea
                 value={newPost()}
                 onInput={(e) => setNewPost(e.currentTarget.value)}
@@ -199,10 +413,20 @@ const Dashboard: Component = () => {
                 rows={3}
                 class="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none"
               />
-              <div class="flex justify-end mt-2">
+              <input
+                type="text"
+                value={postTags()}
+                onInput={e => setPostTags(e.currentTarget.value)}
+                placeholder="Tags: rust, ai, webdev"
+                class="w-full bg-transparent text-xs text-muted-foreground mt-2 focus:outline-none focus:text-foreground"
+              />
+              <div class="flex items-center justify-between mt-2">
+                <span class={`text-xs ${newPost().length > 450 ? "text-yellow-400" : "text-muted-foreground"}`}>
+                  {newPost().length}/500
+                </span>
                 <button
                   onClick={handleCreatePost}
-                  disabled={posting() || !newPost().trim()}
+                  disabled={posting() || !newPost().trim() || newPost().length > 500}
                   class="px-4 py-1.5 bg-[#35E0D0] text-black text-sm font-medium rounded-lg hover:bg-[#2bc4b6] disabled:opacity-50 transition-colors"
                 >
                   {posting() ? "Posting…" : "Post"}
@@ -262,7 +486,7 @@ const Dashboard: Component = () => {
                     </div>
                     <p class="text-xs text-muted-foreground line-clamp-2 mb-3">{item.description}</p>
                     <div class="flex flex-wrap gap-1 mb-3">
-                      <For each={item.skillsUsed.slice(0, 4)}>
+                      <For each={item.skillsUsed?.slice(0, 4) || []}>
                         {(s) => <span class="text-[10px] px-1.5 py-0.5 bg-white/5 text-muted-foreground rounded">{s}</span>}
                       </For>
                     </div>
@@ -281,72 +505,224 @@ const Dashboard: Component = () => {
 
           {/* Stats */}
           <Show when={tab() === "stats"}>
-            <Show when={stats()} fallback={<p class="text-sm text-muted-foreground text-center py-8">Loading stats…</p>}>
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {([
-                  { label: "Total Projects", value: stats()!.totalProjects },
-                  { label: "Completed Projects", value: stats()!.completedProjects },
-                  { label: "In Progress", value: stats()!.inProgressProjects },
-                  { label: "Total Tasks", value: stats()!.totalTasks },
-                  { label: "Completed Tasks", value: stats()!.completedTasks },
-                  { label: "Portfolio Items", value: stats()!.portfolioItemsCount },
-                  { label: "Reviews", value: stats()!.reviewsCount },
-                  { label: "Total Earnings", value: `$${stats()!.totalEarnings.toFixed(0)}` },
-                  { label: "Total Spent", value: `$${stats()!.totalSpent.toFixed(0)}` },
-                ] as { label: string; value: string | number }[]).map((s) => (
-                  <div class="bg-white/5 rounded-xl p-4 border border-white/5">
-                    <p class="text-xs text-muted-foreground mb-1">{s.label}</p>
-                    <p class="text-xl font-bold text-[#35E0D0]">{s.value}</p>
+            <div class="space-y-6">
+              {/* AI-Assessed Skills Section */}
+              <Show when={skills()} fallback={
+                <div class="text-center py-8">
+                  <p class="text-sm text-muted-foreground">Skills assessment pending...</p>
+                  <p class="text-xs text-muted-foreground mt-2">Complete CV verification to see your AI-assessed skills</p>
+                </div>
+              }>
+                <div>
+                  <div class="flex items-center gap-3 mb-4">
+                    <h3 class="text-lg font-semibold">AI-Assessed Skills</h3>
+                    <span class="text-xs bg-[#35E0D0]/10 text-[#35E0D0] px-2 py-1 rounded-full">
+                      {skills()!.overallLevel}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </Show>
+                  
+                  {/* Primary Expertise */}
+                  <div class="mb-4 p-3 bg-[#35E0D0]/5 rounded-lg border border-[#35E0D0]/20">
+                    <p class="text-xs text-muted-foreground mb-1">Primary Expertise</p>
+                    <p class="font-medium text-[#35E0D0]">{skills()!.primaryExpertise}</p>
+                  </div>
+
+                  {/* Skills List with Progress Bars */}
+                  <div class="space-y-3">
+                    <For each={skills()!.skills?.slice(0, 10) || []}>
+                      {(skill) => (
+                        <div class="group relative">
+                          <div class="flex items-center justify-between mb-1">
+                            <div class="flex items-center gap-2">
+                              <span class="text-sm font-medium">{skill.name}</span>
+                              {/* Tooltip trigger */}
+                              <div class="relative">
+                                <svg 
+                                  class="w-4 h-4 text-muted-foreground hover:text-[#35E0D0] cursor-help transition-colors" 
+                                  fill="none" 
+                                  stroke="currentColor" 
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {/* Tooltip */}
+                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-surface-2 border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                  <p class="text-xs font-medium mb-1">Why this score?</p>
+                                  <p class="text-xs text-muted-foreground mb-2">
+                                    {skill.assessmentReason || `Based on ${skill.experienceYears} years of experience in ${skill.contexts.join(', ')}`}
+                                  </p>
+                                  <div class="flex items-center gap-2 text-xs">
+                                    <span class="text-[#35E0D0]">{skill.level}</span>
+                                    <span class="text-muted-foreground">•</span>
+                                    <span class="text-muted-foreground">Source: {skill.source}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <span class="text-sm font-bold">{(skill.score / 10).toFixed(1)}/10</span>
+                          </div>
+                          {/* Progress bar - score 0-100 mapped to 0-10 */}
+                          <div class="h-2 bg-white/10 rounded-full overflow-hidden">
+                            <div 
+                              class="h-full bg-gradient-to-r from-[#35E0D0] to-[#2bc4b6] rounded-full transition-all duration-500"
+                              style={`width: ${skill.score}%`}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+
+                  {/* Secondary Expertise */}
+                  <Show when={skills()!.secondaryExpertise?.length > 0}>
+                    <div class="mt-4 pt-4 border-t border-white/10">
+                      <p class="text-xs text-muted-foreground mb-2">Secondary Expertise</p>
+                      <div class="flex flex-wrap gap-2">
+                        <For each={skills()!.secondaryExpertise}>
+                          {(exp) => (
+                            <span class="text-xs bg-white/5 px-2 py-1 rounded border border-white/10">
+                              {exp}
+                            </span>
+                          )}
+                        </For>
+                      </div>
+                    </div>
+                  </Show>
+                </div>
+              </Show>
+
+              {/* Traditional Stats */}
+              <Show when={stats()}>
+                <div class="pt-6 border-t border-white/10">
+                  <h3 class="text-sm font-semibold mb-4 text-muted-foreground">Activity Stats</h3>
+                  <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {([
+                      { label: "Total Projects", value: stats()!.totalProjects },
+                      { label: "Completed Projects", value: stats()!.completedProjects },
+                      { label: "In Progress", value: stats()!.inProgressProjects },
+                      { label: "Total Tasks", value: stats()!.totalTasks },
+                      { label: "Completed Tasks", value: stats()!.completedTasks },
+                      { label: "Portfolio Items", value: stats()!.portfolioItemsCount },
+                    ] as { label: string; value: string | number }[]).map((s) => (
+                      <div class="bg-white/5 rounded-xl p-4 border border-white/5">
+                        <p class="text-xs text-muted-foreground mb-1">{s.label}</p>
+                        <p class="text-xl font-bold text-[#35E0D0]">{s.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Show>
+            </div>
           </Show>
         </div>
       </main>
 
-      {/* Right Sidebar */}
-      <aside class="w-72 border-l border-white/5 hidden xl:flex flex-col p-4 space-y-6 shrink-0">
-        {/* Trending */}
-        <div>
-          <h3 class="text-sm font-semibold mb-3">Trending</h3>
-          <div class="space-y-2">
-            <For each={trending}>
-              {(t) => (
-                <div class="flex items-center justify-between text-sm">
-                  <span class="text-[#35E0D0]">{t.tag}</span>
-                  <span class="text-xs text-muted-foreground">{t.posts} posts</span>
-                </div>
-              )}
-            </For>
+      {/* ─── Right Sidebar ─── */}
+      <aside class="w-72 border-l border-white/5 hidden lg:flex flex-col p-4 space-y-6 shrink-0">
+        {/* Latest Feed */}
+        <Show when={feedPosts().length > 0}>
+          <div>
+            <h3 class="text-sm font-semibold mb-3">Latest</h3>
+            <div class="space-y-3">
+              <For each={feedPosts()}>
+                {(p) => (
+                  <div class="text-sm">
+                    <p class="text-foreground line-clamp-2">{p.content}</p>
+                    <p class="text-xs text-muted-foreground mt-1">{p.likeCount} likes</p>
+                  </div>
+                )}
+              </For>
+            </div>
           </div>
-        </div>
+        </Show>
 
         {/* Who to follow */}
-        <div>
-          <h3 class="text-sm font-semibold mb-3">Who to follow</h3>
-          <div class="space-y-3">
-            <For each={whoToFollow}>
-              {(u) => (
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-medium">
-                      {u.name[0]}
+        <Show when={recommended().length > 0}>
+          <div>
+            <h3 class="text-sm font-semibold mb-3">Who to follow</h3>
+            <div class="space-y-3">
+              <For each={recommended()}>
+                {(u) => (
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                      <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-medium">
+                        {u.displayName?.[0] ?? "?"}
+                      </div>
+                      <div>
+                        <div class="text-sm font-medium">{u.displayName}</div>
+                        <div class="text-xs text-muted-foreground">{u.handle}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div class="text-sm font-medium">{u.name}</div>
-                      <div class="text-xs text-muted-foreground">{u.handle}</div>
-                    </div>
+                    <button
+                      onClick={() => handleFollow(u.id)}
+                      disabled={u.isFollowing}
+                      class={[
+                        "px-3 py-1 text-xs rounded-full transition-colors",
+                        u.isFollowing
+                          ? "border border-white/10 text-muted-foreground"
+                          : "border border-[#35E0D0] text-[#35E0D0] hover:bg-[#35E0D0]/10"
+                      ].join(" ")}
+                    >
+                      {u.isFollowing ? "Following" : "Follow"}
+                    </button>
                   </div>
-                  <button class="px-3 py-1 text-xs border border-[#35E0D0] text-[#35E0D0] rounded-full hover:bg-[#35E0D0]/10 transition-colors">
-                    Follow
-                  </button>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
+      </aside>
+
+      {/* ─── Edit Profile Modal ─── */}
+      <Show when={editModalOpen()}>
+        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+             onClick={e => { if (e.target === e.currentTarget) setEditModalOpen(false); }}>
+          <div class="bg-[#0F131A] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4">
+            <h2 class="text-base font-semibold mb-4">Edit Profile</h2>
+            <div class="space-y-3">
+              {/* Avatar upload */}
+              <div class="flex items-center gap-4">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#35E0D0] to-[#2bc4b6] flex items-center justify-center text-black text-2xl font-bold">
+                  {avatarLetter()}
                 </div>
-              )}
-            </For>
+                <label class="px-3 py-1.5 text-xs border border-white/10 rounded-lg cursor-pointer hover:bg-white/5 transition-colors">
+                  Upload photo
+                  <input type="file" accept="image/*" class="hidden"
+                    onChange={async e => {
+                      const file = e.currentTarget.files?.[0];
+                      if (!file) return;
+                      try {
+                        const res = await apiClient.uploadAvatar(file);
+                        setUser(u => u ? { ...u, avatarUrl: res.avatarUrl } : u);
+                      } catch {}
+                    }} />
+                </label>
+              </div>
+
+              <input type="text" value={editName()} onInput={e => setEditName(e.currentTarget.value)}
+                placeholder="Display name"
+                class="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/40" />
+              <input type="text" value={editLocation()} onInput={e => setEditLocation(e.currentTarget.value)}
+                placeholder="Location (e.g. New York, USA)"
+                class="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/40" />
+              <textarea value={editBio()} onInput={e => setEditBio(e.currentTarget.value)}
+                placeholder="Bio"
+                rows={3}
+                class="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-foreground focus:outline-none focus:border-primary/40 resize-none" />
+            </div>
+            <div class="flex gap-3 mt-5">
+              <button onClick={() => setEditModalOpen(false)}
+                class="flex-1 py-2.5 rounded-xl bg-white/5 text-sm hover:bg-white/10 transition-colors">
+                Cancel
+              </button>
+              <button onClick={handleSaveProfile} disabled={editSaving()}
+                class="flex-1 py-2.5 bg-gradient-to-r from-[#35E0D0] to-[#2bc4b6] text-black font-bold rounded-xl text-sm hover:opacity-90 disabled:opacity-50 transition-all">
+                {editSaving() ? "Saving…" : "Save"}
+              </button>
+            </div>
           </div>
         </div>
-      </aside>
+      </Show>
     </div>
   );
 };

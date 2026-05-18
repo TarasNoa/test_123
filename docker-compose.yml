@@ -32,6 +32,10 @@ services:
       ReverseProxy__Routes__ide-events-ws__Metadata__HttpVersionPolicy: RequestVersionExact
       ReverseProxy__Clusters__matching__Destinations__d1__Address: http://matching-api:8080/
       ReverseProxy__Clusters__ai__Destinations__d1__Address: http://ai-api:8080/
+      ReverseProxy__Routes__users__ClusterId: auth
+      ReverseProxy__Routes__users__Match__Path: /api/v1/users/{**catch-all}
+      ReverseProxy__Routes__verification__ClusterId: auth
+      ReverseProxy__Routes__verification__Match__Path: /api/v1/verification/{**catch-all}
     ports:
       - "5000:8080"
     healthcheck:

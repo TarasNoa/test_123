@@ -35,6 +35,8 @@ public sealed class AuthDbContext : DbContextBase, IAuthDbContext
     public DbSet<SkillTestAttempt> SkillTestAttempts => Set<SkillTestAttempt>();
     public DbSet<SkillCertificate> SkillCertificates => Set<SkillCertificate>();
     public DbSet<SkillCalibration> SkillCalibrations => Set<SkillCalibration>();
+    public DbSet<UserSkill> UserSkills => Set<UserSkill>();
+    public DbSet<SkillAssessment> SkillAssessments => Set<SkillAssessment>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<SecurityChallenge> SecurityChallenges => Set<SecurityChallenge>();
 

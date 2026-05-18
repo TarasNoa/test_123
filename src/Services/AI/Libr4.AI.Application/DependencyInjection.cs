@@ -4,6 +4,8 @@ using System.Reflection;
 using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Application.Agents;
 using Libr4.AI.Application.CVAnalysis;
+using Libr4.AI.Application.DocumentVerification;
+using Libr4.AI.Infrastructure.AI.Providers;
 
 namespace Libr4.AI.Application;
 
@@ -20,6 +22,8 @@ public static class DependencyInjection
         services.AddScoped<IOrderAssistantService, OrderAssistantService>();
         services.AddScoped<ITaskRecommendationService, TaskRecommendationService>();
         services.AddScoped<ICVAnalysisService, CVAnalysisService>();
+        services.AddScoped<IDocumentVerificationService, DocumentVerificationService>();
+        services.AddHttpClient<DockerModelRunnerProvider>();
 
         return services;
     }

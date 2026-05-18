@@ -48,6 +48,51 @@ const translations: Record<string, Record<string, string>> = {
     'auth.terms': 'By continuing, you agree to our Terms of Service and Privacy Policy.',
     'auth.error.generic': 'Something went wrong. Please try again.',
   },
+  ru: {
+    'auth.welcome': 'Добро пожаловать в Libr4',
+    'auth.tagline': 'Будущее работы уже здесь.',
+    'auth.login': 'Войти',
+    'auth.register': 'Зарегистрироваться',
+    'auth.email': 'Email',
+    'auth.password': 'Пароль',
+    'auth.forgotPassword': 'Забыли пароль?',
+    'auth.orContinueWith': 'или войти через',
+    'auth.noAccount': 'Нет аккаунта?',
+    'auth.hasAccount': 'Уже есть аккаунт?',
+    'auth.selectRole': 'Выберите вашу роль',
+    'auth.role.client': 'Заказчик',
+    'auth.role.clientDesc': 'Нанимайте таланты для ваших проектов',
+    'auth.role.company': 'Компания',
+    'auth.role.companyDesc': 'Управляйте командой и находите подрядчиков',
+    'auth.role.freelancer': 'Фрилансер',
+    'auth.role.freelancerDesc': 'Находите работу и развивайте карьеру',
+    'auth.basicInfo': 'Основная информация',
+    'auth.profileDetails': 'Детали профиля',
+    'auth.completeRegistration': 'Завершить регистрацию',
+    'auth.displayName': 'Имя',
+    'auth.phone': 'Телефон',
+    'auth.country': 'Страна',
+    'auth.city': 'Город',
+    'auth.companyName': 'Название компании',
+    'auth.industry': 'Отрасль',
+    'auth.companySize': 'Размер компании',
+    'auth.website': 'Сайт',
+    'auth.skills': 'Навыки (через запятую)',
+    'auth.experience': 'Стаж (лет)',
+    'auth.hourlyRate': 'Почасовая ставка ($)',
+    'auth.specialization': 'Специализация',
+    'auth.setup2fa': 'Включить двухфакторную аутентификацию',
+    'auth.setup2faDesc': 'Защитите аккаунт с помощью приложения-аутентификатора',
+    'auth.linkedinUrl': 'Ссылка на LinkedIn',
+    'auth.uploadCv': 'Загрузить резюме',
+    'auth.uploadCvDesc': 'PDF, DOC, DOCX до 10 МБ',
+    'auth.step': 'Шаг',
+    'auth.of': 'из',
+    'auth.back': 'Назад',
+    'auth.next': 'Далее',
+    'auth.terms': 'Продолжая, вы соглашаетесь с Условиями использования и Политикой конфиденциальности.',
+    'auth.error.generic': 'Что-то пошло не так. Попробуйте ещё раз.',
+  },
 };
 
 function t(locale: () => string, key: string) {
@@ -69,7 +114,9 @@ export function useI18n() {
 
 export function detectLocale() {
   if (typeof navigator === 'undefined') return 'en';
-  return navigator.language?.split('-')[0] || 'en';
+  const lang = navigator.language?.split('-')[0] || 'en';
+  if (lang === 'ru' || lang === 'uk') return 'ru';
+  return 'en';
 }
 
 export function getRegion() {
@@ -79,7 +126,9 @@ export function getRegion() {
 
 export function getBrowserLocale() {
   if (typeof navigator === 'undefined') return 'en-US';
-  return navigator.language || 'en-US';
+  const lang = navigator.language || 'en-US';
+  if (lang.startsWith('ru') || lang.startsWith('uk')) return 'ru';
+  return 'en';
 }
 
 export function I18nProvider(props: { children: any }) {

@@ -130,6 +130,7 @@ app.MapTaskRecommendationEndpoints();
 app.MapTranslationEndpoints();
 app.MapVoiceEndpoints();
 app.MapCVAnalysisEndpoints();
+app.MapDocumentVerificationEndpoints();
 
 // Global Error Handler
 app.UseExceptionHandler("/error");

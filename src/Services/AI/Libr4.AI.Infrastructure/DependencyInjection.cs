@@ -83,22 +83,46 @@ public static class DependencyInjection
         // services.AddScoped<ICodebaseMapper, CodebaseMapper>(); // depends on CodeExtractor
         services.AddScoped<IAIDbContext>(sp => sp.GetRequiredService<AIDbContext>());
 
-        // LLM Providers
-        services.AddHttpClient<OllamaProvider>();
+        // LLM Providers (ILLMProvider interface)
+        services.AddHttpClient<LLM.OllamaLLMProvider>();
         services.AddHttpClient<LLM.OpenAIProvider>();
+        services.AddScoped<ILLMProvider>(sp =>
+        {
+            // Use Ollama by default for local inference
+            var ollama = sp.GetRequiredService<LLM.OllamaLLMProvider>();
+            return ollama;
+        });
         services.AddSingleton<ILLMProviderFactory, LLMProviderFactory>();
 
         // AI Service Architecture (OpenRouter + multiple providers)
         services.AddHttpClient<AI.Providers.OpenRouterProvider>();
         services.AddHttpClient<AI.Providers.AlibabaCloudProvider>();
         services.AddHttpClient<AI.Providers.DockerModelRunnerProvider>();
-        // Placeholder providers - temporarily disabled for testing
-        // services.AddHttpClient<AI.Providers.OpenAIProvider>();
-        services.AddHttpClient<AI.Providers.ClaudeProvider>();
+        services.AddHttpClient<AI.Providers.OllamaLLMProvider>();
         services.AddHttpClient<AI.Providers.GoogleProvider>();
         services.AddHttpClient<AI.Providers.DeepSeekProvider>();
         services.AddHttpClient<AI.Providers.GLMProvider>();
-        services.AddSingleton<AIProviderFactory>();
+        services.AddSingleton<AIProviderFactory>(provider =>
+        {
+            var openRouter = provider.GetService<AI.Providers.OpenRouterProvider>();
+            var alibabaCloud = provider.GetService<AI.Providers.AlibabaCloudProvider>();
+            var dockerModelRunner = provider.GetService<AI.Providers.DockerModelRunnerProvider>();
+            var ollama = provider.GetService<AI.Providers.OllamaLLMProvider>();
+            var google = provider.GetService<AI.Providers.GoogleProvider>();
+            var deepSeek = provider.GetService<AI.Providers.DeepSeekProvider>();
+            var glm = provider.GetService<AI.Providers.GLMProvider>();
+            return new AIProviderFactory(
+                new Dictionary<AIProviderType, Type>
+                {
+                    [AIProviderType.OpenRouter] = typeof(OpenRouterProvider),
+                    [AIProviderType.AlibabaCloud] = typeof(AlibabaCloudProvider),
+                    [AIProviderType.DockerModelRunner] = typeof(DockerModelRunnerProvider),
+                    [AIProviderType.Ollama] = typeof(OllamaLLMProvider),
+                    [AIProviderType.Google] = typeof(GoogleProvider),
+                    [AIProviderType.DeepSeek] = typeof(DeepSeekProvider),
+                    [AIProviderType.GLM] = typeof(GLMProvider),
+                });
+        });
         services.AddSingleton<LlmCircuitBreaker>();
         services.AddScoped<IAIService, AIService>();
         services.AddScoped<ILLMService, LLMService>();
