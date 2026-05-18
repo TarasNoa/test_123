@@ -12,7 +12,7 @@ services:
     environment:
       POSTGRES_USER: libr4
       POSTGRES_PASSWORD: libr4_dev_password
-      POSTGRES_MULTIPLE_DATABASES: libr4_auth,libr4_ide,libr4_tasks,libr4_payments,libr4_chat
+      POSTGRES_MULTIPLE_DATABASES: libr4_auth,libr4_ide,libr4_tasks,libr4_payments,libr4_chat,libr4_social,libr4_analytics,libr4_matching
     ports:
       - "5432:5432"
     volumes:
