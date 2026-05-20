@@ -36,7 +36,7 @@ public static class DependencyInjection
         services.AddScoped<IQueryHandler<GetConnectionsQuery, List<SocialConnectionDto>>, GetConnectionsQueryHandler>();
         services.AddScoped<IQueryHandler<GetFeedQuery, List<UserPostDto>>, GetFeedQueryHandler>();
         services.AddScoped<IQueryHandler<GetActivityFeedQuery, List<UserActivityDto>>, GetActivityFeedQueryHandler>();
-        services.AddScoped<IQueryHandler<GetRecommendedConnectionsQuery, List<SocialNetworkDto>>, GetRecommendedConnectionsQueryHandler>();
+        services.AddScoped<IQueryHandler<GetRecommendedConnectionsQuery, List<RecommendedUserDto>>, GetRecommendedConnectionsQueryHandler>();
         services.AddScoped<IQueryHandler<GetFollowersQuery, List<SocialNetworkDto>>, GetFollowersQueryHandler>();
         services.AddScoped<IQueryHandler<GetFollowingQuery, List<SocialNetworkDto>>, GetFollowingQueryHandler>();
         services.AddScoped<IQueryHandler<GetPostDetailQuery, PostDetailDto>, GetPostDetailQueryHandler>();

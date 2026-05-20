@@ -4,13 +4,13 @@ using Libr4.Social.Application.Abstractions;
 
 namespace Libr4.Social.Application.Queries;
 
-public class GetRecommendedConnectionsQuery : IQuery<List<SocialNetworkDto>>
+public class GetRecommendedConnectionsQuery : IQuery<List<RecommendedUserDto>>
 {
     public Guid UserId { get; set; }
     public int TopN { get; set; } = 10;
 }
 
-public class GetRecommendedConnectionsQueryHandler : IQueryHandler<GetRecommendedConnectionsQuery, List<SocialNetworkDto>>
+public class GetRecommendedConnectionsQueryHandler : IQueryHandler<GetRecommendedConnectionsQuery, List<RecommendedUserDto>>
 {
     private readonly ISocialNetworkRepository _repository;
 
@@ -19,27 +19,22 @@ public class GetRecommendedConnectionsQueryHandler : IQueryHandler<GetRecommende
         _repository = repository;
     }
 
-    public async Task<List<SocialNetworkDto>> HandleAsync(GetRecommendedConnectionsQuery query, CancellationToken cancellationToken)
+    public async Task<List<RecommendedUserDto>> HandleAsync(GetRecommendedConnectionsQuery query, CancellationToken cancellationToken)
     {
         var network = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
         if (network == null)
-            return new List<SocialNetworkDto>();
+            return new List<RecommendedUserDto>();
 
         var allNetworks = await _repository.GetAllAsync(cancellationToken);
         var recommendations = allNetworks
             .Where(n => n.UserId != query.UserId && !network.Connections.Any(c => c.ConnectedUserId == n.UserId))
             .OrderByDescending(n => n.Followers.Count)
             .Take(query.TopN)
-            .Select(n => new SocialNetworkDto(
-                n.Id,
+            .Select(n => new RecommendedUserDto(
                 n.UserId,
-                n.Connections.Select(c => new SocialConnectionDto(c.Id, c.ConnectedUserId, c.Type, c.Note)).ToList(),
-                n.Followers,
-                n.Following,
-                new UserProfileDto(n.Profile.Name, n.Profile.Bio, n.Profile.ProfileImageUrl, n.Profile.Location),
-                n.Posts.Select(p => new UserPostDto(p.Id, p.Content, p.Tags, p.Likes.Count, p.Comments.Count, p.CreatedAt)).ToList(),
-                n.Followers.Count,
-                n.Following.Count))
+                n.Profile.Name,
+                $"@{n.Profile.Name.ToLowerInvariant().Replace(' ', '_')}",
+                network.Following.Contains(n.UserId)))
             .ToList();
 
         return recommendations;

@@ -41,6 +41,8 @@ public record PostDetailDto(
 
 public record PostCommentDto(Guid Id, Guid AuthorId, string Text, DateTime CreatedAt);
 
+public record RecommendedUserDto(Guid Id, string DisplayName, string Handle, bool IsFollowing);
+
 public record UserActivityDto(string Description, DateTime Timestamp, ActivityType ActivityType);
 
 public record CreatePostRequest(string Content, List<string>? Tags, List<string>? AttachmentUrls);

@@ -386,7 +386,7 @@ public static class SocialEndpointsV2
     {
         var userId = GetUserId(context);
         var query = new GetRecommendedConnectionsQuery { UserId = userId, TopN = topN };
-        var recommendations = await queryBus.SendAsync<GetRecommendedConnectionsQuery, List<SocialNetworkDto>>(query);
+        var recommendations = await queryBus.SendAsync<GetRecommendedConnectionsQuery, List<RecommendedUserDto>>(query);
         return Results.Ok(recommendations);
     }
 

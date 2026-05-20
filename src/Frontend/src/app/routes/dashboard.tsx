@@ -737,7 +737,7 @@ const Dashboard: Component = () => {
               <For each={recommended()}>
                 {(u) => (
                   <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 cursor-pointer" onClick={() => navigate(`/social/profile/${u.id}`)}>
                       <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-medium">
                         {u.displayName?.[0] ?? "?"}
                       </div>
