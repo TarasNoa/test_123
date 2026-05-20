@@ -46,7 +46,7 @@ const Social: Component = () => {
             id: post.id,
             type: 'post_created',
             actorDisplayName: u.status === 'fulfilled' ? u.value.displayName : undefined,
-            targetTitle: post.title ?? undefined,
+            targetTitle: undefined,
             targetId: post.id,
             createdAt: post.createdAt,
           }))

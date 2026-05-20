@@ -59,9 +59,6 @@ const PostCard: Component<{ post: PostDto; onRefresh?: () => void }> = (props) =
         </div>
       </div>
 
-      <Show when={props.post.title}>
-        <h3 class="text-sm font-semibold mb-1">{props.post.title}</h3>
-      </Show>
       <p class="text-sm text-foreground mb-3 whitespace-pre-wrap">{props.post.content}</p>
 
       <Show when={props.post.tags.length > 0}>

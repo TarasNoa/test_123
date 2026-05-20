@@ -83,7 +83,6 @@ const Dashboard: Component = () => {
   const [portfolio, setPortfolio] = createSignal<UserPortfolioItemDto[]>([]);
   const [posts, setPosts] = createSignal<PostDto[]>([]);
   const [newPost, setNewPost] = createSignal("");
-  const [postTitle, setPostTitle] = createSignal("");
   const [postTags, setPostTags] = createSignal("");
   const [posting, setPosting] = createSignal(false);
   const [loading, setLoading] = createSignal(true);
@@ -168,13 +167,12 @@ const Dashboard: Component = () => {
       const tags = postTags().split(",").map(t => t.trim()).filter(Boolean);
       await apiClient.createPost(
         newPost().trim(),
-        postTitle().trim() || undefined,
         tags.length ? tags : undefined,
       );
       // Refresh posts list after creating
       const updatedPosts = await apiClient.getMyPosts();
       setPosts(updatedPosts);
-      setNewPost(""); setPostTitle(""); setPostTags("");
+      setNewPost(""); setPostTags("");
     } catch (e: any) {
       setApiError(e.message || "Failed to create post");
     } finally {
@@ -411,13 +409,6 @@ const Dashboard: Component = () => {
           <Show when={tab() === "posts"}>
             {/* New post */}
             <div class="mb-6 bg-white/5 rounded-xl p-4 border border-white/5">
-              <input
-                type="text"
-                value={postTitle()}
-                onInput={e => setPostTitle(e.currentTarget.value)}
-                placeholder="Title (optional)"
-                class="w-full bg-transparent text-sm border-b border-white/5 pb-2 mb-2 focus:outline-none focus:border-primary/30 text-foreground placeholder:text-muted-foreground"
-              />
               <textarea
                 value={newPost()}
                 onInput={(e) => setNewPost(e.currentTarget.value)}
@@ -453,9 +444,6 @@ const Dashboard: Component = () => {
               <For each={posts()}>
                 {(post) => (
                   <div class="bg-white/5 rounded-xl p-4 border border-white/5">
-                    <Show when={post.title}>
-                      <p class="text-sm font-semibold mb-1">{post.title}</p>
-                    </Show>
                     <p class="text-sm text-foreground whitespace-pre-wrap mb-3">{post.content}</p>
                     <Show when={post.tags && post.tags.length > 0}>
                       <div class="flex flex-wrap gap-1.5 mb-3">

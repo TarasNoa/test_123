@@ -246,26 +246,25 @@ export const userStatsDtoSchema = z.object({
   reviewsCount: z.number().int(),
 });
 
+export const postCommentDtoSchema = z.object({
+  id: z.string().uuid(),
+  authorId: z.string().uuid(),
+  text: z.string(),
+  createdAt: z.string().datetime(),
+});
+
 export const postDtoSchema = z.object({
   id: z.string().uuid(),
   authorId: z.string().uuid(),
   content: z.string(),
-  title: z.string().nullable().optional(),
   tags: z.array(z.string()),
   mediaUrls: z.array(z.string()),
   createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime().nullable().optional(),
   likeCount: z.number().int(),
   commentCount: z.number().int(),
   viewCount: z.number().int(),
   isLikedByCurrentUser: z.boolean(),
-});
-
-export const postCommentDtoSchema = z.object({
-  id: z.string().uuid(),
-  userId: z.string().uuid(),
-  content: z.string(),
-  createdAt: z.string().datetime(),
+  comments: z.array(postCommentDtoSchema).optional().default([]),
 });
 
 export interface SocialUserDto {
@@ -642,16 +641,16 @@ class ApiClient {
     const params = new URLSearchParams();
     if (page) params.append('skip', ((page - 1) * (pageSize || 20)).toString());
     if (pageSize) params.append('take', pageSize.toString());
-    const result = await this.request<{ id: string; content: string; tags: string[]; likes: number; comments: number; createdAt: string }[]>(`/api/v2/social/feed?${params}`);
-    return result.map(p => ({ id: p.id, content: p.content, tags: p.tags || [], createdAt: p.createdAt, likeCount: p.likes, commentCount: p.comments, viewCount: 0, isLikedByCurrentUser: false, authorId: '', mediaUrls: [] }));
+    const result = await this.request<{ id: string; content: string; tags: string[]; likesCount: number; commentsCount: number; createdAt: string }[]>(`/api/v2/social/feed?${params}`);
+    return result.map(p => ({ id: p.id, content: p.content, tags: p.tags || [], createdAt: p.createdAt, likeCount: p.likesCount, commentCount: p.commentsCount, viewCount: 0, isLikedByCurrentUser: false, authorId: '', mediaUrls: [], comments: [] }));
   }
 
   async getMyPosts(): Promise<PostDto[]> {
     const result = await this.request<{ posts: { id: string; content: string; tags: string[]; likesCount: number; commentsCount: number; createdAt: string; isLikedByCurrentUser: boolean; comments?: { id: string; authorId: string; text: string; createdAt: string }[] }[] }>('/api/v2/social/posts');
-    return result.posts.map(p => ({ id: p.id, content: p.content, tags: p.tags || [], createdAt: p.createdAt, likeCount: p.likesCount, commentCount: p.commentsCount, viewCount: 0, isLikedByCurrentUser: p.isLikedByCurrentUser, authorId: '', mediaUrls: [], comments: p.comments || [] }));
+    return result.posts.map(p => ({ id: p.id, content: p.content, tags: p.tags || [], createdAt: p.createdAt, likeCount: p.likesCount, commentCount: p.commentsCount, viewCount: 0, isLikedByCurrentUser: p.isLikedByCurrentUser, authorId: '', mediaUrls: [], comments: (p.comments || []).map(c => ({ id: c.id, authorId: c.authorId, text: c.text, createdAt: c.createdAt })) }));
   }
 
-  async createPost(content: string, title?: string, tags?: string[], mediaUrls?: string[]): Promise<{ postId: string }> {
+  async createPost(content: string, tags?: string[], mediaUrls?: string[]): Promise<{ postId: string }> {
     return this.request('/api/v2/social/posts', {
       method: 'POST',
       body: JSON.stringify({ content, tags: tags || [], attachmentUrls: mediaUrls || [] }),
@@ -664,7 +663,7 @@ class ApiClient {
 
   async getRecommendedConnections(): Promise<SocialUserDto[]> {
     try {
-      return await this.request('/api/v1/social/recommendations');
+      return await this.request('/api/v2/social/recommendations');
     } catch {
       return [];
     }
