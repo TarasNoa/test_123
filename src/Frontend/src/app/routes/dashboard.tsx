@@ -88,6 +88,8 @@ const Dashboard: Component = () => {
   const [posting, setPosting] = createSignal(false);
   const [loading, setLoading] = createSignal(true);
   const [apiError, setApiError] = createSignal("");
+  const [commentingPostId, setCommentingPostId] = createSignal<string | null>(null);
+  const [commentText, setCommentText] = createSignal("");
 
   const [taskStats, setTaskStats] = createSignal<{ total: number; active: number; completed: number } | null>(null);
   const [recommended, setRecommended] = createSignal<SocialUserDto[]>([]);
@@ -108,17 +110,6 @@ const Dashboard: Component = () => {
     const token = localStorage.getItem("accessToken");
     if (!token) { navigate("/auth"); return; }
     setApiError("");
-
-    // Check verification status
-    try {
-      const verificationStatus = await apiClient.getVerificationStatus();
-      if (!verificationStatus.isVerified) {
-        navigate("/verification");
-        return;
-      }
-    } catch {
-      // If can't check status, continue anyway
-    }
 
     const [userRes, taskStatsRes] = await Promise.allSettled([
       apiClient.getMe(),
@@ -155,7 +146,7 @@ const Dashboard: Component = () => {
       apiClient.getMySkills(),
     ]);
 
-    if (postsRes.status === "fulfilled") setPosts(postsRes.value);
+    if (postsRes.status === "fulfilled" && Array.isArray(postsRes.value)) setPosts(postsRes.value);
     if (portfolioRes.status === "fulfilled") setPortfolio(portfolioRes.value);
     if (statsRes.status === "fulfilled") setStats(statsRes.value);
     if (recRes.status === "fulfilled" && Array.isArray(recRes.value)) setRecommended(recRes.value.slice(0, 3));
@@ -175,12 +166,14 @@ const Dashboard: Component = () => {
     setPosting(true); setApiError("");
     try {
       const tags = postTags().split(",").map(t => t.trim()).filter(Boolean);
-      const created = await apiClient.createPost(
+      await apiClient.createPost(
         newPost().trim(),
         postTitle().trim() || undefined,
         tags.length ? tags : undefined,
       );
-      setPosts(prev => [created, ...prev]);
+      // Refresh posts list after creating
+      const updatedPosts = await apiClient.getMyPosts();
+      setPosts(updatedPosts);
       setNewPost(""); setPostTitle(""); setPostTags("");
     } catch (e: any) {
       setApiError(e.message || "Failed to create post");
@@ -200,6 +193,19 @@ const Dashboard: Component = () => {
     } catch {}
   };
 
+  const handleAddComment = async (postId: string) => {
+    if (!commentText().trim()) return;
+    try {
+      await apiClient.addComment(postId, commentText().trim());
+      setCommentText("");
+      setCommentingPostId(null);
+      const updated = await apiClient.getMyPosts();
+      setPosts(updated);
+    } catch (e: any) {
+      setApiError(e.message || "Failed to add comment");
+    }
+  };
+
   const handleFollow = async (userId: string) => {
     try {
       await fetch(`${config.apiBaseUrl}/api/v1/social/follow/${userId}`, {
@@ -216,7 +222,7 @@ const Dashboard: Component = () => {
     setEditSaving(true);
     try {
       await apiClient.updateProfile(editName(), editBio() || undefined, editLocation() || undefined);
-      setUser(u => u ? { ...u, displayName: editName() } : u);
+      setUser(u => u ? { ...u, displayName: editName(), bio: editBio() || null, location: editLocation() || null } : u);
       localStorage.setItem("displayName", editName());
       setEditModalOpen(false);
     } catch {
@@ -236,7 +242,7 @@ const Dashboard: Component = () => {
   };
 
   return (
-    <div class="flex min-h-screen bg-[#05050a] text-foreground">
+    <div class="flex h-screen bg-[#05050a] text-foreground overflow-hidden">
       {/* ─── Left Sidebar ─── */}
       <aside class="w-16 md:w-60 border-r border-white/5 flex flex-col fixed h-full z-10 bg-[#0F131A]">
         {/* Logo */}
@@ -280,7 +286,7 @@ const Dashboard: Component = () => {
       </aside>
 
       {/* ─── Main Content ─── */}
-      <main class="flex-1 ml-16 md:ml-60 min-w-0">
+      <main class="flex-1 ml-16 md:ml-60 min-w-0 overflow-y-auto">
         {/* Banner */}
         <div class="relative z-0 h-32 group cursor-pointer overflow-hidden" onClick={() => coverInputRef?.click()}>
           <Show
@@ -310,26 +316,32 @@ const Dashboard: Component = () => {
 
         {/* Profile Header */}
         <div class="relative z-10 px-6 -mt-12 mb-6">
-          <div class="flex items-end gap-4">
+          <div class="flex flex-col sm:flex-row items-start sm:items-end gap-4">
             <Show when={user()?.avatarUrl} fallback={
-              <div class="w-24 h-24 rounded-2xl bg-gradient-to-br from-[#35E0D0] to-[#2bc4b6] flex items-center justify-center text-black text-3xl font-bold border-4 border-[#05050a] shrink-0">
+              <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-[#35E0D0] to-[#2bc4b6] flex items-center justify-center text-black text-2xl sm:text-3xl font-bold border-4 border-[#05050a] shrink-0">
                 {avatarLetter()}
               </div>
             }>
-              <img src={user()!.avatarUrl!} class="w-24 h-24 rounded-2xl object-cover border-4 border-[#05050a] shrink-0" alt="avatar" />
+              <img src={user()!.avatarUrl!} class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-4 border-[#05050a] shrink-0" alt="avatar" />
             </Show>
-            <div class="flex-1 pb-2 min-w-0">
-              <div class="flex items-center justify-between gap-4">
+            <div class="flex-1 pb-0 sm:pb-2 min-w-0">
+              <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4">
                 <div class="min-w-0">
-                  <h1 class="text-xl font-bold truncate">{user()?.displayName ?? "—"}</h1>
+                  <h1 class="text-lg sm:text-xl font-bold truncate">{user()?.displayName ?? "—"}</h1>
                   <p class="text-sm text-muted-foreground">{user()?.email ? `@${user()!.email.split("@")[0]}` : ""}</p>
+                  <Show when={user()?.location}>
+                    <p class="text-xs text-muted-foreground mt-0.5">📍 {user()!.location}</p>
+                  </Show>
+                  <Show when={user()?.bio}>
+                    <p class="text-xs text-muted-foreground mt-0.5 line-clamp-2">{user()!.bio}</p>
+                  </Show>
                   <Show when={joinedDate()}>
-                    <p class="text-xs text-muted-foreground mt-1">Joined {joinedDate()}</p>
+                    <p class="text-xs text-muted-foreground mt-0.5">Joined {joinedDate()}</p>
                   </Show>
                 </div>
                 <button
-                  onClick={() => { setEditModalOpen(true); setEditName(user()?.displayName || ""); setEditBio((user() as any)?.bio || ""); setEditLocation((user() as any)?.location || ""); }}
-                  class="px-4 py-1.5 text-sm border border-white/10 rounded-lg hover:bg-white/5 transition-colors shrink-0"
+                  onClick={() => { setEditModalOpen(true); setEditName(user()?.displayName || ""); setEditBio(user()?.bio || ""); setEditLocation(user()?.location || ""); }}
+                  class="px-4 py-1.5 text-sm bg-surface-2 border border-white/10 rounded-lg hover:bg-surface-3 transition-colors shrink-0"
                 >
                   Edit profile
                 </button>
@@ -339,14 +351,14 @@ const Dashboard: Component = () => {
 
           {/* Stats row */}
           <Show when={loading()}>
-            <div class="flex items-center gap-6 mt-4">
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4">
               <div class="h-5 w-16 bg-white/5 rounded animate-pulse" />
               <div class="h-5 w-16 bg-white/5 rounded animate-pulse" />
               <div class="h-5 w-16 bg-white/5 rounded animate-pulse" />
             </div>
           </Show>
           <Show when={!loading()}>
-            <div class="flex items-center gap-6 mt-4 text-sm">
+            <div class="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-sm">
               <span>
                 <strong class="text-foreground">{stats()?.totalProjects ?? taskStats()?.total ?? 0}</strong>{" "}
                 <span class="text-muted-foreground">projects</span>
@@ -365,7 +377,7 @@ const Dashboard: Component = () => {
 
         {/* API Error */}
         <Show when={apiError()}>
-          <div class="mx-6 my-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between">
+          <div class="mx-4 sm:mx-6 my-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center justify-between gap-3 flex-wrap">
             <span>{apiError()}</span>
             <div class="flex items-center gap-3">
               <button onClick={() => window.location.reload()} class="underline">Retry</button>
@@ -375,15 +387,15 @@ const Dashboard: Component = () => {
         </Show>
 
         {/* Tabs */}
-        <div class="px-6 border-b border-white/5">
-          <div class="flex gap-6">
+        <div class="px-6 border-b border-white/5 overflow-x-auto">
+          <div class="flex gap-6 min-w-0">
             {(["posts", "portfolio", "stats"] as Tab[]).map((t) => (
               <button
                 onClick={() => setTab(t)}
                 class={[
-                  "pb-3 text-sm font-medium capitalize transition-colors",
+                  "pb-3 text-sm font-medium capitalize transition-colors whitespace-nowrap",
                   tab() === t
-                    ? "text-[#35E0D0] border-b-2 border-[#35E0D0]"
+                    ? "text-secondary border-b-2 border-secondary"
                     : "text-muted-foreground hover:text-foreground",
                 ].join(" ")}
               >
@@ -445,10 +457,10 @@ const Dashboard: Component = () => {
                       <p class="text-sm font-semibold mb-1">{post.title}</p>
                     </Show>
                     <p class="text-sm text-foreground whitespace-pre-wrap mb-3">{post.content}</p>
-                    <Show when={post.tags.length > 0}>
+                    <Show when={post.tags && post.tags.length > 0}>
                       <div class="flex flex-wrap gap-1.5 mb-3">
                         <For each={post.tags}>
-                          {(tag) => <span class="text-xs text-[#35E0D0]">#{tag}</span>}
+                          {(tag) => <span class="text-xs text-secondary">#{tag}</span>}
                         </For>
                       </div>
                     </Show>
@@ -459,9 +471,46 @@ const Dashboard: Component = () => {
                       >
                         {post.isLikedByCurrentUser ? "❤️" : "🤍"} {post.likeCount}
                       </button>
-                      <span>💬 {post.commentCount}</span>
+                      <button
+                        onClick={() => setCommentingPostId(commentingPostId() === post.id ? null : post.id)}
+                        class="hover:text-secondary transition-colors"
+                      >
+                        💬 {post.commentCount}
+                      </button>
                       <span class="ml-auto">👁 {post.viewCount}</span>
                     </div>
+                    <Show when={(post as any).comments?.length > 0}>
+                      <div class="mt-3 space-y-2">
+                        <For each={(post as any).comments}>
+                          {(c: any) => (
+                            <div class="flex gap-2 text-xs">
+                              <span class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] shrink-0">👤</span>
+                              <div class="bg-white/5 rounded-lg px-3 py-1.5 flex-1">
+                                <p class="text-foreground">{c.text}</p>
+                              </div>
+                            </div>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+                    <Show when={commentingPostId() === post.id}>
+                      <div class="mt-3 flex gap-2">
+                        <input
+                          value={commentText()}
+                          onInput={(e) => setCommentText(e.currentTarget.value)}
+                          placeholder="Write a comment…"
+                          class="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#35E0D0]/60 text-foreground placeholder:text-muted-foreground"
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
+                        />
+                        <button
+                          onClick={() => handleAddComment(post.id)}
+                          disabled={!commentText().trim()}
+                          class="px-3 py-1.5 bg-[#35E0D0] text-black text-xs rounded-lg hover:bg-[#2bc4b6] disabled:opacity-50 transition-colors"
+                        >
+                          Send
+                        </button>
+                      </div>
+                    </Show>
                   </div>
                 )}
               </For>
@@ -476,7 +525,7 @@ const Dashboard: Component = () => {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <For each={portfolio()}>
                 {(item) => (
-                  <div class="bg-white/5 rounded-xl p-4 border border-white/5 hover:border-[#35E0D0]/30 transition-colors">
+                  <div class="bg-white/5 rounded-xl p-4 border border-white/5 hover:border-secondary/30 transition-colors">
                     <div class="flex items-start justify-between mb-2">
                       <h3 class="text-sm font-semibold">{item.title}</h3>
                       <span class={[
@@ -494,7 +543,7 @@ const Dashboard: Component = () => {
                       <span>❤️ {item.likeCount}</span>
                       <span>👁 {item.viewCount}</span>
                       <Show when={item.liveUrl}>
-                        <a href={item.liveUrl!} target="_blank" class="text-[#35E0D0] hover:underline ml-auto">Live ↗</a>
+                        <a href={item.liveUrl!} target="_blank" class="text-secondary hover:underline ml-auto">Live ↗</a>
                       </Show>
                     </div>
                   </div>
@@ -516,55 +565,55 @@ const Dashboard: Component = () => {
                 <div>
                   <div class="flex items-center gap-3 mb-4">
                     <h3 class="text-lg font-semibold">AI-Assessed Skills</h3>
-                    <span class="text-xs bg-[#35E0D0]/10 text-[#35E0D0] px-2 py-1 rounded-full">
+                    <span class="text-xs bg-secondary/10 text-secondary px-2 py-1 rounded-full">
                       {skills()!.overallLevel}
                     </span>
                   </div>
                   
                   {/* Primary Expertise */}
-                  <div class="mb-4 p-3 bg-[#35E0D0]/5 rounded-lg border border-[#35E0D0]/20">
+                  <div class="mb-4 p-3 bg-secondary/5 rounded-lg border border-secondary/20">
                     <p class="text-xs text-muted-foreground mb-1">Primary Expertise</p>
-                    <p class="font-medium text-[#35E0D0]">{skills()!.primaryExpertise}</p>
+                    <p class="font-medium text-secondary">{skills()!.primaryExpertise}</p>
                   </div>
 
-                  {/* Skills List with Progress Bars */}
-                  <div class="space-y-3">
-                    <For each={skills()!.skills?.slice(0, 10) || []}>
+                  {/* Skills List — compact multi-column */}
+                  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    <For each={skills()!.skills?.slice(0, 12) || []}>
                       {(skill) => (
-                        <div class="group relative">
-                          <div class="flex items-center justify-between mb-1">
-                            <div class="flex items-center gap-2">
-                              <span class="text-sm font-medium">{skill.name}</span>
+                        <div class="group relative bg-white/5 rounded-lg p-2.5 border border-white/5 hover:border-secondary/20 transition-colors">
+                          <div class="flex items-center justify-between mb-1.5">
+                            <div class="flex items-center gap-1.5">
+                              <span class="text-xs font-medium">{skill.name}</span>
                               {/* Tooltip trigger */}
                               <div class="relative">
-                                <svg 
-                                  class="w-4 h-4 text-muted-foreground hover:text-[#35E0D0] cursor-help transition-colors" 
-                                  fill="none" 
-                                  stroke="currentColor" 
+                                <svg
+                                  class="w-3.5 h-3.5 text-muted-foreground hover:text-secondary cursor-help transition-colors"
+                                  fill="none"
+                                  stroke="currentColor"
                                   viewBox="0 0 24 24"
                                 >
                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 {/* Tooltip */}
-                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-surface-2 border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-surface-2 border border-white/10 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
                                   <p class="text-xs font-medium mb-1">Why this score?</p>
-                                  <p class="text-xs text-muted-foreground mb-2">
+                                  <p class="text-xs text-muted-foreground mb-1.5">
                                     {skill.assessmentReason || `Based on ${skill.experienceYears} years of experience in ${skill.contexts.join(', ')}`}
                                   </p>
-                                  <div class="flex items-center gap-2 text-xs">
-                                    <span class="text-[#35E0D0]">{skill.level}</span>
+                                  <div class="flex items-center gap-2 text-[10px]">
+                                    <span class="text-secondary">{skill.level}</span>
                                     <span class="text-muted-foreground">•</span>
                                     <span class="text-muted-foreground">Source: {skill.source}</span>
                                   </div>
                                 </div>
                               </div>
                             </div>
-                            <span class="text-sm font-bold">{(skill.score / 10).toFixed(1)}/10</span>
+                            <span class="text-xs font-bold">{(skill.score / 10).toFixed(1)}</span>
                           </div>
-                          {/* Progress bar - score 0-100 mapped to 0-10 */}
-                          <div class="h-2 bg-white/10 rounded-full overflow-hidden">
-                            <div 
-                              class="h-full bg-gradient-to-r from-[#35E0D0] to-[#2bc4b6] rounded-full transition-all duration-500"
+                          {/* Compact progress bar */}
+                          <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                            <div
+                              class="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-500"
                               style={`width: ${skill.score}%`}
                             />
                           </div>
@@ -588,6 +637,26 @@ const Dashboard: Component = () => {
                       </div>
                     </div>
                   </Show>
+
+                  {/* Recommended Professions */}
+                  <Show when={skills()!.recommendations?.length > 0}>
+                    <div class="mt-4 pt-4 border-t border-white/10">
+                      <p class="text-xs text-muted-foreground mb-3">Recommended Professions</p>
+                      <div class="flex flex-col gap-2">
+                        <For each={skills()!.recommendations}>
+                          {(prof, i) => (
+                            <div class="flex items-center gap-3 p-2.5 rounded-lg bg-white/5 border border-white/5 hover:border-secondary/20 transition-colors">
+                              <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                                style={`background: hsl(${210 + i() * 40}, 70%, 25%); color: hsl(${210 + i() * 40}, 80%, 75%)`}>
+                                {i() + 1}
+                              </div>
+                              <span class="text-sm font-medium">{prof}</span>
+                            </div>
+                          )}
+                        </For>
+                      </div>
+                    </div>
+                  </Show>
                 </div>
               </Show>
 
@@ -606,7 +675,7 @@ const Dashboard: Component = () => {
                     ] as { label: string; value: string | number }[]).map((s) => (
                       <div class="bg-white/5 rounded-xl p-4 border border-white/5">
                         <p class="text-xs text-muted-foreground mb-1">{s.label}</p>
-                        <p class="text-xl font-bold text-[#35E0D0]">{s.value}</p>
+                        <p class="text-xl font-bold text-secondary">{s.value}</p>
                       </div>
                     ))}
                   </div>
@@ -618,7 +687,7 @@ const Dashboard: Component = () => {
       </main>
 
       {/* ─── Right Sidebar ─── */}
-      <aside class="w-72 border-l border-white/5 hidden lg:flex flex-col p-4 space-y-6 shrink-0">
+      <aside class="w-72 border-l border-white/5 hidden lg:flex flex-col p-4 space-y-6 shrink-0 overflow-y-auto">
         {/* Latest Feed */}
         <Show when={feedPosts().length > 0}>
           <div>
@@ -660,7 +729,7 @@ const Dashboard: Component = () => {
                         "px-3 py-1 text-xs rounded-full transition-colors",
                         u.isFollowing
                           ? "border border-white/10 text-muted-foreground"
-                          : "border border-[#35E0D0] text-[#35E0D0] hover:bg-[#35E0D0]/10"
+                          : "border border-secondary text-secondary hover:bg-secondary/10"
                       ].join(" ")}
                     >
                       {u.isFollowing ? "Following" : "Follow"}
@@ -675,14 +744,14 @@ const Dashboard: Component = () => {
 
       {/* ─── Edit Profile Modal ─── */}
       <Show when={editModalOpen()}>
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        <div class="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm py-4 overflow-y-auto"
              onClick={e => { if (e.target === e.currentTarget) setEditModalOpen(false); }}>
-          <div class="bg-[#0F131A] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4">
+          <div class="bg-[#0F131A] border border-white/10 rounded-2xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
             <h2 class="text-base font-semibold mb-4">Edit Profile</h2>
             <div class="space-y-3">
               {/* Avatar upload */}
               <div class="flex items-center gap-4">
-                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#35E0D0] to-[#2bc4b6] flex items-center justify-center text-black text-2xl font-bold">
+                <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-black text-2xl font-bold">
                   {avatarLetter()}
                 </div>
                 <label class="px-3 py-1.5 text-xs border border-white/10 rounded-lg cursor-pointer hover:bg-white/5 transition-colors">

@@ -19,7 +19,12 @@ public enum AIProviderType
     Groq,
     OpenRouter,
     Ollama,  // Local
-    Custom
+    Custom,
+    AlibabaCloud,
+    DockerModelRunner,
+    Google,
+    DeepSeek,
+    GLM
 }
 
 public enum AIChatStatus

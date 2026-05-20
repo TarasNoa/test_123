@@ -20,6 +20,7 @@ public interface IAuthDbContext
     DbSet<UserToken> UserTokens { get; }
     DbSet<UserProfile> Profiles { get; }
     DbSet<KycVerification> KycVerifications { get; }
+    DbSet<KycDocument> KycDocuments { get; }
     DbSet<OnboardingProgress> OnboardingProgresses { get; }
     DbSet<UserLevel> UserLevels { get; }
     DbSet<ApiKey> ApiKeys { get; }

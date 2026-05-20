@@ -272,7 +272,7 @@ public static class SocialEndpointsV2
         var userId = GetUserId(context);
         var query = new GetUserPostsQuery { UserId = userId, Skip = skip, Take = take };
         var posts = await queryBus.SendAsync<GetUserPostsQuery, List<UserPostDto>>(query);
-        return Results.Ok(posts);
+        return Results.Ok(new { posts });
     }
 
     private static async Task<IResult> GetPostDetail(

@@ -64,7 +64,7 @@
     --muted:         220 17% 14%;   /* #1D2430 */
     --muted-foreground: 217 12% 63%; /* #98A2B6 */
 
-    --accent:        174 72% 54%;
+    --accent:        255 100% 74%;
     --accent-foreground: 220 20% 6%;
 
     --destructive:   0 72% 60%;     /* #EF4444 */
@@ -72,7 +72,7 @@
 
     --border:        220 17% 14%;   /* #1D2430 */
     --input:         220 17% 14%;
-    --ring:          174 72% 54%;   /* бирюза как focus ring */
+    --ring:          255 100% 74%;   /* сиреневый как focus ring */
 
     --radius: 0.75rem;
 

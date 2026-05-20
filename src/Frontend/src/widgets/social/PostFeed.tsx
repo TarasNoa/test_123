@@ -50,7 +50,7 @@ const PostCard: Component<{ post: PostDto; onRefresh?: () => void }> = (props) =
   return (
     <div class="bg-surface rounded-xl border border-surface-3 p-4 hover:border-surface-2 transition-colors">
       <div class="flex items-center gap-3 mb-3">
-        <div class="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-semibold text-primary">
+        <div class="w-9 h-9 rounded-full bg-secondary/20 flex items-center justify-center text-sm font-semibold text-secondary">
           {props.post.authorId.slice(0, 2).toUpperCase()}
         </div>
         <div class="flex-1 min-w-0">
@@ -68,7 +68,7 @@ const PostCard: Component<{ post: PostDto; onRefresh?: () => void }> = (props) =
         <div class="flex flex-wrap gap-1.5 mb-3">
           <For each={props.post.tags}>
             {(tag) => (
-              <span class="text-[11px] px-2 py-0.5 bg-primary/10 text-primary rounded-full">#{tag}</span>
+              <span class="text-[11px] px-2 py-0.5 bg-secondary/10 text-secondary rounded-full">#{tag}</span>
             )}
           </For>
         </div>
@@ -89,8 +89,9 @@ const PostCard: Component<{ post: PostDto; onRefresh?: () => void }> = (props) =
           <span>{props.post.likeCount}</span>
         </button>
         <button
+          type="button"
           onClick={() => setShowComment(!showComment())}
-          class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+          class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-secondary transition-colors cursor-pointer pointer-events-auto"
         >
           <span>💬</span>
           <span>{props.post.commentCount}</span>
@@ -104,7 +105,7 @@ const PostCard: Component<{ post: PostDto; onRefresh?: () => void }> = (props) =
             value={comment()}
             onInput={(e) => setComment(e.currentTarget.value)}
             placeholder="Write a comment…"
-            class="flex-1 bg-background border border-surface-3 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-primary/60 text-foreground placeholder:text-muted-foreground"
+            class="flex-1 bg-background border border-surface-3 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-secondary/60 text-foreground placeholder:text-muted-foreground"
             onKeyDown={(e) => e.key === 'Enter' && handleComment()}
           />
           <button

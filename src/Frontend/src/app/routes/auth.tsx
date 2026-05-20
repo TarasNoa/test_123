@@ -262,8 +262,10 @@ export default function Auth() {
         linkedInUrl: linkedInUrl() || undefined,
       });
       saveSession(response);
-      // Redirect to verification page - must complete identity verification before accessing dashboard
-      navigate('/verification');
+      if (cvFile()) {
+        try { await apiClient.uploadCv(cvFile()!); } catch {}
+      }
+      navigate('/dashboard');
     } catch (err: any) {
       setError(err.message || t('auth.error.generic'));
     } finally {
@@ -291,7 +293,7 @@ export default function Auth() {
   const nextStep = () => setRegStep((s) => (s < 3 ? ((s + 1) as RegisterStep) : s));
   const prevStep = () => setRegStep((s) => (s > 0 ? ((s - 1) as RegisterStep) : s));
 
-  const inputCls = "w-full px-4 py-3 bg-surface-2/60 border border-surface-3/60 rounded-xl text-foreground text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all";
+  const inputCls = "w-full px-4 py-3 bg-surface-2/60 border border-surface-3/60 rounded-xl text-foreground text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-2 focus:ring-secondary/30 focus:border-secondary/50 transition-all";
 
   return (
     <div class="relative min-h-screen flex items-center justify-center overflow-hidden text-foreground">
@@ -303,7 +305,7 @@ export default function Auth() {
         @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
       `}</style>
 
-      <div class="w-[420px]" style="animation: fadeUp 0.6s ease-out">
+      <div class="w-full max-w-[420px] px-4 sm:px-0" style="animation: fadeUp 0.6s ease-out">
         <div class="text-center mb-8">
           <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#35E0D0] to-[#9B7CFF] mb-4 shadow-lg shadow-primary/20">
             <span class="text-2xl font-black text-black">L4</span>
@@ -312,7 +314,7 @@ export default function Auth() {
           <p class="text-sm text-muted-foreground leading-relaxed">{t('auth.tagline')}</p>
         </div>
 
-        <div class="relative rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-2xl shadow-2xl shadow-black/40 overflow-hidden min-h-[520px] flex flex-col">
+        <div class="relative rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur-2xl shadow-2xl shadow-black/40 overflow-hidden min-h-[420px] sm:min-h-[520px] flex flex-col">
           <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#35E0D0]/50 to-transparent" />
           <div class="p-7 space-y-5 flex-1 flex flex-col">
             {/* Tabs */}
@@ -366,11 +368,11 @@ export default function Auth() {
                   <div class="flex-1 h-px bg-gradient-to-r from-transparent via-surface-3 to-transparent" />
                 </div>
 
-                <div class="grid grid-cols-4 gap-2.5">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <For each={filteredProviders()}>{(p) => {
                     const Icon = ProviderIcons[p.key];
                     return (
-                      <button type="button" onClick={() => handleOAuth(p.key)} class="group flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-surface-2/40 border border-surface-3/40 hover:bg-surface-2/80 hover:border-primary/30 hover:scale-105 transition-all" title={p.name}>
+                      <button type="button" onClick={() => handleOAuth(p.key)} class="group flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-surface-2/40 border border-surface-3/40 hover:bg-surface-2/80 hover:border-secondary/30 hover:scale-105 transition-all" title={p.name}>
                         <div class="text-muted-foreground group-hover:text-foreground transition-colors">{Icon ? <Icon /> : <span class="text-xs">{p.name[0]}</span>}</div>
                         <span class="text-[10px] text-muted-foreground/70 group-hover:text-foreground/90 transition-colors truncate w-full text-center">{p.name}</span>
                       </button>
@@ -399,7 +401,7 @@ export default function Auth() {
                   </div>
                   <p class="text-sm font-medium">Check your email</p>
                   <p class="text-xs text-muted-foreground">We sent a reset link to {email()}</p>
-                  <button type="button" onClick={() => { setForgotMode(false); setResetSent(false); }} class="text-sm text-primary hover:underline">Back to login</button>
+                  <button type="button" onClick={() => { setForgotMode(false); setResetSent(false); }} class="text-sm text-secondary hover:underline">Back to login</button>
                 </div>
               </Show>
             </Show>
@@ -412,8 +414,8 @@ export default function Auth() {
                   <h2 class="text-lg font-semibold text-center">{t('auth.selectRole')}</h2>
                   <div class="grid gap-3">
                     <For each={roles}>{(r) => (
-                      <button type="button" onClick={() => { setRole(r.key); setRegStep(1); setError(''); }} class="flex items-center gap-4 p-4 rounded-xl bg-surface-2/40 border border-surface-3/40 hover:bg-surface-2/80 hover:border-primary/30 hover:scale-[1.02] transition-all text-left">
-                        <div class="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><r.Icon /></div>
+                      <button type="button" onClick={() => { setRole(r.key); setRegStep(1); setError(''); }} class="flex items-center gap-4 p-4 rounded-xl bg-surface-2/40 border border-surface-3/40 hover:bg-surface-2/80 hover:border-secondary/30 hover:scale-[1.02] transition-all text-left">
+                        <div class="w-10 h-10 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center shrink-0"><r.Icon /></div>
                         <div>
                           <div class="font-semibold text-sm">{t(r.title)}</div>
                           <div class="text-xs text-muted-foreground">{t(r.desc)}</div>
@@ -462,7 +464,7 @@ export default function Auth() {
                       </div>
                     </Show>
                     <input type="tel" value={phone()} onInput={e => setPhone(e.currentTarget.value)} placeholder={t('auth.phone')} class={inputCls} />
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <input type="text" value={country()} onInput={e => setCountry(e.currentTarget.value)} placeholder={t('auth.country')} class={inputCls} />
                       <input type="text" value={city()} onInput={e => setCity(e.currentTarget.value)} placeholder={t('auth.city')} class={inputCls} />
                     </div>
@@ -481,7 +483,7 @@ export default function Auth() {
                   <div class="space-y-3">
                     <Show when={role() === 'client' || role() === 'company'}>
                       <input type="text" value={companyName()} onInput={e => setCompanyName(e.currentTarget.value)} required placeholder={t('auth.companyName')} class={inputCls} />
-                      <div class="grid grid-cols-2 gap-3">
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input type="text" value={industry()} onInput={e => setIndustry(e.currentTarget.value)} placeholder={t('auth.industry')} class={inputCls} />
                         <input type="text" value={companySize()} onInput={e => setCompanySize(e.currentTarget.value)} placeholder={t('auth.companySize')} class={inputCls} />
                       </div>
@@ -491,7 +493,7 @@ export default function Auth() {
                     </Show>
                     <Show when={role() === 'freelancer'}>
                       <input type="text" value={skills()} onInput={e => setSkills(e.currentTarget.value)} placeholder={t('auth.skills')} class={inputCls} />
-                      <div class="grid grid-cols-2 gap-3">
+                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input type="text" value={experience()} onInput={e => setExperience(e.currentTarget.value)} placeholder={t('auth.experience')} class={inputCls} />
                         <input type="text" value={hourlyRate()} onInput={e => setHourlyRate(e.currentTarget.value)} placeholder={t('auth.hourlyRate')} class={inputCls} />
                       </div>

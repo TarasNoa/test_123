@@ -23,7 +23,7 @@ export const ContextChips: Component = () => {
             onClick={() => {
               if (chip.type === 'selection') setStore('contextSelectedCode', null);
             }}
-            class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 border border-surface-3 text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors"
+            class="text-[10px] px-1.5 py-0.5 rounded-full bg-surface-2 border border-surface-3 text-muted-foreground hover:text-foreground hover:border-secondary/30 transition-colors"
           >
             {chip.label} ✕
           </button>

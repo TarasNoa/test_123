@@ -25,20 +25,23 @@ public class GetUserPostsQueryHandler : IQueryHandler<GetUserPostsQuery, List<Us
 
     public async Task<List<UserPostDto>> HandleAsync(GetUserPostsQuery query, CancellationToken cancellationToken)
     {
-        var cacheKey = $"user_posts:{query.UserId}";
+        var network = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
+        if (network == null)
+            return new List<UserPostDto>();
 
-        return await _cache.GetOrSetAsync(cacheKey, async () =>
-        {
-            var network = await _repository.GetByUserIdAsync(query.UserId, cancellationToken);
-            if (network == null)
-                return new List<UserPostDto>();
-
-            return network.Posts
-                .OrderByDescending(p => p.CreatedAt)
-                .Skip(query.Skip)
-                .Take(query.Take)
-                .Select(p => new UserPostDto(p.Id, p.Content, p.Tags, p.Likes.Count, p.Comments.Count, p.CreatedAt))
-                .ToList();
-        }, TimeSpan.FromMinutes(5));
+        return network.Posts
+            .OrderByDescending(p => p.CreatedAt)
+            .Skip(query.Skip)
+            .Take(query.Take)
+            .Select(p => new UserPostDto(
+                p.Id, 
+                p.Content, 
+                p.Tags,
+                p.Likes.Count, 
+                p.Comments.Count, 
+                p.CreatedAt,
+                p.Likes.Contains(query.UserId),
+                p.Comments.Select(c => new PostCommentDto(c.Id, c.AuthorId, c.Text, c.CreatedAt)).ToList()))
+            .ToList();
     }
 }

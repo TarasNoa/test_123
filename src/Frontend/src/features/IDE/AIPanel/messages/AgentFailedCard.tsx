@@ -12,7 +12,7 @@ export const AgentFailedCard: Component<{ msg: ChatMessage }> = (props) => {
             <button class="text-[10px] px-2 py-0.5 rounded bg-surface-3 text-foreground hover:bg-surface-2 transition-colors">Retry</button>
           </Show>
           <Show when={props.msg.canAutoFix}>
-            <button class="text-[10px] px-2 py-0.5 rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors">Auto-fix</button>
+            <button class="text-[10px] px-2 py-0.5 rounded bg-secondary/10 text-secondary hover:bg-secondary/20 transition-colors">Auto-fix</button>
           </Show>
         </div>
       </Show>

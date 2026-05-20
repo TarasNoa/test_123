@@ -132,6 +132,7 @@
     <PackageVersion Include="AspNetCore.HealthChecks.UI" Version="8.0.0" />
     <PackageVersion Include="AspNetCore.HealthChecks.UI.InMemory.Storage" Version="8.0.0" />
     <PackageVersion Include="AspNetCoreRateLimit" Version="5.0.0" />
+    <PackageVersion Include="PdfPig" Version="0.1.9" />
     <PackageVersion Include="OpenAI" Version="2.0.0" />
     <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.0.2" />
     <PackageVersion Include="Moq" Version="4.20.72" />

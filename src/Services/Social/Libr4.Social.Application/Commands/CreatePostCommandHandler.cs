@@ -27,16 +27,14 @@ public class CreatePostCommandHandler : ICommandHandler<CreatePostCommand, Guid>
 
     public async Task<Guid> Handle(CreatePostCommand command)
     {
-        var network = await _repository.GetByUserIdAsync(command.UserId);
-        if (network == null)
-            throw new InvalidOperationException("User network not found");
+        var postId = await _repository.CreatePostAsync(
+            command.UserId,
+            command.Content,
+            command.Tags,
+            command.AttachmentUrls);
 
-        network.CreatePost(command.Content, command.Tags, command.AttachmentUrls);
-        await _repository.UpdateAsync(network);
+        _logger.LogInformation("Post created: {PostId} by user {UserId}", postId, command.UserId);
 
-        var post = network.Posts.Last();
-        _logger.LogInformation($"Post created: {post.Id} by user {command.UserId}");
-
-        return post.Id;
+        return postId;
     }
 }

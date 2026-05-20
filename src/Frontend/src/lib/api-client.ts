@@ -191,6 +191,7 @@ export const userDtoSchema = z.object({
   avatarUrl: z.string().nullable().optional(),
   coverUrl: z.string().nullable().optional(),
   bio: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
   rating: z.number().nullable().optional(),
   totalEarnings: z.number().nullable().optional(),
   totalSpent: z.number().nullable().optional(),
@@ -321,6 +322,7 @@ export interface UserSkillsSummaryDto {
   overallScore: number;
   primaryExpertise: string;
   secondaryExpertise: string[];
+  recommendations: string[];
   lastAssessedAt: string | null;
 }
 
@@ -638,24 +640,26 @@ class ApiClient {
   /* ─── Posts ─── */
   async getFeed(page?: number, pageSize?: number): Promise<PostDto[]> {
     const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (pageSize) params.append('pageSize', pageSize.toString());
-    return this.request(`/api/v1/tasks/posts/feed?${params}`);
+    if (page) params.append('skip', ((page - 1) * (pageSize || 20)).toString());
+    if (pageSize) params.append('take', pageSize.toString());
+    const result = await this.request<{ id: string; content: string; tags: string[]; likes: number; comments: number; createdAt: string }[]>(`/api/v2/social/feed?${params}`);
+    return result.map(p => ({ id: p.id, content: p.content, tags: p.tags || [], createdAt: p.createdAt, likeCount: p.likes, commentCount: p.comments, viewCount: 0, isLikedByCurrentUser: false, authorId: '', mediaUrls: [] }));
   }
 
   async getMyPosts(): Promise<PostDto[]> {
-    return this.request('/api/v1/tasks/posts/my');
+    const result = await this.request<{ posts: { id: string; content: string; tags: string[]; likesCount: number; commentsCount: number; createdAt: string; isLikedByCurrentUser: boolean; comments?: { id: string; authorId: string; text: string; createdAt: string }[] }[] }>('/api/v2/social/posts');
+    return result.posts.map(p => ({ id: p.id, content: p.content, tags: p.tags || [], createdAt: p.createdAt, likeCount: p.likesCount, commentCount: p.commentsCount, viewCount: 0, isLikedByCurrentUser: p.isLikedByCurrentUser, authorId: '', mediaUrls: [], comments: p.comments || [] }));
   }
 
-  async createPost(content: string, title?: string, tags?: string[], mediaUrls?: string[]): Promise<PostDto> {
-    return this.request('/api/v1/tasks/posts', {
+  async createPost(content: string, title?: string, tags?: string[], mediaUrls?: string[]): Promise<{ postId: string }> {
+    return this.request('/api/v2/social/posts', {
       method: 'POST',
-      body: JSON.stringify({ content, title, tags, mediaUrls }),
+      body: JSON.stringify({ content, tags: tags || [], attachmentUrls: mediaUrls || [] }),
     });
   }
 
   async likePost(postId: string): Promise<void> {
-    return this.request(`/api/v1/tasks/posts/${postId}/like`, { method: 'POST' });
+    return this.request(`/api/v2/social/posts/${postId}/like`, { method: 'POST' });
   }
 
   async getRecommendedConnections(): Promise<SocialUserDto[]> {
@@ -685,16 +689,16 @@ class ApiClient {
   }
 
   async addComment(postId: string, content: string): Promise<PostCommentDto> {
-    return this.request(`/api/v1/tasks/posts/${postId}/comment`, {
+    return this.request(`/api/v2/social/posts/${postId}/comment`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ Text: content }),
     });
   }
 
   async updateProfile(name: string, bio?: string, location?: string): Promise<void> {
-    return this.request('/api/v1/social/profile', {
+    return this.request('/api/v1/profiles/me/basics', {
       method: 'PUT',
-      body: JSON.stringify({ name, bio, location }),
+      body: JSON.stringify({ headline: name, bio, location }),
     });
   }
 

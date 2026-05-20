@@ -55,6 +55,7 @@ public sealed record UserDto(
     string? AvatarUrl = null,
     string? CoverUrl = null,
     string? Bio = null,
+    string? Location = null,
     decimal? Rating = null,
     decimal? TotalEarnings = null,
     decimal? TotalSpent = null,

@@ -7,9 +7,9 @@ const Home: Component = () => {
   ];
 
   return (
-    <div class="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-8">
-      <h1 class="text-5xl font-extrabold mb-2 tracking-tight">Libr4</h1>
-      <p class="text-lg text-muted-foreground mb-10">
+    <div class="flex flex-col items-center justify-center min-h-screen bg-background text-foreground p-4 sm:p-8">
+      <h1 class="text-3xl sm:text-5xl font-extrabold mb-2 tracking-tight">Libr4</h1>
+      <p class="text-base sm:text-lg text-muted-foreground mb-6 sm:mb-10">
         AI-powered developer platform
       </p>
 
@@ -17,7 +17,7 @@ const Home: Component = () => {
         {modules.map((m) => (
           <a
             href={m.path}
-            class="group p-5 bg-surface border border-surface-3 rounded-2xl hover:border-primary/40 hover:bg-surface-2 transition-all"
+            class={`group p-5 bg-surface border border-surface-3 rounded-2xl hover:bg-surface-2 transition-all ${m.name === 'Dashboard' ? 'hover:border-primary/40' : 'hover:border-secondary/40'}`}
           >
             <div class={`w-10 h-10 ${m.color} rounded-lg mb-3 opacity-80 group-hover:opacity-100 transition-opacity`} />
             <h3 class="font-semibold text-foreground mb-1">{m.name}</h3>

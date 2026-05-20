@@ -106,14 +106,13 @@ public class GenericRepository<TEntity> : IRepository<TEntity> where TEntity : c
 
     public async Task UpdateAsync(TEntity entity)
     {
-        _dbContext.Set<TEntity>().Update(entity);
-        await Task.CompletedTask;
+        await _dbContext.SaveChangesAsync();
     }
 
     public async Task DeleteAsync(TEntity entity)
     {
         _dbContext.Set<TEntity>().Remove(entity);
-        await Task.CompletedTask;
+        await _dbContext.SaveChangesAsync();
     }
 
     public IQueryable<TEntity> Query()

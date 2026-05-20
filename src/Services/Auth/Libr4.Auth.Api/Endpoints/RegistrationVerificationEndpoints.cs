@@ -1,6 +1,9 @@
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json;
 using Libr4.Auth.Domain.Kyc;
 using Libr4.Shared.Web.Auth;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Libr4.Auth.Api.Endpoints;
@@ -41,7 +44,7 @@ public static class RegistrationVerificationEndpoints
                     d.Id,
                     d.Type.ToString(),
                     d.FileUrl,
-                    d.VerificationResult?.ToString(),
+                    d.VerificationResult != null ? d.VerificationResult.ToString() : null,
                     d.UploadedAt))
                 .ToList();
 
@@ -155,6 +158,8 @@ public static class RegistrationVerificationEndpoints
         group.MapPost("/verify", async (
             CurrentUser user,
             Application.Abstractions.IAuthDbContext db,
+            IHttpClientFactory httpClientFactory,
+            IWebHostEnvironment env,
             CancellationToken ct) =>
         {
             var verification = db.KycVerifications
@@ -165,28 +170,93 @@ public static class RegistrationVerificationEndpoints
             if (verification == null)
                 return Results.BadRequest(new { error = "No verification found. Please upload documents first." });
 
-            if (!verification.Documents.Any())
-                return Results.BadRequest(new { error = "No documents uploaded" });
+            // Read CV text from uploaded file
+            var dbUser = await db.Users.FindAsync(user.Id);
+            string? cvText = null;
+            try
+            {
+                var cvUrlProp = db.Users.Entry(dbUser!).Property("CvUrl").CurrentValue?.ToString();
+                if (!string.IsNullOrEmpty(cvUrlProp))
+                {
+                    var uploadsBase = Path.Combine(env.ContentRootPath, "uploads");
+                    var relativePath = cvUrlProp.TrimStart('/').Replace("uploads/", "");
+                    var cvPath = Path.Combine(uploadsBase, relativePath);
+                    if (!File.Exists(cvPath))
+                        cvPath = Path.Combine("C:\\app", cvUrlProp.TrimStart('/'));
+                    if (File.Exists(cvPath))
+                    {
+                        var bytes = await File.ReadAllBytesAsync(cvPath, ct);
+                        cvText = ExtractTextFromPdf(bytes);
+                    }
+                }
+            }
+            catch { }
 
-            // Mark as under review
-            verification.SubmitPersonalData(
-                user.DisplayName ?? "",
-                DateOnly.FromDateTime(DateTime.UtcNow.AddYears(-25)),
-                "",
-                "",
-                "",
-                null,
-                "",
-                "",
-                DateTimeOffset.UtcNow);
+            // Call AI service to analyze CV
+            if (!string.IsNullOrWhiteSpace(cvText))
+            {
+                try
+                {
+                    var http = httpClientFactory.CreateClient();
+                    var payload = JsonSerializer.Serialize(new { UserId = user.Id, CvText = cvText, LinkedInUrl = (string?)null, LinkedInData = (object?)null });
+                    var aiResp = await http.PostAsync("http://localhost:5006/api/v1/ai/cv-analysis",
+                        new StringContent(payload, Encoding.UTF8, "application/json"), ct);
 
-            await db.SaveChangesAsync(ct);
+                    if (aiResp.IsSuccessStatusCode)
+                    {
+                        var aiJson = await aiResp.Content.ReadAsStringAsync(ct);
+                        var aiDoc = JsonDocument.Parse(aiJson);
+                        var root = aiDoc.RootElement;
 
-            // In real implementation, this would queue a background job for AI verification
-            // For now, return that verification is in progress
+                        // Clear old skills
+                        var oldSkills = db.UserSkills.Where(s => s.UserId == user.Id).ToList();
+                        foreach (var old in oldSkills) db.UserSkills.Remove(old);
+
+                        if (root.TryGetProperty("skills", out var skillsArr))
+                        {
+                            foreach (var s in skillsArr.EnumerateArray())
+                            {
+                                db.UserSkills.Add(new Domain.Skills.UserSkill
+                                {
+                                    Id = Guid.NewGuid(),
+                                    UserId = user.Id,
+                                    Name = s.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
+                                    Score = s.TryGetProperty("score", out var sc) ? sc.GetSingle() : 50,
+                                    Level = s.TryGetProperty("level", out var lv) ? lv.GetString() ?? "Intermediate" : "Intermediate",
+                                    Source = "cv",
+                                    ExperienceYears = s.TryGetProperty("experienceYears", out var ey) ? ey.GetInt32() : 0,
+                                    Contexts = new List<string>(),
+                                    AssessedAt = DateTimeOffset.UtcNow
+                                });
+                            }
+                        }
+
+                        var oldAssessment = db.SkillAssessments.FirstOrDefault(a => a.UserId == user.Id);
+                        if (oldAssessment != null) db.SkillAssessments.Remove(oldAssessment);
+
+                        db.SkillAssessments.Add(new Domain.Skills.SkillAssessment
+                        {
+                            Id = Guid.NewGuid(),
+                            UserId = user.Id,
+                            OverallLevel = root.TryGetProperty("overallLevel", out var ol) ? ol.GetString() ?? "Mid" : "Mid",
+                            OverallScore = root.TryGetProperty("overallScore", out var os) ? os.GetSingle() : 50,
+                            PrimaryExpertise = root.TryGetProperty("primaryExpertise", out var pe) ? pe.GetString() ?? "General" : "General",
+                            SecondaryExpertise = root.TryGetProperty("secondaryExpertise", out var se)
+                                ? se.EnumerateArray().Select(x => x.GetString() ?? "").Where(x => !string.IsNullOrEmpty(x)).ToList()
+                                : new List<string>(),
+                            Recommendations = new List<string>(),
+                            AssessedAt = DateTimeOffset.UtcNow
+                        });
+
+                        await db.SaveChangesAsync(ct);
+                    }
+                }
+                catch { }
+            }
+
             return Results.Accepted($"/api/v1/verification/status", new { 
                 message = "Verification in progress",
-                verificationId = verification.Id,
+                verificationId = verification?.Id,
                 estimatedCompletionMinutes = 2
             });
         });
@@ -282,6 +352,43 @@ public static class RegistrationVerificationEndpoints
         await file.CopyToAsync(stream);
 
         return ($"/uploads/verification/{userId}/{fileName}", filePath);
+    }
+
+    private static string ExtractTextFromPdf(byte[] pdfBytes)
+    {
+        // Simple PDF text extractor - looks for text between BT and ET markers
+        var text = new StringBuilder();
+        var content = Encoding.Latin1.GetString(pdfBytes);
+        var inText = false;
+        var i = 0;
+        while (i < content.Length - 1)
+        {
+            if (i < content.Length - 1 && content[i] == 'B' && content[i + 1] == 'T')
+            {
+                inText = true;
+                i += 2;
+                continue;
+            }
+            if (i < content.Length - 1 && content[i] == 'E' && content[i + 1] == 'T')
+            {
+                inText = false;
+                i += 2;
+                continue;
+            }
+            if (inText && content[i] == '(' )
+            {
+                i++;
+                while (i < content.Length && content[i] != ')')
+                {
+                    if (content[i] >= 32 && content[i] < 127)
+                        text.Append(content[i]);
+                    i++;
+                }
+                text.Append(' ');
+            }
+            i++;
+        }
+        return text.ToString();
     }
 }
 

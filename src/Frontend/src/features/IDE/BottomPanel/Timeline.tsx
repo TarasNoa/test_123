@@ -16,7 +16,7 @@ export const Timeline: Component = () => {
         <For each={store.timelineEvents}>{(e) => (
           <div class="flex items-center gap-2 text-xs">
             <span class="text-muted-foreground w-10 text-right shrink-0">{fmt(e.start)}</span>
-            <span class={e.status === 'failed' ? 'text-error' : e.status === 'completed' ? 'text-success' : 'text-primary'}>
+            <span class={e.status === 'failed' ? 'text-error' : e.status === 'completed' ? 'text-success' : 'text-secondary'}>
               {e.status === 'failed' ? '❌' : e.status === 'completed' ? '✅' : '●'}
             </span>
             <span class="text-foreground">{e.agentType}</span>

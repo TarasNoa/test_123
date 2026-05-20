@@ -18,6 +18,8 @@ public class SocialDbContext : DbContext
             entity.HasKey(e => e.Id);
             entity.Property(e => e.UserId).IsRequired();
             entity.HasIndex(e => e.UserId).IsUnique();
+            entity.Property(e => e.CreatedAt).IsRequired();
+            entity.Property(e => e.UpdatedAt).IsRequired();
 
             entity.OwnsMany(e => e.Connections, nav =>
             {

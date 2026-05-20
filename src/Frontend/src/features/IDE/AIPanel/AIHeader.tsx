@@ -9,7 +9,7 @@ export const AIHeader: Component = () => {
       <div class="flex items-center gap-2">
         <span class="text-sm font-semibold">Libr4 AI</span>
         <Show when={activeCount() > 0}>
-          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary animate-pulse">
+          <span class="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary/10 text-secondary animate-pulse">
             ● {activeCount()} agent{activeCount() > 1 ? 's' : ''}
           </span>
         </Show>
@@ -21,7 +21,7 @@ export const AIHeader: Component = () => {
         <select
           value={store.selectedModel}
           onChange={(e) => setStore('selectedModel', e.currentTarget.value)}
-          class="text-[10px] bg-surface-2 border border-surface-3 rounded px-1.5 py-1 text-muted-foreground outline-none focus:border-primary/30"
+          class="text-[10px] bg-surface-2 border border-surface-3 rounded px-1.5 py-1 text-muted-foreground outline-none focus:border-secondary/30"
         >
           <option value="docker-model-runner">Docker Model Runner</option>
           <option value="openrouter">OpenRouter</option>

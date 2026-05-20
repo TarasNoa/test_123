@@ -25,10 +25,13 @@ export default function IDEPage() {
       {/* Main row */}
       <div class="flex-1 flex min-h-0">
         <ActivityBar />
-        <Sidebar />
+        <div class="hidden md:block">
+          <Sidebar />
+        </div>
         <Show when={store.sidebarOpen}>
           <ResizeDivider
             direction="vertical"
+            class="hidden md:block"
             onResize={(delta) => {
               const next = Math.max(160, Math.min(400, store.sidebarWidth + delta));
               setStore("sidebarWidth", next);
@@ -57,6 +60,7 @@ export default function IDEPage() {
         <Show when={store.aiPanelOpen}>
           <ResizeDivider
             direction="vertical"
+            class="hidden md:block"
             onResize={(delta) => {
               const next = Math.max(280, Math.min(500, store.aiPanelWidth - delta));
               setStore("aiPanelWidth", next);
@@ -64,7 +68,9 @@ export default function IDEPage() {
             }}
           />
         </Show>
-        <AIPanel />
+        <div class="hidden md:block">
+          <AIPanel />
+        </div>
       </div>
 
       <StatusBar />

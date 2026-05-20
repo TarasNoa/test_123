@@ -24,6 +24,10 @@ public sealed class GetCurrentUserHandler : IRequestHandler<GetCurrentUserQuery,
         if (u is null)
             return Result.Failure<UserDto>(AuthErrors.UserNotFound);
 
+        var profile = await _db.Profiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.UserId == request.UserId, ct);
+
         return new UserDto(
             u.Id, u.Email, u.DisplayName,
             u.Roles.Select(r => r.Name).ToList(),
@@ -32,7 +36,8 @@ public sealed class GetCurrentUserHandler : IRequestHandler<GetCurrentUserQuery,
             u.CompanyName, u.Industry, u.CompanySize, u.Website,
             u.Skills.AsReadOnly(), u.Experience, u.HourlyRate,
             u.Specialization, u.LinkedInUrl, u.CvUrl,
-            u.AvatarUrl, u.CoverUrl, u.Bio, u.Rating, u.TotalEarnings,
+            u.AvatarUrl, u.CoverUrl, u.Bio, profile?.Location,
+            u.Rating, u.TotalEarnings,
             u.TotalSpent, u.CompletedTasks, u.IsFreelancer, u.IsClient);
     }
 }

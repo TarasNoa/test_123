@@ -5,6 +5,7 @@ using Libr4.Shared.Kernel.Application;
 using Libr4.AI.Application;
 using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Application.Agents;
+using Libr4.AI.Domain.Chats;
 using Libr4.AI.Infrastructure.LLM;
 using Libr4.AI.Infrastructure.Persistence;
 using Libr4.AI.Infrastructure.Hooks;
@@ -98,7 +99,7 @@ public static class DependencyInjection
         services.AddHttpClient<AI.Providers.OpenRouterProvider>();
         services.AddHttpClient<AI.Providers.AlibabaCloudProvider>();
         services.AddHttpClient<AI.Providers.DockerModelRunnerProvider>();
-        services.AddHttpClient<AI.Providers.OllamaLLMProvider>();
+        services.AddHttpClient<AI.Providers.OllamaProvider>();
         services.AddHttpClient<AI.Providers.GoogleProvider>();
         services.AddHttpClient<AI.Providers.DeepSeekProvider>();
         services.AddHttpClient<AI.Providers.GLMProvider>();
@@ -107,21 +108,14 @@ public static class DependencyInjection
             var openRouter = provider.GetService<AI.Providers.OpenRouterProvider>();
             var alibabaCloud = provider.GetService<AI.Providers.AlibabaCloudProvider>();
             var dockerModelRunner = provider.GetService<AI.Providers.DockerModelRunnerProvider>();
-            var ollama = provider.GetService<AI.Providers.OllamaLLMProvider>();
+            var ollama = provider.GetService<AI.Providers.OllamaProvider>();
             var google = provider.GetService<AI.Providers.GoogleProvider>();
             var deepSeek = provider.GetService<AI.Providers.DeepSeekProvider>();
             var glm = provider.GetService<AI.Providers.GLMProvider>();
             return new AIProviderFactory(
-                new Dictionary<AIProviderType, Type>
-                {
-                    [AIProviderType.OpenRouter] = typeof(OpenRouterProvider),
-                    [AIProviderType.AlibabaCloud] = typeof(AlibabaCloudProvider),
-                    [AIProviderType.DockerModelRunner] = typeof(DockerModelRunnerProvider),
-                    [AIProviderType.Ollama] = typeof(OllamaLLMProvider),
-                    [AIProviderType.Google] = typeof(GoogleProvider),
-                    [AIProviderType.DeepSeek] = typeof(DeepSeekProvider),
-                    [AIProviderType.GLM] = typeof(GLMProvider),
-                });
+                provider,
+                provider.GetRequiredService<IConfiguration>(),
+                provider.GetRequiredService<ILogger<AIProviderFactory>>());
         });
         services.AddSingleton<LlmCircuitBreaker>();
         services.AddScoped<IAIService, AIService>();

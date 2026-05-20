@@ -45,6 +45,7 @@ public static class UserSkillsEndpoints
                 assessment?.OverallScore ?? 0,
                 assessment?.PrimaryExpertise ?? "Unknown",
                 assessment?.SecondaryExpertise ?? new List<string>(),
+                assessment?.Recommendations ?? new List<string>(),
                 assessment?.AssessedAt));
         });
 
@@ -81,6 +82,7 @@ public static class UserSkillsEndpoints
                 assessment?.OverallScore ?? 0,
                 assessment?.PrimaryExpertise ?? "Unknown",
                 assessment?.SecondaryExpertise ?? new List<string>(),
+                assessment?.Recommendations ?? new List<string>(),
                 assessment?.AssessedAt));
         }).AllowAnonymous();
 
@@ -157,16 +159,8 @@ public sealed record UserSkillsSummaryDto(
     float OverallScore,
     string PrimaryExpertise,
     List<string> SecondaryExpertise,
+    List<string> Recommendations,
     DateTimeOffset? LastAssessedAt);
-
-public sealed record SkillInputDto(
-    string Name,
-    float Score,
-    string Level,
-    string Source,
-    int ExperienceYears,
-    List<string> Contexts,
-    string AssessmentReason);
 
 public sealed record SaveSkillsAssessmentRequest(
     List<SkillInputDto> Skills,

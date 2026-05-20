@@ -42,7 +42,7 @@ export const UserProfile: Component<UserProfileProps> = (props) => {
   return (
     <div class="min-h-screen bg-background text-foreground">
       {/* Cover */}
-      <div class="relative h-52 bg-gradient-to-r from-primary/30 to-primary/10 rounded-b-2xl overflow-hidden">
+      <div class="relative h-52 bg-gradient-to-r from-primary/30 to-secondary/10 rounded-b-2xl overflow-hidden">
         <Show when={u()?.coverUrl}>
           <img src={u()!.coverUrl!} class="w-full h-full object-cover" alt="cover" />
         </Show>
@@ -54,18 +54,18 @@ export const UserProfile: Component<UserProfileProps> = (props) => {
 
       <div class="max-w-4xl mx-auto px-4">
         {/* Avatar + name */}
-        <div class="flex items-end gap-4 -mt-14 mb-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-14 mb-6">
           <div class="relative">
-            <div class="w-28 h-28 rounded-full border-4 border-background bg-surface-2 overflow-hidden">
+            <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-background bg-surface-2 overflow-hidden">
               <Show when={u()?.avatarUrl} fallback={
-                <div class="w-full h-full flex items-center justify-center text-4xl bg-primary/20">
+                <div class="w-full h-full flex items-center justify-center text-4xl bg-secondary/20">
                   {u()?.displayName?.[0]?.toUpperCase() ?? '?'}
                 </div>
               }>
                 <img src={u()!.avatarUrl!} class="w-full h-full object-cover" alt="avatar" />
               </Show>
             </div>
-            <label class="absolute bottom-0 right-0 cursor-pointer w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground text-sm hover:bg-primary/80 transition-colors">
+            <label class="absolute bottom-0 right-0 cursor-pointer w-8 h-8 bg-secondary rounded-full flex items-center justify-center text-secondary-foreground text-sm hover:bg-secondary/80 transition-colors">
               ✎
               <input type="file" accept="image/*" class="hidden" onChange={handleAvatarChange} />
             </label>
@@ -75,7 +75,7 @@ export const UserProfile: Component<UserProfileProps> = (props) => {
             <h1 class="text-2xl font-bold">{u()?.displayName ?? '—'}</h1>
             <p class="text-sm text-muted-foreground">{u()?.email}</p>
             <Show when={u()?.role}>
-              <span class="inline-block mt-1 text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full capitalize">
+              <span class="inline-block mt-1 text-xs px-2 py-0.5 bg-secondary/10 text-secondary rounded-full capitalize">
                 {u()!.role}
               </span>
             </Show>
@@ -93,7 +93,7 @@ export const UserProfile: Component<UserProfileProps> = (props) => {
         <Show when={s()}>
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
             <div class="bg-surface rounded-xl p-4 border border-surface-3 text-center">
-              <p class="text-2xl font-bold text-primary">{s()!.totalProjects}</p>
+              <p class="text-2xl font-bold text-secondary">{s()!.totalProjects}</p>
               <p class="text-xs text-muted-foreground mt-1">Projects</p>
             </div>
             <div class="bg-surface rounded-xl p-4 border border-surface-3 text-center">
@@ -118,7 +118,7 @@ export const UserProfile: Component<UserProfileProps> = (props) => {
               <h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Skills</h3>
               <div class="flex flex-wrap gap-2">
                 {u()!.skills!.map((s) => (
-                  <span class="text-xs px-2.5 py-1 bg-primary/10 text-primary rounded-full">{s}</span>
+                  <span class="text-xs px-2.5 py-1 bg-secondary/10 text-secondary rounded-full">{s}</span>
                 ))}
               </div>
             </div>
@@ -148,13 +148,13 @@ export const UserProfile: Component<UserProfileProps> = (props) => {
               <Show when={u()?.website}>
                 <div class="flex gap-2">
                   <span class="text-muted-foreground">🌐</span>
-                  <a href={u()!.website!} target="_blank" class="text-primary hover:underline truncate">{u()!.website}</a>
+                  <a href={u()!.website!} target="_blank" class="text-secondary hover:underline truncate">{u()!.website}</a>
                 </div>
               </Show>
               <Show when={u()?.linkedInUrl}>
                 <div class="flex gap-2">
                   <span class="text-muted-foreground">🔗</span>
-                  <a href={u()!.linkedInUrl!} target="_blank" class="text-primary hover:underline">LinkedIn</a>
+                  <a href={u()!.linkedInUrl!} target="_blank" class="text-secondary hover:underline">LinkedIn</a>
                 </div>
               </Show>
             </div>
@@ -167,7 +167,7 @@ export const UserProfile: Component<UserProfileProps> = (props) => {
             <h2 class="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">Portfolio</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {props.portfolio.map((item) => (
-                <div class="bg-surface rounded-xl p-4 border border-surface-3 hover:border-primary/40 transition-colors">
+                <div class="bg-surface rounded-xl p-4 border border-surface-3 hover:border-secondary/40 transition-colors">
                   <div class="flex items-start justify-between mb-2">
                     <h3 class="text-sm font-semibold">{item.title}</h3>
                     <span class={[
@@ -181,11 +181,11 @@ export const UserProfile: Component<UserProfileProps> = (props) => {
                       <span class="text-[10px] px-1.5 py-0.5 bg-surface-2 text-muted-foreground rounded">{sk}</span>
                     ))}
                   </div>
-                  <div class="flex items-center gap-4 text-[11px] text-muted-foreground">
+                  <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                     <span>❤️ {item.likeCount}</span>
                     <span>👁 {item.viewCount}</span>
-                    {item.liveUrl && <a href={item.liveUrl} target="_blank" class="text-primary hover:underline">Live ↗</a>}
-                    {item.githubUrl && <a href={item.githubUrl} target="_blank" class="text-primary hover:underline">GitHub ↗</a>}
+                    {item.liveUrl && <a href={item.liveUrl} target="_blank" class="text-secondary hover:underline">Live ↗</a>}
+                    {item.githubUrl && <a href={item.githubUrl} target="_blank" class="text-secondary hover:underline">GitHub ↗</a>}
                   </div>
                 </div>
               ))}
@@ -201,7 +201,7 @@ export const UserProfile: Component<UserProfileProps> = (props) => {
             onInput={(e) => setNewPost(e.currentTarget.value)}
             placeholder="What's on your mind?"
             rows={3}
-            class="w-full bg-background border border-surface-3 rounded-lg p-3 text-sm resize-none focus:outline-none focus:border-primary/60 text-foreground placeholder:text-muted-foreground"
+            class="w-full bg-background border border-surface-3 rounded-lg p-3 text-sm resize-none focus:outline-none focus:border-secondary/60 text-foreground placeholder:text-muted-foreground"
           />
           <div class="flex justify-end mt-2">
             <button

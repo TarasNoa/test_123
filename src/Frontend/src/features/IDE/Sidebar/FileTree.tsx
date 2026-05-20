@@ -72,18 +72,18 @@ const TreeNode: Component<{ node: FileNode; depth?: number }> = (props) => {
       <div
         class={[
           'flex items-center gap-1.5 py-0.5 pr-2 cursor-pointer select-none text-xs',
-          store.activeTabId === props.node.path ? 'text-primary bg-primary/5' : 'text-foreground hover:bg-surface-2/50',
+          store.activeTabId === props.node.path ? 'text-secondary bg-secondary/5' : 'text-foreground hover:bg-surface-2/50',
         ].join(' ')}
         style={{ 'padding-left': `${8 + depth * 12}px` }}
         onClick={toggle}
       >
         <FileIcon node={props.node} />
         <Show when={props.node.isAgentEditing}>
-          <span class="text-primary text-[8px] animate-pulse">🤖</span>
+          <span class="text-secondary text-[8px] animate-pulse">🤖</span>
         </Show>
         <span class="truncate">{props.node.name}</span>
         <Show when={props.node.isDirty}>
-          <span class="text-primary text-[6px]">●</span>
+          <span class="text-secondary text-[6px]">●</span>
         </Show>
       </div>
       <Show when={isFolder && props.node.isOpen && props.node.children && props.node.children.length > 0}>

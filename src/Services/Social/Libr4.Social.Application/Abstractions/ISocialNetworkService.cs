@@ -27,7 +27,9 @@ public record UserPostDto(
     List<string> Tags,
     int LikesCount,
     int CommentsCount,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    bool IsLikedByCurrentUser = false,
+    List<PostCommentDto>? Comments = null);
 
 public record PostDetailDto(
     Guid Id,

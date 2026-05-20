@@ -201,7 +201,7 @@ const VerificationPage: Component = () => {
     return (
       <div class={[
         "border-2 border-dashed rounded-xl p-6 text-center transition-all cursor-pointer",
-        file() ? "border-[#35E0D0] bg-[#35E0D0]/5" : "border-white/20 hover:border-white/40"
+        file() ? "border-[#9B7CFF] bg-[#9B7CFF]/5" : "border-white/20 hover:border-white/40"
       ].join(" ")}>
         <input
           type="file"
@@ -299,7 +299,7 @@ const VerificationPage: Component = () => {
             {/* Submit */}
             <button
               onClick={handleUpload}
-              class="w-full py-4 bg-gradient-to-r from-[#35E0D0] to-[#2bc4b6] text-black font-bold rounded-xl hover:opacity-90 transition-all"
+              class="w-full py-4 bg-gradient-to-r from-primary to-secondary text-black font-bold rounded-xl hover:opacity-90 transition-all"
             >
               Start Verification
             </button>
@@ -312,11 +312,11 @@ const VerificationPage: Component = () => {
             {/* Animated rings */}
             <div class="relative w-48 h-48 mx-auto mb-8">
               {/* Outer ring */}
-              <div class="absolute inset-0 rounded-full border-4 border-[#35E0D0]/20 animate-ping" style="animation-duration: 2s" />
+              <div class="absolute inset-0 rounded-full border-4 border-[#9B7CFF]/20 animate-ping" style="animation-duration: 2s" />
               {/* Middle ring */}
-              <div class="absolute inset-4 rounded-full border-4 border-[#35E0D0]/40 animate-pulse" />
+              <div class="absolute inset-4 rounded-full border-4 border-[#9B7CFF]/40 animate-pulse" />
               {/* Inner ring */}
-              <div class="absolute inset-8 rounded-full border-4 border-t-[#35E0D0] border-r-transparent border-b-[#35E0D0]/50 border-l-transparent animate-spin" />
+              <div class="absolute inset-8 rounded-full border-4 border-t-[#9B7CFF] border-r-transparent border-b-[#9B7CFF]/50 border-l-transparent animate-spin" />
               {/* Center icon */}
               <div class="absolute inset-0 flex items-center justify-center">
                 <span class="text-4xl">🔐</span>
@@ -325,12 +325,12 @@ const VerificationPage: Component = () => {
             
             {/* Stage indicator */}
             <div class="mb-6">
-              <p class="text-lg font-medium text-[#35E0D0] mb-2">
+              <p class="text-lg font-medium text-[#9B7CFF] mb-2">
                 {stages[processingStage()].name}
               </p>
               <div class="w-full bg-white/10 rounded-full h-2 overflow-hidden">
                 <div 
-                  class="h-full bg-gradient-to-r from-[#35E0D0] to-[#2bc4b6] transition-all duration-500"
+                  class="h-full bg-gradient-to-r from-[#9B7CFF] to-[#7A4BC5] transition-all duration-500"
                   style={`width: ${((processingStage() + 1) / stages.length) * 100}%`}
                 />
               </div>
@@ -339,9 +339,9 @@ const VerificationPage: Component = () => {
             {/* AI Analysis Logs */}
             <div class="bg-black/30 rounded-xl p-4 text-left font-mono text-xs space-y-1 max-h-40 overflow-hidden">
               <For each={analysisLogs()}>
-                {(log) => <div class="text-[#35E0D0]/70">{log}</div>}
+                {(log) => <div class="text-[#9B7CFF]/70">{log}</div>}
               </For>
-              <div class="animate-pulse text-[#35E0D0]">▋</div>
+              <div class="animate-pulse text-[#9B7CFF]">▋</div>
             </div>
             
             <p class="text-sm text-muted-foreground mt-6">
@@ -352,8 +352,8 @@ const VerificationPage: Component = () => {
         
         {/* Result Step */}
         <Show when={step() === 'result'}>
-          <div class="bg-surface-1/50 border border-[#35E0D0]/30 rounded-2xl p-8 text-center">
-            <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-[#35E0D0]/20 flex items-center justify-center">
+          <div class="bg-surface-1/50 border border-[#9B7CFF]/30 rounded-2xl p-8 text-center">
+            <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-[#9B7CFF]/20 flex items-center justify-center">
               <span class="text-5xl">✅</span>
             </div>
             <h2 class="text-2xl font-bold mb-2">Verification Complete!</h2>
@@ -361,7 +361,7 @@ const VerificationPage: Component = () => {
               Your identity has been verified. Redirecting to dashboard...
             </p>
             <div class="w-full bg-white/10 rounded-full h-2 overflow-hidden">
-              <div class="h-full bg-[#35E0D0] animate-pulse" style="width: 100%" />
+              <div class="h-full bg-secondary animate-pulse" style="width: 100%" />
             </div>
           </div>
         </Show>
@@ -379,7 +379,7 @@ const VerificationPage: Component = () => {
             <div class="space-y-3">
               <button
                 onClick={handleRetry}
-                class="w-full py-4 bg-gradient-to-r from-[#35E0D0] to-[#2bc4b6] text-black font-bold rounded-xl hover:opacity-90 transition-all"
+                class="w-full py-4 bg-gradient-to-r from-primary to-secondary text-black font-bold rounded-xl hover:opacity-90 transition-all"
               >
                 Try Again
               </button>

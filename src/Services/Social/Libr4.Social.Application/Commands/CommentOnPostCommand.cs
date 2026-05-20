@@ -30,13 +30,7 @@ public class CommentOnPostCommandHandler : ICommandHandler<CommentOnPostCommand>
 
     public async Task Handle(CommentOnPostCommand command)
     {
-        var network = await _repository.GetByUserIdAsync(command.UserId);
-        if (network == null)
-            throw new InvalidOperationException("User network not found");
-
-        network.CommentOnPost(command.PostId, command.UserId, command.CommentText);
-        await _repository.UpdateAsync(network);
-
+        await _repository.AddCommentAsync(command.PostId, command.UserId, command.CommentText);
         _logger.LogInformation($"Post {command.PostId} commented by user {command.UserId}");
     }
 }

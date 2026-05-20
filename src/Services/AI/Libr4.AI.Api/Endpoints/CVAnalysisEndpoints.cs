@@ -7,12 +7,12 @@ public static class CVAnalysisEndpoints
 {
     public static IEndpointRouteBuilder MapCVAnalysisEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/ai/cv-analysis")
+        var group = app.MapGroup("/api/v1/ai")
             .WithTags("CV Analysis")
             .WithOpenApi()
-            .RequireAuthorization();
+            .AllowAnonymous();
 
-        group.MapPost("/", async (
+        group.MapPost("/cv-analysis", async (
             [FromBody] CVAnalysisRequest request,
             ICVAnalysisService service,
             CancellationToken ct) =>

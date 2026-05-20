@@ -8,7 +8,7 @@ export const AILog: Component = () => {
       <div class="flex-1 overflow-y-auto p-2 font-mono text-[10px] space-y-1">
         <For each={store.aiLog}>{(msg) => (
           <div class="text-muted-foreground border-l-2 border-surface-3 pl-2">
-            <span class="text-primary">{msg.type}</span>
+            <span class="text-secondary">{msg.type}</span>
             <span class="text-muted-foreground/50 ml-1">{msg.timestamp.toLocaleTimeString()}</span>
             <pre class="mt-0.5 whitespace-pre-wrap text-[9px]">{JSON.stringify(msg, null, 2).slice(0, 200)}</pre>
           </div>

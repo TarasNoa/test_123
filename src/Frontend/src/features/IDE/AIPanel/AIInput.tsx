@@ -112,7 +112,7 @@ export const AIInput: Component = () => {
           onKeyDown={onKeyDown}
           rows={rows()}
           placeholder="Describe a task, ask a question, or @mention a file..."
-          class="w-full resize-none bg-surface-2 border border-surface-3 rounded-xl px-3 py-2 pr-16 text-xs text-foreground outline-none focus:border-primary/30 placeholder:text-muted-foreground/40 transition-colors"
+          class="w-full resize-none bg-surface-2 border border-surface-3 rounded-xl px-3 py-2 pr-16 text-xs text-foreground outline-none focus:border-secondary/30 placeholder:text-muted-foreground/40 transition-colors"
         />
         <button
           onClick={isActive() ? () => {} : send}
@@ -121,7 +121,7 @@ export const AIInput: Component = () => {
             isActive()
               ? 'bg-error/10 text-error hover:bg-error/20'
               : store.inputText.trim()
-                ? 'bg-primary/10 text-primary hover:bg-primary/20'
+                ? 'bg-secondary/10 text-secondary hover:bg-secondary/20'
                 : 'text-muted-foreground',
           ].join(' ')}
         >

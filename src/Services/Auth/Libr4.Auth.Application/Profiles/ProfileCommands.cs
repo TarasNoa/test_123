@@ -83,6 +83,16 @@ public sealed class UpdateProfileBasicsHandler(IAuthDbContext db) : IRequestHand
             await db.Profiles.AddAsync(p, ct);
         }
         p.UpdateBasics(req.Headline, req.Bio, req.Location, req.TimeZone, now);
+
+        // Sync User table so getMe() returns up-to-date data
+        var user = await db.Users.FirstOrDefaultAsync(x => x.Id == req.UserId, ct);
+        if (user is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(req.Headline))
+                user.UpdateDisplayName(req.Headline);
+            user.UpdateBio(req.Bio);
+        }
+
         await db.SaveChangesAsync(ct);
         return Result.Success(GetProfileHandler.MapToDto(p));
     }

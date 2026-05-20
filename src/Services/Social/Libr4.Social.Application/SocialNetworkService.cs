@@ -255,7 +255,7 @@ public class SocialNetworkService : ISocialNetworkService
     public async Task<List<SocialNetworkDto>> GetRecommendedConnectionsAsync(Guid userId, int topN = 10, CancellationToken cancellationToken = default)
     {
         var network = await _repository.GetByUserIdAsync(userId, cancellationToken);
-        if (network == null) throw new InvalidOperationException("Social network not found");
+        if (network == null) return new List<SocialNetworkDto>();
 
         var allUsers = await _repository.GetAllAsync(cancellationToken);
         var potentialConnections = allUsers

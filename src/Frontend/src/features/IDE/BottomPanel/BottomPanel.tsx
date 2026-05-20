@@ -18,7 +18,7 @@ export const BottomPanel: Component = () => {
   return (
     <Show when={store.bottomPanelOpen}>
       <div class="shrink-0 flex flex-col border-t border-surface-3 bg-surface overflow-hidden" style={{ height: `${store.bottomPanelHeight}px` }}>
-        <div class="shrink-0 flex items-center gap-1 px-2 border-b border-surface-3">
+        <div class="shrink-0 flex items-center gap-1 px-2 border-b border-surface-3 overflow-x-auto">
           <For each={tabs}>{(tab) => (
             <button
               onClick={() => setStore('bottomPanelTab', tab.key)}

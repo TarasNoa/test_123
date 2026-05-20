@@ -19,7 +19,7 @@ public static class DependencyInjection
 
         // Command/Query buses
         services.AddScoped<IQueryBus, QueryBus>();
-        services.AddSingleton<ICommandBus, CommandBus>();
+        services.AddScoped<ICommandBus, CommandBus>();
 
         // Caching
         services.AddStackExchangeRedisCache(options =>

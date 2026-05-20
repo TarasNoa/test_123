@@ -86,7 +86,7 @@ const Social: Component = () => {
                 class={[
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors',
                   tab() === t.id
-                    ? 'bg-primary/10 text-primary font-medium'
+                    ? 'bg-secondary/10 text-secondary font-medium'
                     : 'text-muted-foreground hover:text-foreground hover:bg-surface-2'
                 ].join(' ')}
               >
@@ -98,7 +98,7 @@ const Social: Component = () => {
 
           <button
             onClick={() => navigate('/ide')}
-            class="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+            class="px-3 py-1.5 bg-gradient-to-r from-primary to-secondary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90 transition-all"
           >
             Open IDE
           </button>
@@ -109,7 +109,7 @@ const Social: Component = () => {
       <div class="max-w-4xl mx-auto px-4 py-6">
         {loading() ? (
           <div class="flex items-center justify-center py-24">
-            <div class="animate-pulse text-primary font-medium">Loading…</div>
+            <div class="animate-pulse text-secondary font-medium">Loading…</div>
           </div>
         ) : (
           <>
@@ -133,7 +133,7 @@ const Social: Component = () => {
                     <h3 class="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
                       My Posts
                     </h3>
-                    <p class="text-2xl font-bold text-primary">{myPosts().length}</p>
+                    <p class="text-2xl font-bold text-secondary">{myPosts().length}</p>
                     <p class="text-xs text-muted-foreground mt-1">published</p>
                   </div>
                   {stats() && (

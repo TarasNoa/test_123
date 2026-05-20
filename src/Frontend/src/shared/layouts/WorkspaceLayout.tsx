@@ -33,7 +33,7 @@ export const WorkspaceLayout: Component<WorkspaceLayoutProps> = (props) => {
 
         {/* ── Sidebar ── */}
         <aside
-          class="flex-shrink-0 border-r border-surface-3 overflow-y-auto"
+          class="hidden md:flex flex-shrink-0 border-r border-surface-3 overflow-y-auto"
           style={{
             width: "240px",
             "background-color": "hsl(var(--surface))",
@@ -50,7 +50,7 @@ export const WorkspaceLayout: Component<WorkspaceLayoutProps> = (props) => {
 
         {/* ── AI Panel ── */}
         <aside
-          class="flex-shrink-0 border-l border-surface-3 overflow-y-auto flex flex-col"
+          class="hidden md:flex flex-shrink-0 border-l border-surface-3 overflow-y-auto flex flex-col"
           style={{
             width: "320px",
             "background-color": "hsl(var(--surface))",

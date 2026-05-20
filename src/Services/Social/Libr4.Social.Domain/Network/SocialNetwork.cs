@@ -261,16 +261,19 @@ public class SocialNetwork : AggregateRoot<Guid>
     public List<UserPost> Posts { get; private set; } = new();
     public List<UserActivity> ActivityFeed { get; private set; } = new();
     public DateTime CreatedAt { get; private set; }
+    public DateTime UpdatedAt { get; private set; }
 
     private SocialNetwork() { }
 
     public static SocialNetwork Create(Guid userId)
     {
+        var now = DateTime.UtcNow;
         var network = new SocialNetwork
         {
             Id = Guid.NewGuid(),
             UserId = userId,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = now,
+            UpdatedAt = now
         };
 
         network.RaiseDomainEvent(new SocialNetworkCreatedEvent(network.Id, userId, network.CreatedAt));
@@ -329,15 +332,17 @@ public class SocialNetwork : AggregateRoot<Guid>
 
     public void CreatePost(string content, List<string>? tags = null, List<string>? attachmentUrls = null)
     {
+        var now = DateTime.UtcNow;
         var post = new UserPost(
             Guid.NewGuid(),
             content,
             tags ?? new List<string>(),
             attachmentUrls ?? new List<string>(),
-            DateTime.UtcNow
+            now
         );
         Posts.Add(post);
-        ActivityFeed.Add(new UserActivity(Guid.NewGuid(), $"Created post: {content.Substring(0, Math.Min(50, content.Length))}", DateTime.UtcNow, ActivityType.PostCreated));
+        // UpdatedAt = now; // Temporarily disabled
+        // Temporarily disabled - ActivityFeed.Add(new UserActivity(Guid.NewGuid(), $"Created post: {content.Substring(0, Math.Min(50, content.Length))}", now, ActivityType.PostCreated));
         RaiseDomainEvent(new PostCreatedEvent(Id, post.Id, content, tags));
     }
 

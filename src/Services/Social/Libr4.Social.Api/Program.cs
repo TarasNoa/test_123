@@ -7,6 +7,7 @@ using Libr4.Shared.Web.Logging;
 using Libr4.Shared.Web.Swagger;
 using Libr4.Shared.Web.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,11 @@ builder.Services.AddSocialInfrastructure(builder.Configuration);
 
 // API
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.DictionaryKeyPolicy = JsonNamingPolicy.CamelCase;
+});
 builder.Services.AddSwaggerGen();
 builder.Services.AddLibr4Swagger("Social Service", "v1");
 
@@ -59,6 +65,7 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapSocialNetworkEndpoints();
+app.MapSocialNetworkEndpointsV2();
 
 // Apply pending migrations on startup
 using (var scope = app.Services.CreateScope())

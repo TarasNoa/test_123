@@ -31,12 +31,12 @@ const ActivityButton: Component<{ active: boolean; icon: any; onClick: () => voi
     onClick={props.onClick}
     class={[
       'relative w-full flex items-center justify-center py-3 rounded-lg transition-all',
-      props.active ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:text-foreground',
+      props.active ? 'text-secondary bg-secondary/10' : 'text-muted-foreground hover:text-foreground',
     ].join(' ')}
   >
     {props.icon}
     <Show when={props.active}>
-      <div class="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-6 bg-primary rounded-r" />
+      <div class="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-6 bg-secondary rounded-r" />
     </Show>
   </button>
 );

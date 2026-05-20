@@ -8,7 +8,7 @@ export const ParallelGroupCard: Component<{ msg: ChatMessage }> = (props) => {
       <div class="space-y-1.5">
         <For each={props.msg.agents}>{(a) => (
           <div class="flex items-center gap-2 text-xs">
-            <span class="text-primary">🤖 {a.agentType}</span>
+            <span class="text-secondary">🤖 {a.agentType}</span>
             <span class="text-muted-foreground text-[10px]">{a.task}</span>
             <div class="flex-1 h-1 bg-surface-3 rounded-full overflow-hidden max-w-[80px]">
               <div class="h-full bg-secondary rounded-full" style={{ width: `${a.progress}%` }} />

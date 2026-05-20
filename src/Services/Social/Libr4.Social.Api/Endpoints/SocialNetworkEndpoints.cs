@@ -8,7 +8,7 @@ public static class SocialNetworkEndpoints
 {
     public static void MapSocialNetworkEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/social")
+        var group = app.MapGroup("/api/v1/social")
             .WithTags("Social Network")
             .RequireAuthorization();
 
@@ -167,7 +167,7 @@ public static class SocialNetworkEndpoints
     {
         var userId = Guid.Parse(context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? throw new UnauthorizedAccessException());
         var post = await service.CreatePostAsync(userId, request);
-        return Results.Created($"/api/social/posts/{post.Id}", new { post });
+        return Results.Created($"/api/v1/social/posts/{post.Id}", new { post });
     }
 
     private static async Task<IResult> DeletePost(Guid postId, HttpContext context, ISocialNetworkService service)

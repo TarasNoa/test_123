@@ -23,7 +23,7 @@ const App: Component = () => {
     <Router>
       <Suspense fallback={
         <div class="flex items-center justify-center min-h-screen bg-background text-foreground">
-          <div class="animate-pulse text-primary font-medium">Loading...</div>
+          <div class="animate-pulse text-secondary font-medium">Loading...</div>
         </div>
       }>
         <Route path="/" component={Home} />

@@ -9,4 +9,6 @@ public interface ISocialNetworkRepository
     Task<List<SocialNetwork>> GetAllAsync(CancellationToken cancellationToken = default);
     Task AddAsync(SocialNetwork network, CancellationToken cancellationToken = default);
     Task UpdateAsync(SocialNetwork network, CancellationToken cancellationToken = default);
+    Task<Guid> CreatePostAsync(Guid userId, string content, List<string> tags, List<string> attachmentUrls, CancellationToken cancellationToken = default);
+    Task AddCommentAsync(Guid postId, Guid authorId, string text, CancellationToken cancellationToken = default);
 }

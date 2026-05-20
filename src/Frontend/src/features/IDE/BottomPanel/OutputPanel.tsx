@@ -7,7 +7,7 @@ export const OutputPanel: Component = () => {
       case 'error': return 'text-error';
       case 'warn': return 'text-warning';
       case 'build': return 'text-secondary';
-      case 'agent': return 'text-primary';
+      case 'agent': return 'text-secondary';
       default: return 'text-muted-foreground';
     }
   };
@@ -18,9 +18,9 @@ export const OutputPanel: Component = () => {
         <span class="text-[10px] text-muted-foreground uppercase tracking-wider">Output</span>
         <button onClick={() => setStore('outputLog', [])} class="text-[10px] text-muted-foreground hover:text-foreground">Clear</button>
       </div>
-      <div class="flex-1 overflow-y-auto p-2 font-mono text-[11px] space-y-0.5">
+      <div class="flex-1 overflow-y-auto overflow-x-hidden p-2 font-mono text-[11px] space-y-0.5">
         <For each={store.outputLog}>{(entry) => (
-          <div class={levelColor(entry.level)}>
+          <div class={`break-words ${levelColor(entry.level)}`}>
             <span class="text-muted-foreground/50">{entry.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>{' '}
             {entry.text}
           </div>

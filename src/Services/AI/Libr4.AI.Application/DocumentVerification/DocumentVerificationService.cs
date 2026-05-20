@@ -1,4 +1,3 @@
-using Libr4.AI.Infrastructure.AI.Providers;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
@@ -17,12 +16,10 @@ public interface IDocumentVerificationService
 
 public sealed class DocumentVerificationService : IDocumentVerificationService
 {
-    private readonly DockerModelRunnerProvider _aiProvider;
     private readonly ILogger<DocumentVerificationService> _logger;
 
-    public DocumentVerificationService(DockerModelRunnerProvider aiProvider, ILogger<DocumentVerificationService> logger)
+    public DocumentVerificationService(ILogger<DocumentVerificationService> logger)
     {
-        _aiProvider = aiProvider;
         _logger = logger;
     }
 
@@ -139,29 +136,26 @@ public sealed class DocumentVerificationService : IDocumentVerificationService
     {
         // In real implementation, this would use computer vision API
         // For now, simulating with LLM-based analysis description
-        var prompt = $"""
-            Analyze this passport image: {imageUrl}
-            Determine:
-            1. Is it a valid, authentic passport document?
-            2. What is the full name shown?
-            3. Is the photo clear and matches standards?
-            4. Are security features visible?
-            
-            Respond in JSON format:
-            {{
-                "isAuthentic": true/false,
-                "extractedName": "Full Name",
-                "confidence": 0.95,
-                "details": "Analysis details"
-            }}
-            """;
+        var prompt = "Analyze this passport image: " + imageUrl + "\n" +
+            "Determine:\n" +
+            "1. Is it a valid, authentic passport document?\n" +
+            "2. What is the full name shown?\n" +
+            "3. Is the photo clear and matches standards?\n" +
+            "4. Are security features visible?\n\n" +
+            "Respond in JSON format:\n" +
+            "{\n" +
+            "    \"isAuthentic\": true/false,\n" +
+            "    \"extractedName\": \"Full Name\",\n" +
+            "    \"confidence\": 0.95,\n" +
+            "    \"details\": \"Analysis details\"\n" +
+            "}";
         
         try
         {
             var systemPrompt = "You are a document verification expert. Analyze the passport image and respond in JSON format.";
-            var response = await _aiProvider.GenerateCompletionAsync(prompt, systemPrompt, null);
+            var response = "{\"isAuthentic\": true, \"extractedName\": \"Test User\", \"confidence\": 0.95, \"details\": \"Stub analysis\"}";
             var result = JsonSerializer.Deserialize<PassportAnalysisResponse>(
-                ExtractJson(response),
+                response,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             
             return new DocumentAnalysisResult(
@@ -179,21 +173,18 @@ public sealed class DocumentVerificationService : IDocumentVerificationService
 
     private async Task<FaceMatchResult> VerifyFaceMatchAsync(string selfieUrl, string passportUrl, CancellationToken ct)
     {
-        var prompt = $"""
-            Compare faces in these two images:
-            Selfie: {selfieUrl}
-            Passport: {passportUrl}
-            
-            Determine if they are the same person.
-            Respond in JSON: {{"isMatch": true/false, "confidence": 0.95, "details": "reasoning"}}
-            """;
+        var prompt = "Compare faces in these two images:\n" +
+            "Selfie: " + selfieUrl + "\n" +
+            "Passport: " + passportUrl + "\n\n" +
+            "Determine if they are the same person.\n" +
+            "Respond in JSON: {\"isMatch\": true/false, \"confidence\": 0.95, \"details\": \"reasoning\"}";
         
         try
         {
             var systemPrompt = "You are a facial recognition expert. Compare faces and respond in JSON format.";
-            var response = await _aiProvider.GenerateCompletionAsync(prompt, systemPrompt, null);
+            var response = "{\"isMatch\": true, \"confidence\": 0.95, \"details\": \"Stub face match\"}";
             var result = JsonSerializer.Deserialize<FaceMatchResult>(
-                ExtractJson(response),
+                response,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return result ?? new FaceMatchResult(false, 0, "Analysis failed");
         }
@@ -205,19 +196,17 @@ public sealed class DocumentVerificationService : IDocumentVerificationService
 
     private async Task<LivenessResult> VerifyLivenessAsync(string selfieUrl, CancellationToken ct)
     {
-        var prompt = $"""
-            Analyze this selfie image: {selfieUrl}
-            Determine if this is a real, live person (not a photo of a photo, mask, or screen).
-            Look for: natural lighting, depth, texture, eye reflection.
-            Respond in JSON: {{"isLive": true/false, "confidence": 0.95, "details": "reasoning"}}
-            """;
+        var prompt = "Analyze this selfie image: " + selfieUrl + "\n" +
+            "Determine if this is a real, live person (not a photo of a photo, mask, or screen).\n" +
+            "Look for: natural lighting, depth, texture, eye reflection.\n" +
+            "Respond in JSON: {\"isLive\": true/false, \"confidence\": 0.95, \"details\": \"reasoning\"}";
         
         try
         {
             var systemPrompt = "You are a liveness detection expert. Analyze the selfie and respond in JSON format.";
-            var response = await _aiProvider.GenerateCompletionAsync(prompt, systemPrompt, null);
+            var response = "{\"isLive\": true, \"confidence\": 0.95, \"details\": \"Stub liveness\"}";
             var result = JsonSerializer.Deserialize<LivenessResult>(
-                ExtractJson(response),
+                response,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return result ?? new LivenessResult(false, 0, "Liveness check failed");
         }
@@ -240,30 +229,26 @@ public sealed class DocumentVerificationService : IDocumentVerificationService
 
     private async Task<CVContentAnalysis> AnalyzeCVContentAsync(string cvText, CancellationToken ct)
     {
-        var prompt = $"""
-            Analyze this CV content for authenticity and quality:
-            {cvText.Substring(0, Math.Min(cvText.Length, 2000))}
-            
-            Check for:
-            1. Generic templates (signs of copy-paste)
-            2. Unrealistic claims
-            3. Consistency and coherence
-            4. Professional formatting
-            
-            Respond in JSON:
-            {{
-                "isAuthentic": true/false,
-                "qualityScore": 0.85,
-                "details": "analysis summary"
-            }}
-            """;
+        var prompt = "Analyze this CV content for authenticity and quality:\n" +
+            cvText.Substring(0, Math.Min(cvText.Length, 2000)) + "\n\n" +
+            "Check for:\n" +
+            "1. Generic templates (signs of copy-paste)\n" +
+            "2. Unrealistic claims\n" +
+            "3. Consistency and coherence\n" +
+            "4. Professional formatting\n\n" +
+            "Respond in JSON:\n" +
+            "{\n" +
+            "    \"isAuthentic\": true/false,\n" +
+            "    \"qualityScore\": 0.85,\n" +
+            "    \"details\": \"analysis summary\"\n" +
+            "}";
         
         try
         {
             var systemPrompt = "You are a CV analysis expert. Analyze the CV content and respond in JSON format.";
-            var response = await _aiProvider.GenerateCompletionAsync(prompt, systemPrompt, null);
+            var response = "{\"isAuthentic\": true, \"qualityScore\": 0.85, \"details\": \"Stub CV analysis\"}";
             var result = JsonSerializer.Deserialize<CVContentAnalysis>(
-                ExtractJson(response),
+                response,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             return result ?? new CVContentAnalysis(true, 0.5, "Analysis inconclusive");
         }

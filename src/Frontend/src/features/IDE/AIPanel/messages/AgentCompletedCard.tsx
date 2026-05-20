@@ -18,8 +18,8 @@ export const AgentCompletedCard: Component<{ msg: ChatMessage }> = (props) => {
         </div>
       </Show>
       <Show when={props.msg.nextStep}>
-        <div class="text-[11px] text-primary mb-1">
-          <span class="text-muted-foreground">Next:</span> {props.msg.nextStep}
+        <div class="text-[11px] mb-1">
+          <span class="text-muted-foreground">Next:</span> <span class="text-secondary">{props.msg.nextStep}</span>
         </div>
       </Show>
       <Show when={props.msg.filesModified && props.msg.filesModified.length > 0}>

@@ -25,7 +25,7 @@ export const EditorTabs: Component = () => {
       <Show when={store.diffTabId}>
         <button
           onClick={() => setStore('diffTabId', null)}
-          class="shrink-0 px-3 py-2 text-xs text-primary hover:text-foreground transition-colors border-r border-surface-3"
+          class="shrink-0 px-3 py-2 text-xs text-secondary hover:text-foreground transition-colors border-r border-surface-3"
         >
           ← Exit Diff
         </button>
@@ -35,7 +35,7 @@ export const EditorTabs: Component = () => {
           class={[
             'group flex items-center gap-1.5 px-3 py-2 text-xs border-r border-surface-3 cursor-pointer select-none whitespace-nowrap transition-all min-w-0',
             store.activeTabId === tab.id
-              ? 'text-foreground bg-surface-2 border-b-2 border-b-primary -mb-[1px]'
+              ? 'text-foreground bg-surface-2 border-b-2 border-b-secondary -mb-[1px]'
               : 'text-muted-foreground hover:text-foreground hover:bg-surface-2/50',
           ].join(' ')}
           onClick={() => setStore('activeTabId', tab.id)}
@@ -43,10 +43,10 @@ export const EditorTabs: Component = () => {
           {fileIcon(tab.name)}
           <span class="truncate max-w-[140px]">{tab.name}</span>
           <Show when={tab.isDirty}>
-            <span class="text-primary text-[8px] leading-none">●</span>
+            <span class="text-secondary text-[8px] leading-none">●</span>
           </Show>
           <Show when={tab.isAgentEditing}>
-            <span class="text-primary text-[8px] animate-pulse">🤖</span>
+            <span class="text-secondary text-[8px] animate-pulse">🤖</span>
           </Show>
           <button
             onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}

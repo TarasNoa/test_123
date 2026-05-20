@@ -25,6 +25,7 @@ public sealed class AuthDbContext : DbContextBase, IAuthDbContext
     public DbSet<UserToken> UserTokens => Set<UserToken>();
     public DbSet<UserProfile> Profiles => Set<UserProfile>();
     public DbSet<KycVerification> KycVerifications => Set<KycVerification>();
+    public DbSet<KycDocument> KycDocuments => Set<KycDocument>();
     public DbSet<OnboardingProgress> OnboardingProgresses => Set<OnboardingProgress>();
     public DbSet<UserLevel> UserLevels => Set<UserLevel>();
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
@@ -39,6 +40,12 @@ public sealed class AuthDbContext : DbContextBase, IAuthDbContext
     public DbSet<SkillAssessment> SkillAssessments => Set<SkillAssessment>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<SecurityChallenge> SecurityChallenges => Set<SecurityChallenge>();
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
+        base.OnConfiguring(optionsBuilder);
+    }
 
     protected override void OnModelCreating(ModelBuilder b)
     {

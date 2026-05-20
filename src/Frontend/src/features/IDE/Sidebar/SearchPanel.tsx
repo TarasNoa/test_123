@@ -29,7 +29,7 @@ export const SearchPanel: Component = () => {
           value={query()}
           onInput={(e) => { setQuery(e.currentTarget.value); search(); }}
           placeholder="Search files..."
-          class="w-full bg-surface-2 border border-surface-3 rounded px-2 py-1 text-xs text-foreground outline-none focus:border-primary/30 placeholder:text-muted-foreground/40"
+          class="w-full bg-surface-2 border border-surface-3 rounded px-2 py-1 text-xs text-foreground outline-none focus:border-secondary/30 placeholder:text-muted-foreground/40"
         />
       </div>
       <div class="flex-1 overflow-y-auto px-2">

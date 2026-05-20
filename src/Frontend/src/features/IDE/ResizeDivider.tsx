@@ -49,9 +49,9 @@ export const ResizeDivider: Component<ResizeDividerProps> = (props) => {
   return (
     <div
       class={[
-        'shrink-0 hover:bg-primary/30 transition-colors z-50',
+        'shrink-0 hover:bg-secondary/30 transition-colors z-50',
         isVertical() ? 'w-[3px] cursor-col-resize' : 'h-[3px] cursor-row-resize',
-        isDragging() ? 'bg-primary/40' : 'bg-transparent',
+        isDragging() ? 'bg-secondary/40' : 'bg-transparent',
         props.class || '',
       ].join(' ')}
       onMouseDown={onMouseDown}

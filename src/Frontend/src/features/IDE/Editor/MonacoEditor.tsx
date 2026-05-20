@@ -74,9 +74,9 @@ export const MonacoEditor: Component = () => {
             'editor.background': '#0F131A',
             'editor.foreground': '#F5F7FA',
             'editorLineNumber.foreground': '#98A2B6',
-            'editor.selectionBackground': '#1E3A3A',
+            'editor.selectionBackground': '#2E1E3A',
             'editor.lineHighlightBackground': '#1A1F2A',
-            'editorCursor.foreground': '#35E0D0',
+            'editorCursor.foreground': '#9B7CFF',
             'editorIndentGuide.background': '#1D2430',
           },
         });

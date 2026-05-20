@@ -38,48 +38,52 @@ const UserCard: Component<{
   };
 
   return (
-    <div class="flex items-center gap-3 p-3 bg-surface rounded-xl border border-surface-3 hover:border-primary/30 transition-colors">
-      <div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-semibold text-primary shrink-0 overflow-hidden">
-        <Show when={props.user.avatarUrl} fallback={
-          <span>{props.user.displayName?.[0]?.toUpperCase() ?? '?'}</span>
-        }>
-          <img src={props.user.avatarUrl!} class="w-full h-full object-cover" alt="" />
-        </Show>
+    <div class="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-surface rounded-xl border border-surface-3 hover:border-secondary/30 transition-colors">
+      <div class="flex items-center gap-3 flex-1 min-w-0">
+        <div class="w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center text-sm font-semibold text-secondary shrink-0 overflow-hidden">
+          <Show when={props.user.avatarUrl} fallback={
+            <span>{props.user.displayName?.[0]?.toUpperCase() ?? '?'}</span>
+          }>
+            <img src={props.user.avatarUrl!} class="w-full h-full object-cover" alt="" />
+          </Show>
+        </div>
+
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-foreground truncate">{props.user.displayName}</p>
+          <Show when={props.user.role}>
+            <p class="text-xs text-muted-foreground capitalize">{props.user.role}</p>
+          </Show>
+          <Show when={props.user.skills?.length}>
+            <div class="flex flex-wrap gap-1 mt-1">
+              {props.user.skills!.slice(0, 3).map((s) => (
+                <span class="text-[10px] px-1.5 py-0.5 bg-secondary/10 text-secondary rounded">{s}</span>
+              ))}
+              {props.user.skills!.length > 3 && (
+                <span class="text-[10px] text-muted-foreground">+{props.user.skills!.length - 3}</span>
+              )}
+            </div>
+          </Show>
+        </div>
       </div>
 
-      <div class="flex-1 min-w-0">
-        <p class="text-sm font-medium text-foreground truncate">{props.user.displayName}</p>
-        <Show when={props.user.role}>
-          <p class="text-xs text-muted-foreground capitalize">{props.user.role}</p>
+      <div class="flex items-center gap-3 self-end sm:self-auto">
+        <Show when={props.user.rating}>
+          <span class="text-xs text-warning shrink-0">{props.user.rating!.toFixed(1)} ★</span>
         </Show>
-        <Show when={props.user.skills?.length}>
-          <div class="flex flex-wrap gap-1 mt-1">
-            {props.user.skills!.slice(0, 3).map((s) => (
-              <span class="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded">{s}</span>
-            ))}
-            {props.user.skills!.length > 3 && (
-              <span class="text-[10px] text-muted-foreground">+{props.user.skills!.length - 3}</span>
-            )}
-          </div>
-        </Show>
+
+        <button
+          onClick={handleToggle}
+          disabled={loading()}
+          class={[
+            'shrink-0 text-xs px-3 py-1.5 rounded-lg transition-colors',
+            props.isFollowing
+              ? 'bg-surface-2 text-muted-foreground hover:bg-surface-3 border border-surface-3'
+              : 'bg-primary text-primary-foreground hover:bg-primary/90'
+          ].join(' ')}
+        >
+          {loading() ? '…' : props.isFollowing ? 'Unfollow' : 'Follow'}
+        </button>
       </div>
-
-      <Show when={props.user.rating}>
-        <span class="text-xs text-warning shrink-0">{props.user.rating!.toFixed(1)} ★</span>
-      </Show>
-
-      <button
-        onClick={handleToggle}
-        disabled={loading()}
-        class={[
-          'shrink-0 text-xs px-3 py-1.5 rounded-lg transition-colors',
-          props.isFollowing
-            ? 'bg-surface-2 text-muted-foreground hover:bg-surface-3 border border-surface-3'
-            : 'bg-primary text-primary-foreground hover:bg-primary/90'
-        ].join(' ')}
-      >
-        {loading() ? '…' : props.isFollowing ? 'Unfollow' : 'Follow'}
-      </button>
     </div>
   );
 };

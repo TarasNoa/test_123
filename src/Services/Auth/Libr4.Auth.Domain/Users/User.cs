@@ -232,4 +232,16 @@ public class User : AggregateRoot<Guid>
         CoverUrl = url;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
+
+    public void UpdateDisplayName(string displayName)
+    {
+        Username = displayName;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+    public void UpdateBio(string? bio)
+    {
+        Bio = bio;
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
 }

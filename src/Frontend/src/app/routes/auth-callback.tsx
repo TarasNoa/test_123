@@ -37,8 +37,8 @@ const AuthCallback: Component = () => {
 
   return (
     <div class="flex flex-col items-center justify-center min-h-screen bg-background gap-4">
-      <div class="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-        <span class="text-primary font-bold">L4</span>
+      <div class="w-12 h-12 rounded-2xl bg-secondary/10 border border-secondary/20 flex items-center justify-center">
+        <span class="text-secondary font-bold">L4</span>
       </div>
       <p class="text-sm text-muted-foreground animate-pulse">Completing sign in...</p>
     </div>

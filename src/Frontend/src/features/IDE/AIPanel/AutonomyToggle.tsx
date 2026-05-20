@@ -21,7 +21,7 @@ export const AutonomyToggle: Component = () => {
           class={[
             'flex-1 text-[10px] font-medium py-1 rounded transition-all',
             store.autonomyLevel === level.key
-              ? 'bg-primary/10 text-primary'
+              ? 'bg-secondary/10 text-secondary'
               : 'text-muted-foreground hover:text-foreground hover:bg-surface-2/50',
           ].join(' ')}
         >

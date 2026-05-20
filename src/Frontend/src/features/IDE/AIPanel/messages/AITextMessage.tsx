@@ -39,7 +39,7 @@ export const AITextMessage: Component<{ msg: ChatMessage }> = (props) => {
     <div class="max-w-[95%] text-xs text-foreground leading-relaxed">
       {renderMarkdown(props.msg.text || '')}
       <Show when={props.msg.isStreaming}>
-        <span class="inline-block w-2 h-4 bg-primary ml-0.5 animate-pulse" />
+        <span class="inline-block w-2 h-4 bg-secondary ml-0.5 animate-pulse" />
       </Show>
     </div>
   );

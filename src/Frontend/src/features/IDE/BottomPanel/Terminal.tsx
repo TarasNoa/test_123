@@ -16,9 +16,9 @@ export const Terminal: Component = () => {
       theme: {
         background: '#0F131A',
         foreground: '#F5F7FA',
-        cursor: '#35E0D0',
+        cursor: '#9B7CFF',
         cursorAccent: '#0F131A',
-        selectionBackground: 'rgba(53,224,208,0.2)',
+        selectionBackground: 'rgba(155,124,255,0.2)',
         black: '#0F131A', brightBlack: '#3D4A5C',
         red: '#EF4444', brightRed: '#F87171',
         green: '#10B981', brightGreen: '#34D399',
@@ -44,7 +44,7 @@ export const Terminal: Component = () => {
       term.focus();
     }, 50);
 
-    term.writeln('\x1b[1;36mWelcome to Libr4 Terminal\x1b[0m');
+    term.writeln('\x1b[1;35mWelcome to Libr4 Terminal\x1b[0m');
     term.writeln('');
 
     const sessionId = store.sessionId || 'default';
