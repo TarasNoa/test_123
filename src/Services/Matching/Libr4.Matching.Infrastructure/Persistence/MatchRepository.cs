@@ -69,4 +69,7 @@ public sealed class MatchRepository : IMatchRepository
         });
         await _db.SaveChangesAsync(ct);
     }
+
+    public Task<FreelancerStats?> GetFreelancerStatsAsync(Guid freelancerId, CancellationToken ct = default)
+        => Task.FromResult<FreelancerStats?>(null);
 }

@@ -63,6 +63,14 @@ public static class DependencyInjection
             client.Timeout = TimeSpan.FromSeconds(10);
         });
 
+        // HTTP client to fetch skills from Auth API
+        var authApiUrl = configuration["Services:AuthApiUrl"] ?? "http://localhost:5001";
+        services.AddHttpClient<IUserSkillsClient, HttpUserSkillsClient>(client =>
+        {
+            client.BaseAddress = new Uri(authApiUrl);
+            client.Timeout = TimeSpan.FromSeconds(10);
+        });
+
         // MassTransit with RabbitMQ
         services.AddLibr4MassTransit(configuration, x =>
         {

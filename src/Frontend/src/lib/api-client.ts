@@ -276,6 +276,19 @@ export interface SocialUserDto {
   isFollowing: boolean;
 }
 
+export interface RecommendedTaskDto {
+  taskId: string;
+  totalScore: number;
+  semanticScore: number;
+  matchingSkills: string[];
+  explanation: string;
+}
+
+export interface RecommendedTasksResponse {
+  freelancerId: string;
+  tasks: RecommendedTaskDto[];
+}
+
 export interface TrendingTag {
   tag: string;
   count: number;
@@ -664,6 +677,17 @@ class ApiClient {
   async getRecommendedConnections(): Promise<SocialUserDto[]> {
     try {
       return await this.request('/api/v2/social/recommendations');
+    } catch {
+      return [];
+    }
+  }
+
+  async getRecommendedTasks(topK = 10): Promise<RecommendedTaskDto[]> {
+    try {
+      const result = await this.request<RecommendedTasksResponse>(
+        `/api/v1/matching/recommendations/tasks?topK=${topK}`
+      );
+      return result.tasks;
     } catch {
       return [];
     }

@@ -11,6 +11,7 @@ public sealed class HybridMatchingService : IMatchingService
     private readonly IVectorIndex _vectorIndex;
     private readonly IMatchRepository _matchRepo;
     private readonly ITaskDataClient _taskClient;
+    private readonly IUserSkillsClient _skillsClient;
     private readonly ILogger<HybridMatchingService> _logger;
 
     public HybridMatchingService(
@@ -18,12 +19,14 @@ public sealed class HybridMatchingService : IMatchingService
         IVectorIndex vectorIndex,
         IMatchRepository matchRepo,
         ITaskDataClient taskClient,
+        IUserSkillsClient skillsClient,
         ILogger<HybridMatchingService> logger)
     {
         _embeddings = embeddings;
         _vectorIndex = vectorIndex;
         _matchRepo = matchRepo;
         _taskClient = taskClient;
+        _skillsClient = skillsClient;
         _logger = logger;
     }
 
@@ -111,36 +114,102 @@ public sealed class HybridMatchingService : IMatchingService
         int topK = 20,
         CancellationToken ct = default)
     {
-        var weights = await _matchRepo.GetCurrentWeightsAsync(ct);
-        var freelancerEmbedding = await _embeddings.EmbedAsync($"freelancer:{freelancerId}", ct);
+        FreelancerSkillSummary? skillSummary = null;
+        try
+        {
+            skillSummary = await _skillsClient.GetFreelancerSkillsAsync(freelancerId, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not fetch skills for freelancer {Id}, using generic search", freelancerId);
+        }
 
+        string queryText;
+        if (skillSummary is { Skills.Count: > 0 })
+        {
+            var profile = new FreelancerMatchProfile
+            {
+                FreelancerId = freelancerId,
+                OverallLevel = skillSummary.OverallLevel,
+                PrimaryExpertise = skillSummary.PrimaryExpertise,
+                SecondaryExpertise = skillSummary.SecondaryExpertise,
+                SkillScores = skillSummary.Skills.ToDictionary(s => s.Name, s => s.Score),
+                SkillLevels = skillSummary.Skills.ToDictionary(s => s.Name, s => s.Level),
+                SkillExperienceYears = skillSummary.Skills.ToDictionary(s => s.Name, s => s.ExperienceYears),
+            };
+            queryText = profile.BuildEmbeddingText();
+        }
+        else
+        {
+            queryText = "software development programming task project";
+        }
+
+        _logger.LogInformation(
+            "Finding tasks for freelancer {Id}. Query: '{Query}'",
+            freelancerId, queryText.Length > 80 ? queryText[..80] + "..." : queryText);
+
+        var queryEmbedding = await _embeddings.EmbedAsync(queryText, ct);
         var candidates = await _vectorIndex.SearchTasksAsync(
-            freelancerEmbedding, topK: topK, minScore: 0.35f, ct: ct);
+            queryEmbedding, topK: topK * 2, minScore: 0.30f, ct: ct);
 
-        return candidates.Select(c => new MatchResult(
-            FreelancerId: freelancerId,
-            TaskId: c.Id,
-            TotalScore: c.Score,
-            KeywordScore: 0f,
-            SemanticScore: c.Score,
-            MatchingSkills: Array.Empty<string>(),
-            Explanation: "Семантически близкая задача.")).ToList();
+        if (!candidates.Any()) return Array.Empty<MatchResult>();
+
+        var results = candidates
+            .Take(topK)
+            .Select(c =>
+            {
+                var taskSkills = c.Payload.TryGetValue("skills", out var ts)
+                    ? ts.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).ToArray()
+                    : Array.Empty<string>();
+
+                var matchingSkills = skillSummary is not null
+                    ? taskSkills.Intersect(
+                        skillSummary.Skills.Select(s => s.Name),
+                        StringComparer.OrdinalIgnoreCase).ToArray()
+                    : Array.Empty<string>();
+
+                var explanation = BuildExplanation(skillSummary, matchingSkills, c.Score);
+
+                return new MatchResult(
+                    FreelancerId: freelancerId,
+                    TaskId: c.Id,
+                    TotalScore: c.Score,
+                    KeywordScore: matchingSkills.Any() ? 0.5f * matchingSkills.Length / Math.Max(taskSkills.Length, 1) : 0f,
+                    SemanticScore: c.Score,
+                    MatchingSkills: matchingSkills,
+                    Explanation: explanation);
+            }).ToList();
+
+        return results;
     }
 
     public async Task IndexFreelancerAsync(FreelancerMatchProfile profile, CancellationToken ct = default)
     {
-        var text = $"{string.Join(", ", profile.Skills)} {string.Join(", ", profile.Interests)}";
+        var text = profile.BuildEmbeddingText();
         var embedding = await _embeddings.EmbedAsync(text, ct);
 
-        await _vectorIndex.UpsertFreelancerAsync(profile.FreelancerId, embedding,
-            new Dictionary<string, object>
-            {
-                ["skills"]          = string.Join(",", profile.Skills),
-                ["rating"]          = profile.AverageRating.ToString("F2"),
-                ["completed_tasks"] = profile.CompletedTasks.ToString(),
-                ["rate_min"]        = profile.HourlyRateMin.ToString(),
-                ["rate_max"]        = profile.HourlyRateMax.ToString(),
-            }, ct);
+        var payload = new Dictionary<string, object>
+        {
+            ["skills"]          = string.Join(",", profile.Skills),
+            ["rating"]          = profile.AverageRating.ToString("F2"),
+            ["completed_tasks"] = profile.CompletedTasks.ToString(),
+            ["rate_min"]        = profile.HourlyRateMin.ToString(),
+            ["rate_max"]        = profile.HourlyRateMax.ToString(),
+            ["overall_level"]   = profile.OverallLevel,
+            ["overall_score"]   = profile.OverallScore.ToString("F1"),
+            ["primary_expertise"] = profile.PrimaryExpertise,
+        };
+
+        if (profile.SkillScores.Any())
+        {
+            var topSkills = profile.SkillScores
+                .OrderByDescending(x => x.Value)
+                .Take(10)
+                .Select(x => $"{x.Key}:{x.Value:F0}");
+            payload["skill_scores"] = string.Join(",", topSkills);
+        }
+
+        await _vectorIndex.UpsertFreelancerAsync(profile.FreelancerId, embedding, payload, ct);
     }
 
     public async Task IndexTaskAsync(TaskMatchProfile profile, CancellationToken ct = default)
@@ -197,5 +266,20 @@ public sealed class HybridMatchingService : IMatchingService
             currentWeights, fsMatchScore, fsFeedback, 0.01);
 
         await _matchRepo.SaveWeightsAsync(newWeights, ct);
+    }
+
+    private static string BuildExplanation(
+        FreelancerSkillSummary? summary,
+        string[] matchingSkills,
+        float score)
+    {
+        if (summary is null)
+            return $"Semantically similar task (score: {score:F2}).";
+
+        if (!matchingSkills.Any())
+            return $"Task matches your specialization '{summary.PrimaryExpertise}' (score: {score:F2}).";
+
+        return $"Matching skills: {string.Join(", ", matchingSkills)}. " +
+               $"Suitable for {summary.OverallLevel} level (score: {score:F2}).";
     }
 }

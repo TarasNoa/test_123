@@ -1,5 +1,7 @@
 using System.Security.Claims;
+using Libr4.Shared.Contracts.IntegrationEvents.Auth;
 using Libr4.Shared.Web.Auth;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Libr4.Auth.Api.Endpoints;
@@ -91,6 +93,7 @@ public static class UserSkillsEndpoints
             [FromBody] SaveSkillsAssessmentRequest request,
             CurrentUser user,
             Application.Abstractions.IAuthDbContext db,
+            IPublishEndpoint bus,
             CancellationToken ct) =>
         {
             // Clear old skills
@@ -105,7 +108,7 @@ public static class UserSkillsEndpoints
                     Id = Guid.NewGuid(),
                     UserId = user.Id,
                     Name = skill.Name,
-                    Score = skill.Score,  // 0-100 scale
+                    Score = skill.Score,
                     Level = skill.Level,
                     Source = skill.Source,
                     ExperienceYears = skill.ExperienceYears,
@@ -132,6 +135,18 @@ public static class UserSkillsEndpoints
             });
 
             await db.SaveChangesAsync(ct);
+
+            // Publish event so Matching service reindexes the freelancer
+            await bus.Publish(new SkillAssessmentCompletedIntegrationEvent(
+                UserId: user.Id,
+                OverallLevel: request.OverallLevel,
+                OverallScore: request.OverallScore,
+                PrimaryExpertise: request.PrimaryExpertise,
+                SecondaryExpertise: request.SecondaryExpertise,
+                Skills: request.Skills.Select(s => new AssessedSkillDto(
+                    s.Name, s.Score, s.Level, s.ExperienceYears, s.Contexts)).ToList(),
+                Recommendations: request.Recommendations,
+                OccurredOn: DateTimeOffset.UtcNow), ct);
 
             return Results.Ok(new { savedSkills = request.Skills.Count });
         });

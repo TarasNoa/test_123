@@ -9,4 +9,10 @@ public interface IMatchRepository
     Task SaveAsync(Match match, CancellationToken ct = default);
     Task<HybridScorer.ScoringWeights> GetCurrentWeightsAsync(CancellationToken ct = default);
     Task SaveWeightsAsync(HybridScorer.ScoringWeights weights, CancellationToken ct = default);
+    Task<FreelancerStats?> GetFreelancerStatsAsync(Guid freelancerId, CancellationToken ct = default);
 }
+
+public sealed record FreelancerStats(
+    Guid FreelancerId,
+    double AverageRating,
+    int CompletedTasks);

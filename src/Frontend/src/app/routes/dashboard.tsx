@@ -1,7 +1,7 @@
 import { createSignal, onMount, type Component, For, Show } from "solid-js";
 import { useNavigate, useLocation } from "@solidjs/router";
 import { apiClient } from "../../lib/api-client";
-import type { UserDto, UserStatsDto, UserPortfolioItemDto, PostDto, SocialUserDto, UserSkillsSummaryDto } from "../../lib/api-client";
+import type { UserDto, UserStatsDto, UserPortfolioItemDto, PostDto, SocialUserDto, UserSkillsSummaryDto, RecommendedTaskDto } from "../../lib/api-client";
 import { config } from "../../lib/config";
 
 type Tab = "posts" | "portfolio" | "stats";
@@ -92,6 +92,7 @@ const Dashboard: Component = () => {
 
   const [taskStats, setTaskStats] = createSignal<{ total: number; active: number; completed: number } | null>(null);
   const [recommended, setRecommended] = createSignal<SocialUserDto[]>([]);
+  const [recommendedTasks, setRecommendedTasks] = createSignal<RecommendedTaskDto[]>([]);
   // Note: trending endpoint doesn't exist, using feed instead
   const [feedPosts, setFeedPosts] = createSignal<PostDto[]>([]);
   const [skills, setSkills] = createSignal<UserSkillsSummaryDto | null>(null);
@@ -136,13 +137,14 @@ const Dashboard: Component = () => {
     setLoading(false);
 
     /* Lazy load */
-    const [postsRes, portfolioRes, statsRes, recRes, feedRes, skillsRes] = await Promise.allSettled([
+    const [postsRes, portfolioRes, statsRes, recRes, feedRes, skillsRes, recTasksRes] = await Promise.allSettled([
       apiClient.getMyPosts(),
       apiClient.getMyPortfolio(),
       apiClient.getMyStats(),
       apiClient.getRecommendedConnections(),
       apiClient.getFeed(1, 5),
       apiClient.getMySkills(),
+      apiClient.getRecommendedTasks(5),
     ]);
 
     if (postsRes.status === "fulfilled" && Array.isArray(postsRes.value)) setPosts(postsRes.value);
@@ -151,6 +153,7 @@ const Dashboard: Component = () => {
     if (recRes.status === "fulfilled" && Array.isArray(recRes.value)) setRecommended(recRes.value.slice(0, 3));
     if (feedRes.status === "fulfilled" && Array.isArray(feedRes.value)) setFeedPosts(feedRes.value.slice(0, 5));
     if (skillsRes.status === "fulfilled") setSkills(skillsRes.value);
+    if (recTasksRes.status === "fulfilled" && Array.isArray(recTasksRes.value)) setRecommendedTasks(recTasksRes.value);
   });
 
   const handleLogout = async () => {
@@ -686,6 +689,39 @@ const Dashboard: Component = () => {
                   <div class="text-sm">
                     <p class="text-foreground line-clamp-2">{p.content}</p>
                     <p class="text-xs text-muted-foreground mt-1">{p.likeCount} likes</p>
+                  </div>
+                )}
+              </For>
+            </div>
+          </div>
+        </Show>
+
+        {/* Recommended Tasks */}
+        <Show when={recommendedTasks().length > 0}>
+          <div>
+            <h3 class="text-sm font-semibold mb-3">Recommended for you</h3>
+            <div class="space-y-3">
+              <For each={recommendedTasks()}>
+                {(task) => (
+                  <div class="bg-white/5 rounded-xl p-3 border border-white/5 hover:border-secondary/30 transition-colors cursor-pointer"
+                       onClick={() => navigate(`/marketplace/task/${task.taskId}`)}>
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs font-medium text-secondary">
+                        {(task.totalScore * 100).toFixed(0)}% match
+                      </span>
+                    </div>
+                    <Show when={task.matchingSkills.length > 0}>
+                      <div class="flex flex-wrap gap-1 mt-1">
+                        <For each={task.matchingSkills.slice(0, 3)}>
+                          {(skill) => (
+                            <span class="text-[10px] px-1.5 py-0.5 bg-secondary/10 text-secondary rounded">
+                              {skill}
+                            </span>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+                    <p class="text-xs text-muted-foreground mt-1 line-clamp-1">{task.explanation}</p>
                   </div>
                 )}
               </For>
