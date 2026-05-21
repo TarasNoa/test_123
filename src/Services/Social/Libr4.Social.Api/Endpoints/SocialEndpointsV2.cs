@@ -21,6 +21,10 @@ public static class SocialEndpointsV2
             .WithName("GetProfileV2")
             .WithCacheableResponse(TimeSpan.FromMinutes(30));
 
+        group.MapGet("/profile/{userId:guid}", GetUserProfileById)
+            .WithName("GetUserProfileByIdV2")
+            .WithCacheableResponse(TimeSpan.FromMinutes(30));
+
         group.MapPut("/profile", UpdateProfile)
             .WithName("UpdateProfileV2")
             .InvalidatesCache("profile:*");
@@ -116,6 +120,15 @@ public static class SocialEndpointsV2
         IQueryBus queryBus)
     {
         var userId = GetUserId(context);
+        var query = new GetUserProfileQuery { UserId = userId };
+        var profile = await queryBus.SendAsync<GetUserProfileQuery, UserProfileDto>(query);
+        return Results.Ok(profile);
+    }
+
+    private static async Task<IResult> GetUserProfileById(
+        Guid userId,
+        IQueryBus queryBus)
+    {
         var query = new GetUserProfileQuery { UserId = userId };
         var profile = await queryBus.SendAsync<GetUserProfileQuery, UserProfileDto>(query);
         return Results.Ok(profile);

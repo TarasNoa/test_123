@@ -674,6 +674,10 @@ class ApiClient {
     return this.request(`/api/v2/social/posts/${postId}/like`, { method: 'POST' });
   }
 
+  async getUserProfile(userId: string): Promise<{ name: string; bio?: string; profileImageUrl?: string; location?: string }> {
+    return this.request(`/api/v2/social/profile/${userId}`);
+  }
+
   async getRecommendedConnections(): Promise<SocialUserDto[]> {
     try {
       return await this.request('/api/v2/social/recommendations');
