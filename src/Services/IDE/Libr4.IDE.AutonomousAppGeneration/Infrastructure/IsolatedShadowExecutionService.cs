@@ -252,19 +252,17 @@ public sealed class IsolatedShadowExecutionService : IShadowExecutionService
     {
         foreach (var file in files)
         {
-            var safe = NormalizeRelative(file.RelativePath);
+            var repaired = StackArtifactCompleteness.RepairGeneratedFile(file);
+            if (repaired is null
+                || !StackArtifactCompleteness.IsPlausibleFilePath(repaired.RelativePath))
+                continue;
+
+            var safe = repaired.RelativePath.Replace('/', Path.DirectorySeparatorChar);
             var abs = Path.Combine(root, safe);
             var dir = Path.GetDirectoryName(abs);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-            await File.WriteAllTextAsync(abs, file.Content, ct);
+            await File.WriteAllTextAsync(abs, repaired.Content ?? string.Empty, ct);
         }
-    }
-
-    private static string NormalizeRelative(string relative)
-    {
-        var cleaned = relative.Replace('\\', '/').TrimStart('/');
-        if (cleaned.Contains("..")) throw new InvalidOperationException($"Illegal relative path: {relative}");
-        return cleaned.Replace('/', Path.DirectorySeparatorChar);
     }
 
     private static void CopyDirectory(string src, string dst)

@@ -10,16 +10,15 @@ using Xunit.Abstractions;
 
 namespace Libr4.ContractTests.Consumer;
 
-public class TasksApiConsumerTests : IDisposable
+public class TasksApiConsumerTests
 {
     private readonly IPactBuilderV4 _pact;
-    private readonly HttpClient _client;
     private readonly ITestOutputHelper _output;
 
     public TasksApiConsumerTests(ITestOutputHelper output)
     {
         _output = output;
-        
+
         var config = new PactConfig
         {
             PactDir = "../../../pacts/",
@@ -32,17 +31,11 @@ public class TasksApiConsumerTests : IDisposable
 
         _pact = Pact.V4("Libr4-Frontend", "Libr4-Tasks-API", config)
             .WithHttpInteractions();
-
-        _client = new HttpClient
-        {
-            BaseAddress = new Uri(_pact.ServerUri)
-        };
     }
 
     [Fact]
     public async Task GetTasks_ReturnsPagedList()
     {
-        // Arrange
         var expectedResponse = new
         {
             items = new[]
@@ -73,16 +66,15 @@ public class TasksApiConsumerTests : IDisposable
             .WithHeader("Content-Type", "application/json; charset=utf-8")
             .WithJsonBody(expectedResponse);
 
-        // Act
         await _pact.VerifyAsync(async ctx =>
         {
-            _client.DefaultRequestHeaders.Authorization = 
+            using var client = new HttpClient { BaseAddress = ctx.MockServerUri };
+            client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", "test-token");
-            
-            var response = await _client.GetAsync($"{ctx.ServerUri}/api/v1/tasks?page=1&pageSize=20");
+
+            var response = await client.GetAsync("/api/v1/tasks?page=1&pageSize=20");
             var content = await response.Content.ReadAsStringAsync();
 
-            // Assert
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             content.Should().Contain("items");
         });
@@ -91,7 +83,6 @@ public class TasksApiConsumerTests : IDisposable
     [Fact]
     public async Task CreateTask_ReturnsCreatedTask()
     {
-        // Arrange
         var requestBody = new
         {
             title = "New Task",
@@ -122,23 +113,15 @@ public class TasksApiConsumerTests : IDisposable
             .WithHeader("Content-Type", "application/json; charset=utf-8")
             .WithJsonBody(expectedResponse);
 
-        // Act & Assert
         await _pact.VerifyAsync(async ctx =>
         {
-            _client.DefaultRequestHeaders.Authorization = 
+            using var client = new HttpClient { BaseAddress = ctx.MockServerUri };
+            client.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", "test-token");
-            
-            var response = await _client.PostAsJsonAsync(
-                $"{ctx.ServerUri}/api/v1/tasks", 
-                requestBody);
-            
+
+            var response = await client.PostAsJsonAsync("/api/v1/tasks", requestBody);
+
             response.StatusCode.Should().Be(HttpStatusCode.Created);
         });
-    }
-
-    public void Dispose()
-    {
-        _pact.Dispose();
-        _client.Dispose();
     }
 }

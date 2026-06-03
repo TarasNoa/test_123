@@ -120,4 +120,42 @@ public sealed class CsprojPackageReconcilerTests
         var added = CsprojPackageReconciler.ReconcilePackages(new List<GeneratedFile>());
         added.Should().Be(0);
     }
+
+    [Fact]
+    public void ReconcilePackages_AddsJwtPackages_ForRepoBootstrapAuthArtifacts()
+    {
+        var csproj = new GeneratedFile(
+            "src/GeneratedApp.Api/GeneratedApp.Api.csproj",
+            "xml",
+            """
+            <Project Sdk="Microsoft.NET.Sdk.Web">
+              <PropertyGroup>
+                <TargetFramework>net8.0</TargetFramework>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        var program = new GeneratedFile(
+            "src/GeneratedApp.Api/Program.cs",
+            "csharp",
+            """
+            using Microsoft.AspNetCore.Authentication.JwtBearer;
+            using Microsoft.IdentityModel.Tokens;
+            """);
+
+        var auth = new GeneratedFile(
+            "src/GeneratedApp.Api/Controllers/AuthController.cs",
+            "csharp",
+            """
+            using Microsoft.IdentityModel.Tokens;
+            using System.IdentityModel.Tokens.Jwt;
+            """);
+
+        var files = new List<GeneratedFile> { csproj, program, auth };
+        var added = CsprojPackageReconciler.ReconcilePackages(files);
+
+        added.Should().BeGreaterThanOrEqualTo(2);
+        csproj.Content.Should().Contain("Microsoft.AspNetCore.Authentication.JwtBearer");
+        csproj.Content.Should().Contain("System.IdentityModel.Tokens.Jwt");
+    }
 }

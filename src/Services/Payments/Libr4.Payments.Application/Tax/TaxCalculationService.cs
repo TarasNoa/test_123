@@ -1,3 +1,4 @@
+using Libr4.Payments.Domain.TaxManagement.FSharp;
 using Microsoft.Extensions.Logging;
 
 namespace Libr4.Payments.Application.Tax;
@@ -12,37 +13,35 @@ public class VatResult
 }
 
 /// <summary>
-/// Tax calculator stub (TODO: integrate with F# module)
+/// Tax calculator — rates and amounts delegated to F# <see cref="FSharpTaxBridge"/>.
 /// </summary>
 public static class TaxCalculator
 {
     public static double GetTaxRate(string jurisdiction)
     {
-        return jurisdiction?.ToLower() switch
-        {
-            "ru" or "russia" => 0.20,
-            "us" or "usa" => 0.0,
-            "uk" => 0.20,
-            "de" or "germany" => 0.19,
-            _ => 0.20
-        };
+        var taxType = FSharpTaxBridge.MapJurisdictionToTaxType(jurisdiction);
+        return (double)(FSharpTaxBridge.GetRatePercent(taxType) / 100m);
     }
 
     public static double? GetVATRate(string jurisdiction)
     {
-        return jurisdiction?.ToLower() switch
-        {
-            "ru" or "russia" => 0.20,
-            "uk" => 0.20,
-            "de" or "germany" => 0.19,
-            "us" or "usa" => null,
-            _ => 0.20
-        };
+        var taxType = FSharpTaxBridge.MapJurisdictionToTaxType(jurisdiction);
+        if (taxType == TaxType.Sales && jurisdiction is "us" or "usa")
+            return null;
+
+        var rate = FSharpTaxBridge.GetRatePercent(taxType);
+        return rate > 0 ? (double)(rate / 100m) : null;
     }
 
     public static double CalculateTax(double amount, double rate)
     {
         return amount * rate;
+    }
+
+    public static double CalculateTaxFromJurisdiction(double amount, string jurisdiction)
+    {
+        var taxType = FSharpTaxBridge.MapJurisdictionToTaxType(jurisdiction);
+        return (double)FSharpTaxBridge.CalculateTaxAmount((decimal)amount, taxType);
     }
 
     public static VatResult CalculateVAT(double amount, double rate)

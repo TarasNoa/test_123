@@ -235,6 +235,10 @@ public sealed record AppGenerationReportDto(
     Guid Id,
     string Status,
     string? FailureReason,
+    /// <summary>Convenience mirror of <see cref="Plan"/>.ApplicationName while polling long runs.</summary>
+    string? ApplicationName,
+    /// <summary>Count of generated files currently stored on the run.</summary>
+    int FileCount,
     GenerationPlanDto? Plan,
     IReadOnlyList<QualityGateResultDto> QualityGates,
     RunQualityAssessmentDto QualityAssessment,

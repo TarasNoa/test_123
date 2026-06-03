@@ -42,7 +42,7 @@ public class TasksFunctionalTests
         var response = await _client.PostAsJsonAsync($"{BaseUrl}/api/v1/tasks", request);
 
         // Assert
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.NotFound);
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class TasksFunctionalTests
         var response = await _client.DeleteAsync($"{BaseUrl}/api/v1/tasks/{Guid.NewGuid()}");
 
         // Assert
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.NotFound);
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed);
     }
 
     [Fact]

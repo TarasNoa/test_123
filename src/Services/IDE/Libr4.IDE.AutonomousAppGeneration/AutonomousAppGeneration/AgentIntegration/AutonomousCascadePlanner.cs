@@ -56,25 +56,76 @@ Rules:
 
     public CascadeExecutionPlan Build(GenerationPlan plan, string userRequest)
     {
-        if (_options.EnableLlmAssistedPass && TryBuildLlmAssisted(plan, userRequest, out var llmPlan))
-            return llmPlan;
+        if (_options.EnableLlmAssistedPass)
+            return BuildLlmAssistedOrThrow(plan, userRequest);
 
         return BuildDeterministic(plan, userRequest);
     }
 
+    private CascadeExecutionPlan BuildLlmAssistedOrThrow(GenerationPlan plan, string userRequest)
+    {
+        if (_scopeFactory is null)
+        {
+            throw new AutonomousGenerationFailedException(
+                "cascade_planning",
+                "LLM-assisted cascade planning is enabled but no service scope factory is configured.");
+        }
+
+        using var scope = _scopeFactory.CreateScope();
+        var ai = scope.ServiceProvider.GetService<IAIService>()
+                 ?? throw new AutonomousGenerationFailedException(
+                     "cascade_planning",
+                     "LLM-assisted cascade planning requires IAIService.");
+
+        try
+        {
+            var (routingProfile, modelHint) = ResolveModelRoute();
+            var webPrefetch = TryBuildWebPrefetchContext(scope, userRequest);
+            var prompt = BuildLlmOrchestratorPrompt(plan, userRequest, webPrefetch);
+            var raw = ai.GenerateCompletionAsync(prompt, CascadeSystemPrompt, modelHint).GetAwaiter().GetResult();
+            using var doc = LlmJsonHelpers.ExtractJson(raw ?? string.Empty);
+            if (doc is null)
+            {
+                throw new AutonomousGenerationFailedException(
+                    "cascade_planning",
+                    $"Cascade planner returned unparseable JSON. parse={LlmJsonHelpers.LastParseError ?? "unknown"}");
+            }
+
+            if (!TryMapLlmPlan(plan, userRequest, doc.RootElement, routingProfile, modelHint, out var cascadePlan))
+            {
+                throw new AutonomousGenerationFailedException(
+                    "cascade_planning",
+                    "Cascade planner JSON failed strict mapping validation.");
+            }
+
+            return cascadePlan;
+        }
+        catch (AutonomousGenerationFailedException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "LLM-assisted cascade planning failed");
+            throw new AutonomousGenerationFailedException(
+                "cascade_planning",
+                $"LLM-assisted cascade planning failed: {ex.Message}",
+                ex);
+        }
+    }
+
     private CascadeExecutionPlan BuildDeterministic(GenerationPlan plan, string userRequest)
     {
+        var repoBootstrap = RequiresRepoBootstrap(plan, userRequest);
         var ordered = plan.Phases
             .OrderBy(p => p.Order)
             .ToList();
 
         if (ordered.Count == 0)
         {
-            var fallback = BuildFallback();
-            return new CascadeExecutionPlan(
-                fallback,
-                "Fallback cascade plan generated due to empty phase list.",
-                Serialize(fallback, "fallback"));
+            throw new AutonomousGenerationFailedException(
+                "cascade_planning",
+                "Cannot build cascade plan: generation plan has no phases.");
         }
 
         var phases = new List<CascadeExecutionPhase>(ordered.Count);
@@ -83,8 +134,8 @@ Rules:
             var src = ordered[i];
             var phaseId = BuildPhaseId(src.Name, i);
             var deps = InferDependencies(ordered, i);
-            var instructions = BuildInstructions(src, plan, userRequest);
-            var expected = BuildExpectedOutput(src);
+            var instructions = BuildInstructions(src, plan, userRequest, repoBootstrap);
+            var expected = BuildExpectedOutput(src, repoBootstrap);
 
             phases.Add(new CascadeExecutionPhase(
                 phaseId,
@@ -95,9 +146,10 @@ Rules:
                 instructions));
         }
 
-        var rationale =
-            "Cascade planning enabled: dependencies are inferred by phase semantics and preserved as a DAG, " +
-            "so build/test loops receive structured upstream context instead of purely sequential steps.";
+        var rationale = repoBootstrap
+            ? "Repo-bootstrap cascade: phases enforce upstream adaptation, JWT auth, kanban domain, and business-test evidence (no generic scaffold-only output)."
+            : "Cascade planning enabled: dependencies are inferred by phase semantics and preserved as a DAG, " +
+              "so build/test loops receive structured upstream context instead of purely sequential steps.";
 
         return new CascadeExecutionPlan(
             phases,
@@ -106,39 +158,6 @@ Rules:
             RoutingProfile: "deterministic",
             ModelHint: null,
             PlannerMode: "deterministic");
-    }
-
-    private bool TryBuildLlmAssisted(GenerationPlan plan, string userRequest, out CascadeExecutionPlan cascadePlan)
-    {
-        cascadePlan = default!;
-        if (_scopeFactory is null)
-            return false;
-
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var ai = scope.ServiceProvider.GetService<IAIService>();
-            if (ai is null)
-                return false;
-
-            var (routingProfile, modelHint) = ResolveModelRoute();
-            var webPrefetch = TryBuildWebPrefetchContext(scope, userRequest);
-            var prompt = BuildLlmOrchestratorPrompt(plan, userRequest, webPrefetch);
-            var raw = ai.GenerateCompletionAsync(prompt, CascadeSystemPrompt, modelHint).GetAwaiter().GetResult();
-            using var doc = LlmJsonHelpers.ExtractJson(raw ?? string.Empty);
-            if (doc is null)
-                return false;
-
-            if (!TryMapLlmPlan(plan, userRequest, doc.RootElement, routingProfile, modelHint, out cascadePlan))
-                return false;
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger?.LogWarning(ex, "LLM-assisted cascade planning failed, fallback to deterministic DAG.");
-            return false;
-        }
     }
 
     private static IReadOnlyList<string> InferDependencies(IReadOnlyList<GenerationPhase> phases, int idx)
@@ -166,6 +185,9 @@ Rules:
         var c = current.ToLowerInvariant();
         var p = previous.ToLowerInvariant();
 
+        if ((c.Contains("scaffold") || c.Contains("implement") || c.Contains("core"))
+            && (p.Contains("bootstrap") || p.Contains("adapt")))
+            return true;
         if (c.Contains("test") || c.Contains("qa") || c.Contains("validation"))
             return true;
         if (c.Contains("frontend") && (p.Contains("api") || p.Contains("backend")))
@@ -184,7 +206,8 @@ Rules:
     private static Dictionary<string, string> BuildInstructions(
         GenerationPhase phase,
         GenerationPlan plan,
-        string userRequest)
+        string userRequest,
+        bool repoBootstrap)
     {
         var d = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -192,15 +215,46 @@ Rules:
             ["stack_frameworks"] = string.Join(",", plan.TechStack.Frameworks),
             ["build_commands"] = string.Join(" && ", plan.BuildCommands),
             ["test_commands"] = string.Join(" && ", plan.TestCommands),
-            ["focus"] = InferFocus(phase.Name),
+            ["focus"] = InferFocus(phase.Name, repoBootstrap),
             ["request_fingerprint_hint"] = Truncate(userRequest, 180)
         };
+        if (repoBootstrap)
+            AppendRepoBootstrapInstructions(d, phase);
         return d;
     }
 
-    private static string InferFocus(string phaseName)
+    private static void AppendRepoBootstrapInstructions(Dictionary<string, string> instructions, GenerationPhase phase)
+    {
+        instructions["repo_bootstrap_mode"] = "required";
+        instructions["reject_generic_template"] = "true";
+        instructions["require_bootstrap_evidence"] = "BOOTSTRAP_EVIDENCE.md";
+        instructions["require_jwt_auth"] = "true";
+        instructions["require_kanban_domain"] = "true";
+        instructions["require_business_tests"] = "auth+kanban";
+
+        var phaseName = phase.Name.ToLowerInvariant();
+        if (phaseName.Contains("bootstrap") || phaseName.Contains("adapt"))
+        {
+            instructions["deliverable"] =
+                "Clone/adapt upstream permissive-license repository; preserve license and source evidence.";
+        }
+        else if (phaseName.Contains("test"))
+        {
+            instructions["deliverable"] =
+                "Business tests for JWT auth and kanban transitions (not health-only smoke tests).";
+        }
+        else if (phaseName.Contains("implement") || phaseName.Contains("core"))
+        {
+            instructions["deliverable"] =
+                "AuthController + KanbanController + task/board domain wired to adapted upstream code.";
+        }
+    }
+
+    private static string InferFocus(string phaseName, bool repoBootstrap)
     {
         var n = phaseName.ToLowerInvariant();
+        if (repoBootstrap && (n.Contains("bootstrap") || n.Contains("adapt")))
+            return "repo_adaptation";
         if (n.Contains("plan")) return "architecture_and_scope";
         if (n.Contains("model") || n.Contains("database")) return "data_modeling";
         if (n.Contains("api") || n.Contains("backend") || n.Contains("service")) return "backend_contracts_and_logic";
@@ -211,9 +265,17 @@ Rules:
         return "implementation";
     }
 
-    private static string BuildExpectedOutput(GenerationPhase phase)
+    private static string BuildExpectedOutput(GenerationPhase phase, bool repoBootstrap)
     {
         var n = phase.Name.ToLowerInvariant();
+        if (repoBootstrap && (n.Contains("bootstrap") || n.Contains("adapt")))
+            return "BOOTSTRAP_EVIDENCE.md plus adapted upstream repository integration artifacts.";
+        if (repoBootstrap && n.Contains("scaffold"))
+            return "Scaffold aligned to adapted upstream repository layout (not blank template output).";
+        if (repoBootstrap && (n.Contains("implement") || n.Contains("core")))
+            return "JWT auth endpoints, kanban board/columns/tasks APIs, and persistence wiring.";
+        if (repoBootstrap && (n.Contains("test") || n.Contains("qa")))
+            return "Runnable business tests covering auth token flow and kanban column transitions.";
         if (n.Contains("plan")) return "Structured implementation plan with explicit constraints and acceptance criteria.";
         if (n.Contains("model") || n.Contains("database")) return "Data layer artifacts and schema-consistent models.";
         if (n.Contains("api") || n.Contains("backend")) return "Executable service/API code mapped to domain requirements.";
@@ -316,7 +378,26 @@ Rules:
             sb.AppendLine("Optional web-prefetch context (safe lane):");
             sb.AppendLine(webPrefetchContext);
         }
+        if (RequiresRepoBootstrap(plan, userRequest))
+        {
+            sb.AppendLine("REPO BOOTSTRAP HARD REQUIREMENTS:");
+            sb.AppendLine("- Adapt upstream repository; do not emit generic template-only scaffold.");
+            sb.AppendLine("- Include BOOTSTRAP_EVIDENCE.md with repository_url, license, adaptation_summary.");
+            sb.AppendLine("- Implement JWT auth + kanban board/columns/tasks with business tests.");
+        }
         return sb.ToString();
+    }
+
+    private static bool RequiresRepoBootstrap(GenerationPlan plan, string userRequest)
+    {
+        var blob = $"{plan.ApplicationDescription}\n{userRequest}";
+        return blob.Contains("repo_bootstrap_context", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("[[REPO_BOOTSTRAP_REQUIRED]]", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("github", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("obscura", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("open-source", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("opensource", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("репозитор", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool TryMapLlmPlan(
@@ -369,8 +450,8 @@ Rules:
                     source.Name,
                     source.Description,
                     inferredDeps,
-                    BuildExpectedOutput(source),
-                    BuildInstructions(source, plan, userRequest)));
+                    BuildExpectedOutput(source, RequiresRepoBootstrap(plan, userRequest)),
+                    BuildInstructions(source, plan, userRequest, RequiresRepoBootstrap(plan, userRequest))));
                 continue;
             }
 
@@ -398,8 +479,9 @@ Rules:
             if (deps.Count == 0 && i > 0)
                 deps.Add(BuildPhaseId(ordered[i - 1].Name, i - 1));
 
-            var expected = LlmJsonHelpers.GetString(llmPhase, "expected_output", BuildExpectedOutput(source));
-            var instructions = BuildInstructions(source, plan, userRequest);
+            var repoBootstrap = RequiresRepoBootstrap(plan, userRequest);
+            var expected = LlmJsonHelpers.GetString(llmPhase, "expected_output", BuildExpectedOutput(source, repoBootstrap));
+            var instructions = BuildInstructions(source, plan, userRequest, repoBootstrap);
             if (llmPhase.TryGetProperty("instructions", out var instrEl) && instrEl.ValueKind == JsonValueKind.Object)
             {
                 foreach (var prop in instrEl.EnumerateObject())

@@ -1,18 +1,18 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
-using Libr4.IDE.AutonomousAppGeneration.Host;
+using Libr4.IntegrationTests.Fixtures;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Xunit;
 
 namespace Libr4.IntegrationTests.IDE;
 
 public sealed class HostMcpEndpointsTests
-    : IClassFixture<WebApplicationFactory<AutonomousAppGenerationHostWebApplicationFactoryAnchor>>
+    : IClassFixture<AutonomousAppGenerationHostWebApplicationFactory>
 {
-    private readonly WebApplicationFactory<AutonomousAppGenerationHostWebApplicationFactoryAnchor> _factory;
+    private readonly AutonomousAppGenerationHostWebApplicationFactory _factory;
 
-    public HostMcpEndpointsTests(WebApplicationFactory<AutonomousAppGenerationHostWebApplicationFactoryAnchor> factory)
+    public HostMcpEndpointsTests(AutonomousAppGenerationHostWebApplicationFactory factory)
     {
         _factory = factory;
     }

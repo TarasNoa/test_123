@@ -30,31 +30,12 @@ public sealed class PlanCommandValidationStage : IGenerationStage
         if (context.Plan is null)
             return Task.FromResult(StageOutcome.Continue);
 
-        var validation = _validator.Validate(context.Plan);
-        if (validation.IsValid)
-            return Task.FromResult(StageOutcome.Continue);
-
-        var (safeBuild, safeTest) = _validator.GetSafeDefaults(context.Plan);
-        _logger.LogWarning(
-            "[AutoGen {Id}] Plan command validation failed ({Issues}). Substituting safe stack defaults.",
-            context.Orchestrator.Id, string.Join(",", validation.Issues));
-
+        context.Plan = _validator.EnsureValidOrThrow(context.Plan);
         context.Orchestrator.RecordQualityGate(
             "plan_command_validation",
-            8,
+            10,
             true,
-            new[] { $"issues:{string.Join(",", validation.Issues)}", "fallback:safe_defaults_applied" });
-
-        context.Plan = new GenerationPlan(
-            context.Plan.ApplicationName,
-            context.Plan.ApplicationDescription,
-            context.Plan.TechStack,
-            context.Plan.Phases,
-            context.Plan.RequiredAgents,
-            context.Plan.RuntimeImage,
-            safeBuild,
-            safeTest,
-            context.Plan.MaxIterations);
+            new[] { "normalized_or_valid" });
 
         return Task.FromResult(StageOutcome.Continue);
     }

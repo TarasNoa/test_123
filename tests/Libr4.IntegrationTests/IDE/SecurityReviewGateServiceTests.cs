@@ -10,7 +10,7 @@ namespace Libr4.IntegrationTests.IDE;
 public sealed class SecurityReviewGateServiceTests
 {
     [Fact]
-    public void EvaluateArtifacts_ShouldDetectInsecureDefaultSecrets()
+    public async Task EvaluateArtifacts_ShouldDetectInsecureDefaultSecrets()
     {
         var service = new SecurityReviewGateService(Options.Create(new SecurityReviewGateOptions()));
 
@@ -19,7 +19,7 @@ public sealed class SecurityReviewGateServiceTests
             new GeneratedFile("config/settings.py", "python", "SECRET_KEY='dev-secret-change-me'")
         };
 
-        var result = service.EvaluateArtifacts("generation", files, BuildTestPlan());
+        var result = await service.EvaluateArtifactsAsync("generation", files, BuildTestPlan());
 
         result.Score.Should().BeLessThan(10);
         result.Reasons.Should().Contain(r => r.Contains("insecure_default_secret"));
@@ -36,14 +36,14 @@ public sealed class SecurityReviewGateServiceTests
             new GeneratedFile("config.py", "python", "TEST_TOKEN='abc123def456'\n# Auth flow implemented with JWT validation")
         };
 
-        var result = service.EvaluateArtifacts("generation", files, BuildTestPlan());
+        var result = service.EvaluateArtifactsAsync("generation", files, BuildTestPlan()).GetAwaiter().GetResult();
 
         result.Score.Should().Be(10);
         result.Reasons.Should().NotContain(r => r.Contains("test_token_without_auth"));
     }
 
     [Fact]
-    public void EvaluateArtifacts_ShouldSkipTestFiles()
+    public async Task EvaluateArtifacts_ShouldSkipTestFiles()
     {
         var service = new SecurityReviewGateService(Options.Create(new SecurityReviewGateOptions()));
 
@@ -52,7 +52,7 @@ public sealed class SecurityReviewGateServiceTests
             new GeneratedFile("tests/test_config.py", "python", "SOME_CONFIG='value'")
         };
 
-        var result = service.EvaluateArtifacts("generation", files, BuildTestPlan());
+        var result = await service.EvaluateArtifactsAsync("generation", files, BuildTestPlan());
 
         result.Score.Should().Be(10);
         result.Reasons.Should().BeEmpty();

@@ -31,7 +31,9 @@ public class AgentServiceTests
             Agent.Create("TestAgent", "TestRole", "TestPrompt")
         };
         _agentRepositoryMock.Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>())).ReturnsAsync(agents);
-        _cacheMock.Setup(c => c.GetStringAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync((string)null);
+        _cacheMock
+            .Setup(c => c.GetAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((byte[]?)null);
 
         // Act
         var result = await _service.GetAgentsAsync();

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using FluentAssertions;
 using Libr4.IntegrationTests.Fixtures;
 using Xunit;
@@ -9,6 +10,11 @@ namespace Libr4.IntegrationTests.Auth;
 [Collection("IntegrationTests")]
 public class AuthApiTests
 {
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     private readonly IntegrationTestFixture _fixture;
     private readonly HttpClient _client;
 
@@ -28,18 +34,19 @@ public class AuthApiTests
         {
             Email = $"test_{Guid.NewGuid()}@example.com",
             Password = "Test123!@#",
-            DisplayName = "Test User"
+            DisplayName = "Test User",
+            Role = "freelancer"
         };
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/v1/auth/register", request);
-        var content = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        var body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+        var content = JsonSerializer.Deserialize<AuthTokensResponse>(body, JsonOptions);
 
-        // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        // Assert — register auto-logs in and returns tokens (200), not 201
         content.Should().NotBeNull();
-        content!.UserId.Should().NotBeEmpty();
-        content.AccessToken.Should().NotBeNullOrEmpty();
+        content!.AccessToken.Should().NotBeNullOrEmpty();
     }
 
     [Fact]
@@ -50,7 +57,8 @@ public class AuthApiTests
         {
             Email = $"login_{Guid.NewGuid()}@example.com",
             Password = "Test123!@#",
-            DisplayName = "Login Test User"
+            DisplayName = "Login Test User",
+            Role = "freelancer"
         };
         await _client.PostAsJsonAsync("/api/v1/auth/register", registerRequest);
 
@@ -62,10 +70,11 @@ public class AuthApiTests
 
         // Act
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login", loginRequest);
-        var content = await response.Content.ReadFromJsonAsync<AuthResponse>();
+        var body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.Should().Be(HttpStatusCode.OK, body);
+        var content = JsonSerializer.Deserialize<AuthTokensResponse>(body, JsonOptions);
 
         // Assert
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
         content.Should().NotBeNull();
         content!.AccessToken.Should().NotBeNullOrEmpty();
         content.RefreshToken.Should().NotBeNullOrEmpty();
@@ -88,11 +97,11 @@ public class AuthApiTests
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    private class AuthResponse
+    private class AuthTokensResponse
     {
-        public Guid UserId { get; set; }
         public string AccessToken { get; set; } = "";
+        public DateTimeOffset AccessTokenExpiresAt { get; set; }
         public string RefreshToken { get; set; } = "";
-        public DateTime ExpiresAt { get; set; }
+        public DateTimeOffset RefreshTokenExpiresAt { get; set; }
     }
 }

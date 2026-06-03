@@ -170,6 +170,14 @@ public static class CsprojPackageReconciler
 
     private static bool IsBclNamespace(string ns)
     {
+        // These require explicit PackageReference entries (not covered by shared framework alone).
+        if (ns.StartsWith("Microsoft.AspNetCore.Authentication.JwtBearer", StringComparison.Ordinal)
+            || ns.StartsWith("System.IdentityModel.Tokens", StringComparison.Ordinal)
+            || ns.StartsWith("Microsoft.IdentityModel", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         // System.* and any explicitly listed BCL prefix is BCL/own.
         if (ns.StartsWith("System", StringComparison.Ordinal)
             && !ns.StartsWith("System.IdentityModel", StringComparison.Ordinal))

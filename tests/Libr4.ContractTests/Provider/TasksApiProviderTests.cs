@@ -1,8 +1,15 @@
-using Microsoft.AspNetCore.TestHost;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using System.Net;
+using System.Net.Sockets;
 using PactNet;
 using PactNet.Infrastructure.Outputters;
 using PactNet.Output.Xunit;
+using PactNet.Verifier;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -22,31 +29,16 @@ public class TasksApiProviderTests : IClassFixture<ProviderStateMiddleware>
     [Fact]
     public void VerifyTasksApiHonoursPactWithFrontend()
     {
-        // Arrange
-        var config = new PactVerifierConfig
-        {
-            Outputters = new List<IOutput> { new XunitOutput(_output) },
-            Verbose = true
-        };
+        var pactPath = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "pacts", "Libr4-Frontend-Libr4-Tasks-API.json"));
+        Assert.True(File.Exists(pactPath), $"Pact file not found: {pactPath}");
 
-        var pactPath = Path.Combine("..", "..", "..", "pacts", "Libr4-Frontend-Libr4-Tasks-API.json");
+        var verifier = new PactVerifier("Libr4-Tasks-API");
 
-        // Act & Assert
-        IPactVerifier pactVerifier = new PactVerifier(config);
-        
-        pactVerifier
-            .ServiceProvider("Libr4-Tasks-API", _fixture.ServerUri)
-            .PactBroker(
-                Environment.GetEnvironmentVariable("PACT_BROKER_BASE_URL") ?? "http://localhost:9292",
-                new PactBrokerOptions
-                {
-                    Token = Environment.GetEnvironmentVariable("PACT_BROKER_TOKEN"),
-                    ConsumerVersionSelectors = new List<VersionSelector>
-                    {
-                        new() { MainBranch = true },
-                        new() { DeployedOrReleased = true }
-                    }
-                })
+        verifier
+            .WithHttpEndpoint(new Uri(_fixture.ServerUri))
+            .WithFileSource(new FileInfo(pactPath))
             .WithProviderStateUrl(new Uri($"{_fixture.ServerUri}/provider-states"))
             .Verify();
     }
@@ -55,49 +47,74 @@ public class TasksApiProviderTests : IClassFixture<ProviderStateMiddleware>
 public class ProviderStateMiddleware : IDisposable
 {
     public string ServerUri { get; }
-    private readonly TestServer _server;
+    private readonly IHost _server;
 
     public ProviderStateMiddleware()
     {
-        ServerUri = "http://localhost:9222";
-        
-        var builder = new WebHostBuilder()
-            .ConfigureServices(services =>
+        ServerUri = $"http://localhost:{GetFreePort()}";
+
+        _server = Host.CreateDefaultBuilder()
+            .ConfigureWebHostDefaults(webBuilder =>
             {
-                // Configure test services
-                services.AddRouting();
-            })
-            .Configure(app =>
-            {
-                app.UseRouting();
-                app.UseEndpoints(endpoints =>
+                webBuilder.UseUrls(ServerUri);
+                webBuilder.ConfigureServices(services => services.AddRouting());
+                webBuilder.Configure(app =>
                 {
-                    endpoints.MapPost("/provider-states", async context =>
+                    app.UseRouting();
+                    app.UseEndpoints(endpoints =>
                     {
-                        var state = await context.Request.ReadFromJsonAsync<ProviderState>();
-                        
-                        // Set up provider state based on the consumer's request
-                        switch (state?.State)
+                        endpoints.MapGet("/api/v1/tasks", () => Results.Ok(new
                         {
-                            case "tasks exist":
-                                // Seed test data
-                                break;
-                            case "no tasks exist":
-                                // Clear test data
-                                break;
-                        }
-                        
-                        context.Response.StatusCode = 200;
+                            items = new[]
+                            {
+                                new
+                                {
+                                    id = Guid.NewGuid(),
+                                    title = "Test Task",
+                                    description = "Description",
+                                    status = "Open",
+                                    budget = 100.00m,
+                                    createdAt = "2024-01-01T00:00:00Z"
+                                }
+                            },
+                            totalCount = 1,
+                            page = 1,
+                            pageSize = 20
+                        }));
+
+                        endpoints.MapPost("/api/v1/tasks", () =>
+                            Results.Created("/api/v1/tasks/1", new
+                            {
+                                id = Guid.NewGuid(),
+                                title = "New Task",
+                                description = "Task description",
+                                status = "Draft",
+                                budget = 150.00m,
+                                createdAt = "2024-01-01T00:00:00Z"
+                            }));
+
+                        endpoints.MapPost("/provider-states", async context =>
+                        {
+                            _ = await context.Request.ReadFromJsonAsync<ProviderState>();
+                            context.Response.StatusCode = 200;
+                        });
                     });
                 });
-            });
+            })
+            .Build();
 
-        _server = new TestServer(builder);
+        _server.Start();
     }
 
-    public void Dispose()
+    public void Dispose() => _server.Dispose();
+
+    private static int GetFreePort()
     {
-        _server.Dispose();
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        return port;
     }
 }
 

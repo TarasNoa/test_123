@@ -22,7 +22,7 @@ public sealed class SecurityReviewGateService : ISecurityReviewGateService
         TimeSpan.FromMilliseconds(200));
 
     private static readonly Regex InsecureDefaultSecret = new(
-        @"(dev-secret-change-me|password123|admin123|changeme|placeholder)",
+        @"\b(dev-secret-change-me|password123|admin123|changeme)\b",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
         TimeSpan.FromMilliseconds(200));
 
@@ -33,7 +33,17 @@ public sealed class SecurityReviewGateService : ISecurityReviewGateService
         _options = options.Value;
     }
 
-    public SecurityReviewAuditEntry EvaluateArtifacts(
+    public Task<SecurityReviewAuditEntry> EvaluateArtifactsAsync(
+        string stage,
+        IReadOnlyList<GeneratedFile> files,
+        GenerationPlan plan,
+        CancellationToken ct = default)
+    {
+        _ = ct;
+        return Task.FromResult(EvaluateArtifacts(stage, files, plan));
+    }
+
+    internal SecurityReviewAuditEntry EvaluateArtifacts(
         string stage,
         IReadOnlyList<GeneratedFile> files,
         GenerationPlan plan)

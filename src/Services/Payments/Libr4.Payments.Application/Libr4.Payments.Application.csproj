@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Libr4.Payments.Domain\Libr4.Payments.Domain.csproj" />
+    <ProjectReference Include="..\Libr4.Payments.Domain.TaxManagement.FSharp\Libr4.Payments.Domain.TaxManagement.FSharp.fsproj" />
     <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Kernel\Libr4.Shared.Kernel.csproj" />
     <ProjectReference Include="..\..\..\Shared\Libr4.Shared.Contracts\Libr4.Shared.Contracts.csproj" />
   </ItemGroup>

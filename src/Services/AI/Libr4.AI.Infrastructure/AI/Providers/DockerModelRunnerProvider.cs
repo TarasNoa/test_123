@@ -40,8 +40,8 @@ public class DockerModelRunnerProvider : IAIProvider
 
     public async Task<string> GenerateCompletionAsync(string prompt, string? systemPrompt = null, string? model = null)
     {
-        var modelName = model
-            ?? _configuration["AI:DockerModelRunner:DefaultModel"]
+        var modelName = SanitizeModelId(model)
+            ?? SanitizeModelId(_configuration["AI:DockerModelRunner:DefaultModel"])
             ?? "docker.io/ai/gemma4:latest";
 
         _logger.LogInformation("DockerModelRunner: Calling model {Model} with prompt length {PromptLength}",
@@ -313,4 +313,12 @@ public class DockerModelRunnerProvider : IAIProvider
 
     public Task<string> ChatAsync(string message, string? systemPrompt = null, string? model = null)
         => GenerateCompletionAsync(message, systemPrompt, model);
+
+    private static string? SanitizeModelId(string? model)
+    {
+        if (string.IsNullOrWhiteSpace(model))
+            return null;
+
+        return model.Trim().Trim('"', '\'');
+    }
 }

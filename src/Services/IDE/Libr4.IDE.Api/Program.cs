@@ -16,8 +16,10 @@ using Libr4.AI.Infrastructure;
 using Libr4.IDE.Application.Translation;
 using Libr4.IDE.Application.Terminal;
 using Libr4.IDE.Application.AgentEvents;
+using Libr4.IDE.Application.AutonomousAppGeneration;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentOrchestration;
+using Libr4.IDE.Application.AutonomousAppGeneration.Api;
 using Microsoft.Extensions.DependencyInjection;
 using MediatR;
 using Microsoft.FSharp.Control;
@@ -100,6 +102,15 @@ builder.Services.AddSingleton<IObscuraBrowserTool, Libr4.IDE.Application.Obscura
 
 // AI Infrastructure (required by UnifiedChatEndpoints)
 builder.Services.AddAIInfrastructure(builder.Configuration);
+
+// Autonomous app generation (IDE chat → StartAppGeneration, gateway /api/v1/ide/app-generation/*)
+builder.Services.AddAutonomousAppGeneration(
+    builder.Configuration["AutonomousAppGeneration:RuntimeProvider"],
+    builder.Configuration.GetValue("AutonomousAppGeneration:AllowProcessFallback", true),
+    builder.Configuration);
+builder.Services.AddMediatR(cfg =>
+    cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.AutonomousAppGeneration.Commands.StartAppGenerationCommand).Assembly));
+builder.Services.AddSingleton<IAppGenerationChatBridge, AppGenerationChatBridge>();
 
 // Semantic Code Index (SocratiCode analog) - Ollama embeddings + Qdrant vector store + BM25 RRF
 builder.Services.AddSemanticCodeIndex(builder.Configuration);
@@ -314,8 +325,9 @@ app.MapHackerAgentEndpoints();
 // Golden Stack: Agent State endpoints for Frontend synchronization
 app.MapAgentStateEndpoints();
 
-// Unified Chat — backend decides text vs agent spawn, streams via SignalR
+// Unified Chat — Q&A or autonomous app generation (same path users type in IDE)
 app.MapUnifiedChatEndpoints();
+app.MapAutonomousAppGenerationEndpoints("/api/v1/ide/app-generation");
 
 // SignalR Hub for real-time agent updates
 app.MapHub<Libr4.IDE.Api.Hubs.AgentHub>("/hubs/agents");

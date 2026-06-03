@@ -9,7 +9,6 @@ const Auth = lazy(() => import("./routes/auth"));
 const AuthCallback = lazy(() => import("./routes/auth-callback"));
 const Dashboard = lazy(() => import("./routes/dashboard"));
 const Social = lazy(() => import("./routes/social"));
-const SocialProfile = lazy(() => import("./routes/social-profile"));
 const IDE = lazy(() => import("./routes/ide"));
 const Verification = lazy(() => import("./routes/verification"));
 
@@ -33,7 +32,6 @@ const App: Component = () => {
         <Route path="/verification" component={Verification} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/social" component={Social} />
-        <Route path="/social/profile/:id" component={SocialProfile} />
         <Route path="/ide" component={IDE} />
       </Suspense>
     </Router>

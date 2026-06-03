@@ -48,27 +48,28 @@ public sealed class DefaultProviderCapabilityMatrix : IProviderCapabilityMatrix
 
         if (eligibleProviders.Count == 0)
         {
-            _logger.LogWarning("No eligible providers for stage {Stage}, using fallback", stage);
-            return new ModelRoutingDecision(
-                Stage: stage,
-                ProviderId: "openrouter",
-                ModelId: _options.FallbackModel,
-                RoutingReason: "fallback_no_eligible_providers");
+            throw new InvalidOperationException(
+                $"No eligible LLM provider for stage '{stage}' (requirements not satisfied by configured providers).");
         }
 
-        // If DefaultProvider is explicitly set, prefer it when available
         ProviderCapability? selected = null;
         if (!string.IsNullOrWhiteSpace(_options.DefaultProvider))
         {
             selected = eligibleProviders.FirstOrDefault(p =>
                 p.ProviderId.Equals(_options.DefaultProvider, StringComparison.OrdinalIgnoreCase));
+            if (selected is null)
+            {
+                throw new InvalidOperationException(
+                    $"Configured provider '{_options.DefaultProvider}' is not eligible for stage '{stage}'.");
+            }
         }
-
-        // Fallback: select best provider (prefer lower cost, then higher capability)
-        selected ??= eligibleProviders
-            .OrderBy(p => p.CostPer1kTokens)
-            .ThenByDescending(p => p.MaxContextTokens)
-            .First();
+        else
+        {
+            selected = eligibleProviders
+                .OrderBy(p => p.CostPer1kTokens)
+                .ThenByDescending(p => p.MaxContextTokens)
+                .First();
+        }
 
         var modelId = SelectModelForStage(selected, normalizedStage);
         

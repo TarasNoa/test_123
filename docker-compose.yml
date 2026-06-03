@@ -341,6 +341,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=libr4_ai;Username=${POSTGRES_USER:-libr4};Password=${POSTGRES_PASSWORD:-libr4_dev_password}
+      ConnectionStrings__Redis: redis:6379
       RabbitMq__Host: rabbitmq
       RabbitMq__User: ${RABBITMQ_USER:-guest}
       RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
@@ -476,6 +477,22 @@ services:
       - "6060:6060"  # API port
     volumes:
       - binary_uploads:/uploads
+
+  # Upstream Obscura CDP service (GitHub: h4ckf0r0day/obscura)
+  obscura:
+    build:
+      context: ./obscura
+      dockerfile: Dockerfile
+    container_name: libr4-obscura
+    restart: unless-stopped
+    command: ["obscura", "serve", "--port", "9222"]
+    ports:
+      - "9222:9222"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9222 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
 
   qdrant:

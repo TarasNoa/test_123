@@ -674,7 +674,22 @@ class ApiClient {
     return this.request(`/api/v2/social/posts/${postId}/like`, { method: 'POST' });
   }
 
-  async getUserProfile(userId: string): Promise<{ name: string; bio?: string; profileImageUrl?: string; location?: string }> {
+  async getUserProfile(userId: string): Promise<{
+    name: string;
+    bio?: string;
+    profileImageUrl?: string;
+    location?: string;
+    followerCount: number;
+    followingCount: number;
+    posts: {
+      id: string;
+      content: string;
+      tags: string[];
+      likesCount: number;
+      commentsCount: number;
+      createdAt: string;
+    }[];
+  }> {
     return this.request(`/api/v2/social/profile/${userId}`);
   }
 

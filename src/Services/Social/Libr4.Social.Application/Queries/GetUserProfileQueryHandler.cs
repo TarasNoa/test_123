@@ -5,12 +5,12 @@ using Libr4.Social.Application.Abstractions;
 
 namespace Libr4.Social.Application.Queries;
 
-public class GetUserProfileQuery : IQuery<UserProfileDto>
+public class GetUserProfileQuery : IQuery<UserPublicProfileDto>
 {
     public Guid UserId { get; set; }
 }
 
-public class GetUserProfileQueryHandler : IQueryHandler<GetUserProfileQuery, UserProfileDto>
+public class GetUserProfileQueryHandler : IQueryHandler<GetUserProfileQuery, UserPublicProfileDto>
 {
     private readonly ISocialNetworkRepository _repository;
     private readonly ICacheService _cache;
@@ -21,7 +21,7 @@ public class GetUserProfileQueryHandler : IQueryHandler<GetUserProfileQuery, Use
         _cache = cache;
     }
 
-    public async Task<UserProfileDto> HandleAsync(GetUserProfileQuery query, CancellationToken cancellationToken)
+    public async Task<UserPublicProfileDto> HandleAsync(GetUserProfileQuery query, CancellationToken cancellationToken)
     {
         var cacheKey = $"profile:{query.UserId}";
 
@@ -31,11 +31,17 @@ public class GetUserProfileQueryHandler : IQueryHandler<GetUserProfileQuery, Use
             if (network == null)
                 throw new InvalidOperationException("User not found");
 
-            return new UserProfileDto(
+            return new UserPublicProfileDto(
                 network.Profile.Name,
                 network.Profile.Bio,
                 network.Profile.ProfileImageUrl,
-                network.Profile.Location
+                network.Profile.Location,
+                network.Followers.Count,
+                network.Following.Count,
+                network.Posts
+                    .OrderByDescending(p => p.CreatedAt)
+                    .Select(p => new UserPostDto(p.Id, p.Content, p.Tags, p.Likes.Count, p.Comments.Count, p.CreatedAt))
+                    .ToList()
             );
         }, TimeSpan.FromHours(1));
     }

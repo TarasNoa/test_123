@@ -22,7 +22,7 @@ public sealed class DiagnosticsBundleServiceTests
             new DefaultMcpToolRegistry(),
             mcpOptions,
             NullLogger<DefaultMcpLaneWatchdog>.Instance);
-        var manifestBuilder = new ExecutionManifestBuilder(qualityAssessment, watchdog);
+        var manifestBuilder = new ExecutionManifestBuilder(qualityAssessment, watchdog, new TaskGraphHydrationService());
         var service = new DiagnosticsBundleService(
             repository,
             manifestBuilder,

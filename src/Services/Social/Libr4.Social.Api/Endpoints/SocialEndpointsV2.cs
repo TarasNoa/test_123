@@ -121,7 +121,7 @@ public static class SocialEndpointsV2
     {
         var userId = GetUserId(context);
         var query = new GetUserProfileQuery { UserId = userId };
-        var profile = await queryBus.SendAsync<GetUserProfileQuery, UserProfileDto>(query);
+        var profile = await queryBus.SendAsync<GetUserProfileQuery, UserPublicProfileDto>(query);
         return Results.Ok(profile);
     }
 
@@ -130,7 +130,7 @@ public static class SocialEndpointsV2
         IQueryBus queryBus)
     {
         var query = new GetUserProfileQuery { UserId = userId };
-        var profile = await queryBus.SendAsync<GetUserProfileQuery, UserProfileDto>(query);
+        var profile = await queryBus.SendAsync<GetUserProfileQuery, UserPublicProfileDto>(query);
         return Results.Ok(profile);
     }
 

@@ -52,11 +52,54 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
     {
         var reasons = new List<string>();
         var score = 10;
-        var minimumFiles = IsDotNetPlan(plan) ? 8 : 5;
+        var minimumFiles = IsDotNetPlan(plan) ? 8
+            : IsJavaReactFullStackPlan(plan) ? 10
+            : 5;
         if (files.Count < minimumFiles) { score -= 3; reasons.Add("too_few_files"); }
 
-        var paths = files.Select(f => f.RelativePath).ToList();
-        if (IsDotNetPlan(plan))
+        var paths = files.Select(f => StackArtifactCompleteness.SanitizeRelativePath(f.RelativePath))
+            .Where(p => p.Length > 0)
+            .ToList();
+        if (IsJavaReactFullStackPlan(plan))
+        {
+            if (!paths.Any(p => p.Equals("backend/pom.xml", StringComparison.OrdinalIgnoreCase)))
+            {
+                score -= 2;
+                reasons.Add("missing_project_files");
+            }
+
+            if (!paths.Any(p =>
+                    p.StartsWith("backend/", StringComparison.OrdinalIgnoreCase)
+                    && p.EndsWith(".java", StringComparison.OrdinalIgnoreCase)))
+            {
+                score -= 2;
+                reasons.Add("missing_entrypoint");
+            }
+
+            if (!paths.Any(p => p.Equals("frontend/package.json", StringComparison.OrdinalIgnoreCase)))
+            {
+                score -= 2;
+                reasons.Add("missing_project_files");
+            }
+
+            if (!paths.Any(p =>
+                    p.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase)
+                    && (p.EndsWith(".tsx", StringComparison.OrdinalIgnoreCase)
+                        || p.EndsWith(".jsx", StringComparison.OrdinalIgnoreCase))))
+            {
+                score -= 1;
+                reasons.Add("missing_entrypoint");
+            }
+
+            if (!paths.Any(p =>
+                    p.StartsWith("backend/", StringComparison.OrdinalIgnoreCase)
+                    && p.Contains("Controller", StringComparison.OrdinalIgnoreCase)))
+            {
+                score -= 1;
+                reasons.Add("missing_controllers");
+            }
+        }
+        else if (IsDotNetPlan(plan))
         {
             if (!paths.Any(p => p.EndsWith(".sln", StringComparison.OrdinalIgnoreCase))) { score -= 1; reasons.Add("missing_solution"); }
             if (!paths.Any(p => p.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))) { score -= 2; reasons.Add("missing_project_files"); }
@@ -94,7 +137,7 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
                 reasons.Add("missing_error_envelope_contract");
             }
         }
-        else if (IsNodePlan(plan))
+        else if (IsNodeOnlyPlan(plan))
         {
             if (!paths.Any(p => p.EndsWith("package.json", StringComparison.OrdinalIgnoreCase)))
             {
@@ -139,6 +182,7 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
         ApplyPythonApiRuntimeContractGuard(files, plan, reasons, ref score);
         ApplyComplexStackFidelityGuard(files, plan, reasons, ref score);
         ApplyFrameworkFidelityGuard(files, plan, reasons, ref score);
+        ApplyProductQualityLockGuard(files, plan, reasons, ref score);
 
         score = Math.Clamp(score, 0, 10);
         var passed = score >= Math.Clamp(_options.GenerationMinScore, 1, 10);
@@ -250,6 +294,66 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
                || blob.Contains("todo", StringComparison.OrdinalIgnoreCase)
                || blob.Contains("workflow", StringComparison.OrdinalIgnoreCase)
                || blob.Contains("ticket", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IntentSuggestsKanban(string blob)
+    {
+        if (IntentSuggestsFintechBanking(blob))
+            return false;
+
+        return blob.Contains("kanban", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("backlog", StringComparison.OrdinalIgnoreCase)
+               || (blob.Contains("board", StringComparison.OrdinalIgnoreCase)
+                   && !blob.Contains("dashboard", StringComparison.OrdinalIgnoreCase))
+               || blob.Contains("column", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("swimlane", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IntentSuggestsFintechBanking(string blob)
+    {
+        return blob.Contains("banking", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("fintech", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("банк", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("перевод", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("платеж", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("mobile banking", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("[[JAVA_REACT_FULLSTACK]]", StringComparison.Ordinal);
+    }
+
+    private static bool HasFintechBankingSignals(string combined, IReadOnlyList<GeneratedFile> files)
+    {
+        var hasAccounts = combined.Contains("account", StringComparison.OrdinalIgnoreCase)
+                          || combined.Contains("/api/accounts", StringComparison.OrdinalIgnoreCase);
+        var hasTransfersOrPayments = combined.Contains("transfer", StringComparison.OrdinalIgnoreCase)
+                                     || combined.Contains("payment", StringComparison.OrdinalIgnoreCase)
+                                     || combined.Contains("перевод", StringComparison.OrdinalIgnoreCase)
+                                     || combined.Contains("платеж", StringComparison.OrdinalIgnoreCase);
+        var hasAuth = combined.Contains("auth", StringComparison.OrdinalIgnoreCase)
+                      || combined.Contains("jwt", StringComparison.OrdinalIgnoreCase)
+                      || combined.Contains("security", StringComparison.OrdinalIgnoreCase);
+
+        var hasBackend = files.Any(f =>
+            f.RelativePath.Contains("backend/", StringComparison.OrdinalIgnoreCase)
+            && f.RelativePath.EndsWith(".java", StringComparison.OrdinalIgnoreCase));
+        var hasFrontend = files.Any(f =>
+            f.RelativePath.Contains("frontend/", StringComparison.OrdinalIgnoreCase)
+            && (f.RelativePath.EndsWith(".tsx", StringComparison.OrdinalIgnoreCase)
+                || f.RelativePath.EndsWith(".ts", StringComparison.OrdinalIgnoreCase)));
+
+        return hasBackend && hasFrontend && hasAccounts && (hasTransfersOrPayments || hasAuth);
+    }
+
+    private static bool IntentSuggestsRepoBootstrap(string blob)
+    {
+        return blob.Contains("repo_bootstrap_context", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("github", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("repository", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("open-source", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("opensource", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("obscura", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("license", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("лиценз", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("репозитор", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void ApplyComplexStackFidelityGuard(
@@ -406,6 +510,7 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
                || content.Contains("UseAuthorization", StringComparison.OrdinalIgnoreCase)
                || content.Contains("AddAuthentication", StringComparison.OrdinalIgnoreCase)
                || content.Contains("JwtBearer", StringComparison.OrdinalIgnoreCase)
+               || content.Contains("JwtSecurityToken", StringComparison.OrdinalIgnoreCase)
                || content.Contains("[Authorize", StringComparison.OrdinalIgnoreCase)
                || content.Contains("AuthorizeAttribute", StringComparison.OrdinalIgnoreCase)
                || content.Contains("OpenIdConnect", StringComparison.OrdinalIgnoreCase)
@@ -456,6 +561,118 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
             || f.RelativePath.Contains("todo", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static bool HasKanbanSignals(string content, IReadOnlyList<GeneratedFile> files)
+    {
+        var hasKanbanKeyword = content.Contains("kanban", StringComparison.OrdinalIgnoreCase);
+        var hasColumnKeyword = content.Contains("column", StringComparison.OrdinalIgnoreCase)
+                               || content.Contains("lane", StringComparison.OrdinalIgnoreCase)
+                               || content.Contains("swimlane", StringComparison.OrdinalIgnoreCase);
+        var hasStatusFlow =
+            content.Contains("backlog", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("todo", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("inprogress", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("in_progress", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("doing", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("done", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("move task", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("transition", StringComparison.OrdinalIgnoreCase);
+
+        if (hasKanbanKeyword || (hasColumnKeyword && hasStatusFlow))
+            return true;
+
+        return files.Any(f =>
+            f.RelativePath.Contains("kanban", StringComparison.OrdinalIgnoreCase)
+            || f.RelativePath.Contains("columns", StringComparison.OrdinalIgnoreCase)
+            || f.RelativePath.Contains("swimlane", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasRepoBootstrapAdaptationSignals(IReadOnlyList<GeneratedFile> files, string content)
+    {
+        var hasGitHubLink = content.Contains("github.com/", StringComparison.OrdinalIgnoreCase);
+        var hasUpstreamAdaptationNarrative =
+            content.Contains("upstream", StringComparison.OrdinalIgnoreCase) ||
+            content.Contains("adapted from", StringComparison.OrdinalIgnoreCase) ||
+            content.Contains("forked from", StringComparison.OrdinalIgnoreCase) ||
+            content.Contains("based on", StringComparison.OrdinalIgnoreCase) ||
+            content.Contains("bootstrap source", StringComparison.OrdinalIgnoreCase)
+            || content.Contains("исходный репозитор", StringComparison.OrdinalIgnoreCase);
+
+        var hasBootstrapArtifact = files.Any(f =>
+            f.RelativePath.EndsWith("BOOTSTRAP_EVIDENCE.md", StringComparison.OrdinalIgnoreCase) ||
+            f.RelativePath.EndsWith("ADAPTATION_BRIDGE.md", StringComparison.OrdinalIgnoreCase) ||
+            f.RelativePath.EndsWith("UPSTREAM_INTEGRATION.md", StringComparison.OrdinalIgnoreCase) ||
+            f.RelativePath.EndsWith("UPSTREAM_SEMANTIC_EXTRACT.md", StringComparison.OrdinalIgnoreCase) ||
+            f.RelativePath.EndsWith("REPO_ADAPTATION.md", StringComparison.OrdinalIgnoreCase) ||
+            f.RelativePath.EndsWith("UPSTREAM.md", StringComparison.OrdinalIgnoreCase) ||
+            f.RelativePath.EndsWith("MIGRATION_NOTES.md", StringComparison.OrdinalIgnoreCase));
+
+        var hasUpstreamSnapshot = files.Any(f =>
+        {
+            var path = GenerationPathHeuristics.NormalizeSlashes(f.RelativePath);
+            return path.StartsWith("upstream/", StringComparison.OrdinalIgnoreCase)
+                   || path.Contains("/upstream/", StringComparison.OrdinalIgnoreCase);
+        });
+
+        return hasBootstrapArtifact || hasUpstreamSnapshot || (hasGitHubLink && hasUpstreamAdaptationNarrative);
+    }
+
+    private static bool LooksLikeGenericTemplateOutput(IReadOnlyList<GeneratedFile> files, string content)
+    {
+        var hasGeneratedAppPhrase = content.Contains("hello from generatedapp", StringComparison.OrdinalIgnoreCase)
+                                    || content.Contains("generated app", StringComparison.OrdinalIgnoreCase)
+                                    || content.Contains("sample weather forecast", StringComparison.OrdinalIgnoreCase)
+                                    || content.Contains("template", StringComparison.OrdinalIgnoreCase) && content.Contains("todo", StringComparison.OrdinalIgnoreCase);
+        if (!hasGeneratedAppPhrase)
+            return false;
+
+        var hasBusinessSignals = HasAuthImplementationSignals(content)
+                                 || HasKanbanSignals(content, files)
+                                 || HasTaskDomainSignals(content, files);
+        return !hasBusinessSignals;
+    }
+
+    private static bool HasMeaningfulBusinessTests(IReadOnlyList<GeneratedFile> files)
+    {
+        var testFiles = files.Where(f =>
+                GenerationPathHeuristics.NormalizeSlashes(f.RelativePath).Contains("test", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (testFiles.Count == 0)
+            return false;
+
+        var testContent = string.Join('\n', testFiles.Select(f => f.Content ?? string.Empty));
+        var hasOnlyHealthStyleTests =
+            testContent.Contains("health", StringComparison.OrdinalIgnoreCase)
+            && !testContent.Contains("auth", StringComparison.OrdinalIgnoreCase)
+            && !testContent.Contains("kanban", StringComparison.OrdinalIgnoreCase)
+            && !testContent.Contains("task", StringComparison.OrdinalIgnoreCase)
+            && !testContent.Contains("board", StringComparison.OrdinalIgnoreCase);
+
+        if (hasOnlyHealthStyleTests)
+            return false;
+
+        var hasHttpIntegrationTests =
+            testContent.Contains("WebApplicationFactory", StringComparison.Ordinal)
+            && testContent.Contains("HttpClient", StringComparison.Ordinal)
+            && (testContent.Contains("/api/auth", StringComparison.OrdinalIgnoreCase)
+                || testContent.Contains("api/auth", StringComparison.OrdinalIgnoreCase))
+            && (testContent.Contains("/api/kanban", StringComparison.OrdinalIgnoreCase)
+                || testContent.Contains("api/kanban", StringComparison.OrdinalIgnoreCase));
+
+        var hasBankingBusinessTests =
+            testContent.Contains("transfer", StringComparison.OrdinalIgnoreCase)
+            && (testContent.Contains("payment", StringComparison.OrdinalIgnoreCase)
+                || testContent.Contains("accounts", StringComparison.OrdinalIgnoreCase)
+                || testContent.Contains("MockMvc", StringComparison.Ordinal));
+
+        return hasHttpIntegrationTests
+               || hasBankingBusinessTests
+               || testContent.Contains("auth", StringComparison.OrdinalIgnoreCase)
+               || testContent.Contains("token", StringComparison.OrdinalIgnoreCase)
+               || testContent.Contains("kanban", StringComparison.OrdinalIgnoreCase)
+               || testContent.Contains("task", StringComparison.OrdinalIgnoreCase)
+               || testContent.Contains("board", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool HasValidationSignalsForPythonApi(string content)
     {
         return content.Contains("BaseModel", StringComparison.OrdinalIgnoreCase)
@@ -484,12 +701,68 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
                || content.Contains("application/problem+json", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static void ApplyProductQualityLockGuard(
+        IReadOnlyList<GeneratedFile> files,
+        GenerationPlan plan,
+        List<string> reasons,
+        ref int score)
+    {
+        if (files.Count == 0)
+            return;
+
+        var intentBlob = BuildIntentBlob(plan);
+        var combined = string.Join('\n', files.Select(f => f.Content ?? string.Empty));
+        if (string.IsNullOrWhiteSpace(combined))
+            return;
+
+        if (IntentSuggestsRepoBootstrap(intentBlob)
+            && !BankingPlanSanitizer.ShouldApply(plan, intentBlob)
+            && !HasRepoBootstrapAdaptationSignals(files, combined))
+        {
+            score -= 4;
+            reasons.Add("repo_bootstrap_not_reflected_in_code");
+        }
+
+        if (IntentSuggestsFintechBanking(intentBlob) && !HasFintechBankingSignals(combined, files))
+        {
+            score -= 3;
+            reasons.Add("intent_banking_not_reflected_in_code");
+        }
+
+        if (IntentSuggestsKanban(intentBlob)
+            && !BankingPlanSanitizer.ShouldApply(plan, intentBlob)
+            && !HasKanbanSignals(combined, files))
+        {
+            score -= 3;
+            reasons.Add("intent_kanban_not_reflected_in_code");
+        }
+
+        if (LooksLikeGenericTemplateOutput(files, combined))
+        {
+            score -= 3;
+            reasons.Add("generic_template_output_detected");
+        }
+
+        var requiresBusinessTests = IntentSuggestsTaskDomain(intentBlob)
+                                    || IntentSuggestsKanban(intentBlob)
+                                    || IntentSuggestsFintechBanking(intentBlob);
+        if (requiresBusinessTests && !HasMeaningfulBusinessTests(files))
+        {
+            score -= 2;
+            reasons.Add("business_tests_missing_or_superficial");
+        }
+    }
+
     // P1-9 of audit roadmap: delegate to StackPlanHeuristics single source of truth.
     // IsDotNet is the broad classification (matches legacy semantics: C# language OR
     // dotnet framework OR dotnet runtime; no api-intent, no exclusion of python/node).
     private static bool IsDotNetPlan(GenerationPlan plan) => StackPlanHeuristics.IsDotNet(plan);
     private static bool IsPythonPlan(GenerationPlan plan) => StackPlanHeuristics.IsPython(plan);
     private static bool IsNodePlan(GenerationPlan plan) => StackPlanHeuristics.IsNode(plan);
+    private static bool IsJavaReactFullStackPlan(GenerationPlan plan) =>
+        StackPlanHeuristics.Classify(plan) == StackKind.JavaReactFullStack;
+    private static bool IsNodeOnlyPlan(GenerationPlan plan) =>
+        IsNodePlan(plan) && !StackPlanHeuristics.IsJava(plan);
 
     private static bool IntentSuggestsComplexFastApiStack(string blob)
     {
@@ -516,7 +789,17 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
         if (IsPythonPlan(plan))
             return paths.Any(GenerationPathHeuristics.LooksLikePythonTestPath);
 
-        if (IsNodePlan(plan))
+        if (IsJavaReactFullStackPlan(plan))
+        {
+            return paths.Any(p =>
+                       p.StartsWith("backend/", StringComparison.OrdinalIgnoreCase)
+                       && p.Contains("test", StringComparison.OrdinalIgnoreCase))
+                   || paths.Any(p =>
+                       p.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase)
+                       && p.Contains("test", StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (IsNodeOnlyPlan(plan))
             return paths.Any(GenerationPathHeuristics.LooksLikeNodeTestPath);
 
         return paths.Any(p =>

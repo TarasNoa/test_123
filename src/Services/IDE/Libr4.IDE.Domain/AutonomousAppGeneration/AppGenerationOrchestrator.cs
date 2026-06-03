@@ -42,6 +42,9 @@ public sealed class AppGenerationOrchestrator : AggregateRoot<Guid>
     public IReadOnlyList<MemoryRetrievalAuditEntry> MemoryRetrievals => _memoryRetrievals.AsReadOnly();
     public IReadOnlyList<SkillInvocationAuditEntry> SkillInvocations => _skillInvocations.AsReadOnly();
     public IReadOnlyList<AgentTaskGraphEntry> TaskGraph => _taskGraph.AsReadOnly();
+
+    /// <summary>JSON snapshot of the last non-empty task graph (survives reload / manifest rebuild).</summary>
+    public string? TaskGraphPersistedJson { get; private set; }
     public IReadOnlyList<SecurityReviewAuditEntry> SecurityReviews => _securityReviews.AsReadOnly();
     public IReadOnlyList<CascadePlanAuditEntry> CascadePlans => _cascadePlans.AsReadOnly();
     public IReadOnlyList<CheckpointAuditEntry> Checkpoints => _checkpoints.AsReadOnly();
@@ -232,7 +235,25 @@ public sealed class AppGenerationOrchestrator : AggregateRoot<Guid>
     {
         _taskGraph.Clear();
         _taskGraph.AddRange(tasks);
+        PersistTaskGraphSnapshot();
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void PersistTaskGraphSnapshot()
+    {
+        if (_taskGraph.Count == 0)
+            return;
+        TaskGraphPersistedJson = AgentTaskGraphPersistence.Serialize(_taskGraph);
+    }
+
+    public void RestoreTaskGraphIfEmpty()
+    {
+        if (_taskGraph.Count > 0 || string.IsNullOrWhiteSpace(TaskGraphPersistedJson))
+            return;
+
+        var restored = AgentTaskGraphPersistence.Deserialize(TaskGraphPersistedJson);
+        if (restored.Count > 0)
+            _taskGraph.AddRange(restored);
     }
 
     public void RecordSecurityReview(SecurityReviewAuditEntry entry)

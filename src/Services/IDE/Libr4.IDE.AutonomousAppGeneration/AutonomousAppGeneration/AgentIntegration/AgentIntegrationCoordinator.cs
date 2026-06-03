@@ -176,11 +176,12 @@ public sealed class AgentIntegrationCoordinator : IAgentIntegrationCoordinator
         await IngestContextPackAsync(orchestrator, "post_fix", ct).ConfigureAwait(false);
     }
 
-    public SecurityReviewAuditEntry ReviewGeneratedCode(
+    public Task<SecurityReviewAuditEntry> ReviewGeneratedCodeAsync(
         string stage,
         IReadOnlyList<GeneratedFile> files,
-        GenerationPlan plan) =>
-        _security.EvaluateArtifacts(stage, files, plan);
+        GenerationPlan plan,
+        CancellationToken ct = default) =>
+        _security.EvaluateArtifactsAsync(stage, files, plan, ct);
 
     private async Task IngestPlanAndSkillsAsync(AppGenerationOrchestrator orchestrator, GenerationPlan plan, CancellationToken ct)
     {

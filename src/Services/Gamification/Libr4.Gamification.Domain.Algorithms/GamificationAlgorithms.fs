@@ -235,10 +235,10 @@ module RewardSystem =
     // Calculate reward based on achievement rarity
     let calculateRewardByRarity (rarity: Rarity) : int64 =
         match rarity with
-        | Common -> 100L
-        | Rare -> 500L
-        | Epic -> 2000L
-        | Legendary -> 10000L
+        | Rarity.Common -> 100L
+        | Rarity.Rare -> 500L
+        | Rarity.Epic -> 2000L
+        | Rarity.Legendary -> 10000L
 
     // Calculate bonus multiplier based on streak
     let calculateStreakMultiplier (streakDays: int) : float32 =

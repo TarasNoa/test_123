@@ -26,6 +26,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="WireMock.Net" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
+    <PackageReference Include="Moq" />
   </ItemGroup>
 
   <ItemGroup>
@@ -34,6 +36,7 @@
     <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.AutonomousAppGeneration\Libr4.IDE.AutonomousAppGeneration.csproj" />
     <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.AutonomousAppGeneration.Host\Libr4.IDE.AutonomousAppGeneration.Host.csproj" />
     <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.AutonomousAppGeneration.Persistence\Libr4.IDE.AutonomousAppGeneration.Persistence.csproj" />
+    <ProjectReference Include="..\..\src\Services\AI\Libr4.AI.Application\Libr4.AI.Application.csproj" />
   </ItemGroup>
 
 </Project>

@@ -11,7 +11,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void GenerateFinalReport_ShouldIncludeTaskGraph()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
         var orchestrator = AppGenerationOrchestrator.Create("TestApp", "fingerprint-1");
         var plan = BuildTestPlan();
         orchestrator.AttachPlan(plan);
@@ -19,13 +19,29 @@ public sealed class FinalReportServiceTests
         var report = service.GenerateFinalReport(orchestrator, "passed", new[] { "file1.cs", "file2.cs" });
 
         report.TaskGraph.Should().NotBeNull();
+        report.TaskGraph.Should().NotBeEmpty();
         report.ApplicationName.Should().Be("TestApp");
+    }
+
+    [Fact]
+    public void GenerateFinalReport_ShouldSynthesizeTaskGraph_WhenOrchestratorGraphIsEmpty()
+    {
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
+        var orchestrator = AppGenerationOrchestrator.Create("TestApp", "fingerprint-1");
+        orchestrator.AttachPlan(BuildTestPlan());
+        orchestrator.MarkCompleted();
+
+        var report = service.GenerateFinalReport(orchestrator, "pass", Array.Empty<string>());
+        var contract = service.GetReportContract("1.0");
+
+        report.TaskGraph.Should().HaveCountGreaterThan(0);
+        service.ValidateReportShape(report, contract).Should().BeTrue();
     }
 
     [Fact]
     public void GenerateFinalReport_ShouldIncludeTraceLinkage()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
         var orchestrator = AppGenerationOrchestrator.Create("TestApp", "fingerprint-1");
         var plan = BuildTestPlan();
         orchestrator.AttachPlan(plan);
@@ -40,7 +56,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void GenerateFinalReport_ShouldExtractExecutedSkills()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
         var orchestrator = AppGenerationOrchestrator.Create("TestApp", "fingerprint-1");
         var plan = BuildTestPlan();
         orchestrator.AttachPlan(plan);
@@ -54,7 +70,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void GenerateFinalReport_ShouldExtractMemoryHits()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
         var orchestrator = AppGenerationOrchestrator.Create("TestApp", "fingerprint-1");
         var plan = BuildTestPlan();
         orchestrator.AttachPlan(plan);
@@ -79,7 +95,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void ValidateReportShape_ShouldPassValidReport()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
         var orchestrator = AppGenerationOrchestrator.Create("TestApp", "fingerprint-1");
         var plan = BuildTestPlan();
         orchestrator.AttachPlan(plan);
@@ -99,7 +115,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void ValidateReportShape_ShouldFailMissingRunId()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
 
         var report = new FinalGenerationReport(
             "",
@@ -124,7 +140,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void ValidateReportShape_ShouldFailMissingTaskGraph()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
 
         var report = new FinalGenerationReport(
             "run-1",
@@ -149,7 +165,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void ValidateReportShape_ShouldFailMissingTraceLinkage()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
 
         var report = new FinalGenerationReport(
             "run-1",
@@ -174,7 +190,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void GetReportContract_ShouldReturnVersion1Contract()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
 
         var contract = service.GetReportContract("1.0");
 
@@ -188,7 +204,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void SerializeReport_ShouldProduceValidJson()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
         var orchestrator = AppGenerationOrchestrator.Create("TestApp", "fingerprint-1");
         var plan = BuildTestPlan();
         orchestrator.AttachPlan(plan);
@@ -207,7 +223,7 @@ public sealed class FinalReportServiceTests
     [Fact]
     public void SerializeReport_ShouldIncludeAllTraceLinkageTypes()
     {
-        var service = new FinalReportService(NullLogger<FinalReportService>.Instance);
+        var service = new FinalReportService(NullLogger<FinalReportService>.Instance, new TaskGraphHydrationService());
         var orchestrator = AppGenerationOrchestrator.Create("TestApp", "fingerprint-1");
         var plan = BuildTestPlan();
         orchestrator.AttachPlan(plan);

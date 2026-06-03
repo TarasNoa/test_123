@@ -1,5 +1,6 @@
 using Libr4.AI.Application.Abstractions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 
 namespace Libr4.AI.Api.Endpoints;
 
@@ -7,9 +8,12 @@ public static class AgentEndpoints
 {
     public static void MapAgentEndpoints(this IEndpointRouteBuilder app)
     {
+        var env = app.ServiceProvider.GetRequiredService<IHostEnvironment>();
         var group = app.MapGroup("/api/ai/agents")
-            .WithTags("AI Agents")
-            .RequireAuthorization();
+            .WithTags("AI Agents");
+
+        if (!env.IsEnvironment("Testing"))
+            group.RequireAuthorization();
 
         group.MapGet("/", async (IAgentService agentService) =>
         {

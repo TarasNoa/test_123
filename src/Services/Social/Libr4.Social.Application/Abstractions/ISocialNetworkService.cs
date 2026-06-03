@@ -21,6 +21,15 @@ public record SocialConnectionDto(Guid Id, Guid ConnectedUserId, ConnectionType 
 
 public record UserProfileDto(string Name, string? Bio, string? ProfileImageUrl, string? Location);
 
+public record UserPublicProfileDto(
+    string Name,
+    string? Bio,
+    string? ProfileImageUrl,
+    string? Location,
+    int FollowerCount,
+    int FollowingCount,
+    List<UserPostDto> Posts);
+
 public record UserPostDto(
     Guid Id,
     string Content,

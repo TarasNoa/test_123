@@ -31,7 +31,8 @@ public sealed class GenericImplementerAgent : AgentSkillBase
             SkillName, context.ApplicationName);
 
         var skillInstructions = GetSkillInstructions();
-        var prompt = BuildGenerationPrompt(context, skillInstructions);
+        var delegatedContent = await ExecuteDelegatedSubtasksParallelAsync(context);
+        var prompt = BuildGenerationPrompt(context, skillInstructions, delegatedContent);
 
         var response = await _aiService.GenerateCompletionAsync(prompt, skillInstructions);
 
@@ -70,7 +71,47 @@ public sealed class GenericImplementerAgent : AgentSkillBase
         return await _spawner.SpawnAndExecuteAsync(role, subContext, ct);
     }
 
-    private static string BuildGenerationPrompt(AgentContext context, string skillInstructions)
+    private async Task<string?> ExecuteDelegatedSubtasksParallelAsync(AgentContext context)
+    {
+        var task = context.Task;
+        if (_spawner is null || task is null || task.Subtasks.Count == 0)
+            return null;
+
+        _logger.LogInformation(
+            "{SkillName}: delegating {Count} subtasks in parallel via spawner",
+            SkillName,
+            task.Subtasks.Count);
+
+        var results = await Task.WhenAll(task.Subtasks.Select(async sub =>
+        {
+            var role = string.IsNullOrWhiteSpace(sub.Context.TechStack)
+                ? "api-designer"
+                : sub.Context.TechStack;
+            sub.Context.ApplicationName = string.IsNullOrWhiteSpace(sub.Context.ApplicationName)
+                ? context.ApplicationName
+                : sub.Context.ApplicationName;
+            if (string.IsNullOrWhiteSpace(sub.Context.Description))
+                sub.Context.Description = sub.Description;
+
+            try
+            {
+                return await _spawner.SpawnAndExecuteAsync(role, sub.Context);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Subagent role {Role} failed", role);
+                return null;
+            }
+        }));
+
+        var merged = string.Join(
+            "\n",
+            results.Where(r => r is not null && !string.IsNullOrWhiteSpace(r.Content)).Select(r => r!.Content));
+
+        return string.IsNullOrWhiteSpace(merged) ? null : merged;
+    }
+
+    private static string BuildGenerationPrompt(AgentContext context, string skillInstructions, string? delegatedArtifacts = null)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine("## TASK");
@@ -96,6 +137,13 @@ public sealed class GenericImplementerAgent : AgentSkillBase
             }
         }
 
+        if (!string.IsNullOrWhiteSpace(delegatedArtifacts))
+        {
+            sb.AppendLine();
+            sb.AppendLine("## DELEGATED SUBAGENT OUTPUT (merge into final JSON files array)");
+            sb.AppendLine(delegatedArtifacts);
+        }
+
         sb.AppendLine();
         sb.AppendLine("## SKILL INSTRUCTIONS");
         sb.AppendLine(skillInstructions);
@@ -108,9 +156,12 @@ public sealed class GenericImplementerAgent : AgentSkillBase
         sb.AppendLine("Do NOT delegate trivial tasks. Only delegate when the specialized skill genuinely improves output quality.");
 
         sb.AppendLine();
-        sb.AppendLine("## OUTPUT");
-        sb.AppendLine("Generate production-ready code files as a JSON array with 'relativePath' and 'content' fields.");
-        sb.AppendLine("Each file must be complete and compilable. No placeholders, no TODOs.");
+        sb.AppendLine("## OUTPUT (STRICT)");
+        sb.AppendLine("Return ONLY valid JSON (no markdown prose): {\"files\":[{\"relativePath\":\"...\",\"content\":\"...\"}]}");
+        sb.AppendLine("- Use repo-relative paths. For Java+React monorepos: backend/... and frontend/... (never root package.json or stray src/ tests only).");
+        sb.AppendLine("- Include ALL files needed to build: backend/pom.xml, Spring main + controllers, frontend/package.json, vite config, App.tsx, API client.");
+        sb.AppendLine("- Each file must be complete and compilable. No placeholders, no TODOs.");
+        sb.AppendLine("- Do NOT embed file content inside relativePath; paths must be a single line.");
 
         return sb.ToString();
     }

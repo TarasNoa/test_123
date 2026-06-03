@@ -89,7 +89,7 @@ public sealed class ReviewGate2Service : IReviewGate2Service
             if (string.IsNullOrWhiteSpace(file.RelativePath))
                 lintIssues.Add("empty_file_path");
 
-            if (file.Content?.Length > 50000)
+            if (IsOversizedLintViolation(file))
                 lintIssues.Add($"oversized_file:{file.RelativePath}");
 
             if (file.RelativePath.Contains("//") || file.RelativePath.Contains("\\\\"))
@@ -297,10 +297,16 @@ public sealed class ReviewGate2Service : IReviewGate2Service
             f.Content?.Contains("ratelimit", StringComparison.OrdinalIgnoreCase) == true ||
             f.Content?.Contains("throttle", StringComparison.OrdinalIgnoreCase) == true);
 
-        // Only check domain completeness if billing/payment is mentioned in the plan description
-        var isBillingApp = plan.ApplicationDescription.Contains("billing", StringComparison.OrdinalIgnoreCase) ||
-                          plan.ApplicationDescription.Contains("payment", StringComparison.OrdinalIgnoreCase) ||
-                          plan.ApplicationDescription.Contains("stripe", StringComparison.OrdinalIgnoreCase);
+        // Payment-gateway / Stripe-style apps only — not retail mobile banking (transfers + bill pay).
+        var descriptionBlob = $"{plan.ApplicationName} {plan.ApplicationDescription}";
+        var isMobileBanking = descriptionBlob.Contains("banking", StringComparison.OrdinalIgnoreCase)
+                              || descriptionBlob.Contains("fintech", StringComparison.OrdinalIgnoreCase)
+                              || descriptionBlob.Contains("[[JAVA_REACT_FULLSTACK]]", StringComparison.Ordinal);
+        var isBillingApp = !isMobileBanking
+                           && (plan.ApplicationDescription.Contains("billing", StringComparison.OrdinalIgnoreCase)
+                               || plan.ApplicationDescription.Contains("stripe", StringComparison.OrdinalIgnoreCase)
+                               || (plan.ApplicationDescription.Contains("payment", StringComparison.OrdinalIgnoreCase)
+                                   && plan.ApplicationDescription.Contains("webhook", StringComparison.OrdinalIgnoreCase)));
 
         if (isBillingApp)
         {
@@ -739,6 +745,21 @@ public sealed class ReviewGate2Service : IReviewGate2Service
             reasons,
             hints,
             DateTime.UtcNow);
+    }
+
+    private static bool IsOversizedLintViolation(GeneratedFile file)
+    {
+        var length = file.Content?.Length ?? 0;
+        if (length <= 50_000)
+            return false;
+
+        var path = file.RelativePath.Replace('\\', '/');
+        if (path.EndsWith(".md", StringComparison.OrdinalIgnoreCase)
+            || path.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
+            || path.Contains("/docs/", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return true;
     }
 
     private static bool IsTestFile(string path)

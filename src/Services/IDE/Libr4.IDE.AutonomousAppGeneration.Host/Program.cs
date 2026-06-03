@@ -1,12 +1,14 @@
 using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Infrastructure.AI;
 using Libr4.AI.Infrastructure.AI.Providers;
+using LlmCircuitBreakerOptions = Libr4.AI.Infrastructure.AI.LlmCircuitBreakerOptions;
 using Libr4.IDE.Application.AutonomousAppGeneration;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Libr4.IDE.Application.AutonomousAppGeneration.Commands;
 using Libr4.IDE.Application.AutonomousAppGeneration.Runtime;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
 using Libr4.IDE.AutonomousAppGeneration.Host.Endpoints;
+using HostEndpoints = Libr4.IDE.AutonomousAppGeneration.Host.Endpoints.AutonomousAppGenerationHostEndpoints;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -38,6 +40,11 @@ try
     builder.Services.AddSingleton<OllamaProvider>();
     builder.Services.AddSingleton<AIProviderFactory>();
     // P1-5: circuit breaker must be registered before AIService (it's a constructor dependency).
+    builder.Services.AddSingleton(_ => new LlmCircuitBreakerOptions
+    {
+        FailureThreshold = 15,
+        OpenDuration = TimeSpan.FromMinutes(2)
+    });
     builder.Services.AddSingleton<LlmCircuitBreaker>();
     builder.Services.AddScoped<Libr4.AI.Infrastructure.Hooks.HookManager>();
     builder.Services.AddSingleton<Libr4.AI.Infrastructure.LLMRouter>();
@@ -75,7 +82,7 @@ try
         builder.Configuration.GetSection("AutonomousAppGeneration:AgentIntegration:CascadePlanner"));
     builder.Services.Configure<Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration.ProviderMatrixOptions>(
         builder.Configuration.GetSection(Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration.ProviderMatrixOptions.SectionName));
-    builder.Services.AddAutonomousAppGeneration(runtimeProvider, allowProcessFallback);
+    builder.Services.AddAutonomousAppGeneration(runtimeProvider, allowProcessFallback, builder.Configuration);
 
     var app = builder.Build();
 
@@ -85,13 +92,16 @@ try
     app.UseSwaggerUI();
 
     app.MapGet("/", () => Results.Redirect("/swagger"));
-    app.MapAutonomousAppGenerationEndpoints();
+    HostEndpoints.MapAutonomousAppGenerationEndpoints(app);
     app.MapMcpIntegrationEndpoints();
 
-    var port = Environment.GetEnvironmentVariable("PORT") ?? "5200";
-    app.Urls.Add($"http://localhost:{port}");
+    if (!app.Environment.IsEnvironment("Testing"))
+    {
+        var port = Environment.GetEnvironmentVariable("PORT") ?? "5199";
+        app.Urls.Add($"http://localhost:{port}");
+        Log.Information("Application started successfully on port {Port}", port);
+    }
 
-    Log.Information("Application started successfully on port {Port}", port);
     app.Run();
 }
 catch (Exception ex)

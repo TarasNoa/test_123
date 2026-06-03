@@ -446,4 +446,203 @@ public sealed class AutonomousQualityGateIntentTests
         r.Score.Should().Be(10);
         r.Reasons.Should().Contain("non_actionable_errors_only");
     }
+
+    [Fact]
+    public void Generation_ShouldFailRepoBootstrapIntent_WhenNoAdaptationEvidencePresent()
+    {
+        var svc = new AutonomousQualityGateService(Options.Create(new AutonomousQualityGateOptions
+        {
+            GenerationMinScore = 9,
+            EnableIntentHeuristics = true,
+        }));
+
+        var plan = new GenerationPlan(
+            "GeneratedApp",
+            "Use Obscura GitHub repo bootstrap to adapt open-source Kanban app with auth.",
+            new TechStack(
+                new[] { "C#" },
+                new[] { "ASP.NET Core" },
+                new[] { "PostgreSQL" },
+                Array.Empty<string>(),
+                "repo bootstrap"),
+            new[]
+            {
+                new GenerationPhase(1, "bootstrap", "Discover and adapt GitHub repository", Array.Empty<AgentAssignment>()),
+                new GenerationPhase(2, "api", "Implement API", Array.Empty<AgentAssignment>()),
+                new GenerationPhase(3, "tests", "Validate behavior", Array.Empty<AgentAssignment>()),
+            },
+            new[] { "planner", "generator", "tester" },
+            "mcr.microsoft.com/dotnet/sdk:8.0",
+            new[] { "dotnet build" },
+            new[] { "dotnet test" },
+            4);
+
+        var files = new List<GeneratedFile>
+        {
+            new("GeneratedApp.sln", "text", "x"),
+            new("src/GeneratedApp/GeneratedApp.csproj", "xml", "<Project Sdk=\"Microsoft.NET.Sdk.Web\" />"),
+            new("src/GeneratedApp/Program.cs", "csharp", "var app=WebApplication.CreateBuilder().Build();app.MapGet(\"/\",()=>\"Hello from GeneratedApp\");app.Run();"),
+            new("src/GeneratedApp/Controllers/HealthController.cs", "csharp", "class HealthController{}"),
+            new("src/GeneratedApp/Services/HealthService.cs", "csharp", "class HealthService{}"),
+            new("src/GeneratedApp/Models/HealthItem.cs", "csharp", "class HealthItem{}"),
+            new("tests/GeneratedApp.Tests/GeneratedApp.Tests.csproj", "xml", "<Project Sdk=\"Microsoft.NET.Sdk\" />"),
+            new("tests/GeneratedApp.Tests/HealthTests.cs", "csharp", "public class HealthTests { }"),
+        };
+
+        var r = svc.EvaluateGeneratedFiles(files, plan);
+        r.Passed.Should().BeFalse();
+        r.Reasons.Should().Contain("repo_bootstrap_not_reflected_in_code");
+        r.Reasons.Should().Contain("generic_template_output_detected");
+        r.Reasons.Should().Contain("business_tests_missing_or_superficial");
+    }
+
+    [Fact]
+    public void Generation_ShouldFailKanbanIntent_WhenBoardFlowIsMissing()
+    {
+        var svc = new AutonomousQualityGateService(Options.Create(new AutonomousQualityGateOptions
+        {
+            GenerationMinScore = 9,
+            EnableIntentHeuristics = true,
+        }));
+
+        var plan = new GenerationPlan(
+            "TaskBoardApi",
+            "Build kanban board with auth and tasks.",
+            new TechStack(
+                new[] { "C#" },
+                new[] { "ASP.NET Core" },
+                new[] { "PostgreSQL" },
+                Array.Empty<string>(),
+                "kanban"),
+            new[]
+            {
+                new GenerationPhase(1, "api", "Implement HTTP API", Array.Empty<AgentAssignment>()),
+                new GenerationPhase(2, "domain", "Implement task domain", Array.Empty<AgentAssignment>()),
+                new GenerationPhase(3, "tests", "Implement tests", Array.Empty<AgentAssignment>()),
+            },
+            new[] { "planner", "generator", "tester" },
+            "mcr.microsoft.com/dotnet/sdk:8.0",
+            new[] { "dotnet build" },
+            new[] { "dotnet test" },
+            3);
+
+        var files = new List<GeneratedFile>
+        {
+            new("TaskBoardApi.sln", "text", "x"),
+            new("src/TaskBoardApi/TaskBoardApi.csproj", "xml", "<Project Sdk=\"Microsoft.NET.Sdk.Web\" />"),
+            new("src/TaskBoardApi/Program.cs", "csharp", "var b=WebApplication.CreateBuilder(); b.Services.AddAuthentication(); var app=b.Build(); app.UseAuthentication(); app.MapGet(\"/tasks\",()=>Array.Empty<string>()); app.Run();"),
+            new("src/TaskBoardApi/Controllers/TasksController.cs", "csharp", "class TasksController{}"),
+            new("src/TaskBoardApi/Services/TaskService.cs", "csharp", "class TaskService{}"),
+            new("src/TaskBoardApi/Data/AppDbContext.cs", "csharp", "class AppDbContext{}"),
+            new("tests/TaskBoardApi.Tests/TaskBoardApi.Tests.csproj", "xml", "<Project Sdk=\"Microsoft.NET.Sdk\" />"),
+            new("tests/TaskBoardApi.Tests/HealthTests.cs", "csharp", "public class HealthTests { }"),
+        };
+
+        var r = svc.EvaluateGeneratedFiles(files, plan);
+        r.Passed.Should().BeFalse();
+        r.Reasons.Should().Contain("intent_kanban_not_reflected_in_code");
+    }
+
+    [Fact]
+    public void Generation_ShouldPassRepoBootstrapIntent_WhenBootstrapEvidenceAndBusinessFeaturesPresent()
+    {
+        var svc = new AutonomousQualityGateService(Options.Create(new AutonomousQualityGateOptions
+        {
+            GenerationMinScore = 9,
+            EnableIntentHeuristics = true,
+        }));
+
+        var plan = new GenerationPlan(
+            "KanbanAuthApi",
+            "Use Obscura GitHub repo bootstrap with JWT auth and kanban board.\n[[REPO_BOOTSTRAP_REQUIRED]]",
+            new TechStack(
+                new[] { "C#" },
+                new[] { "ASP.NET Core" },
+                new[] { "PostgreSQL" },
+                Array.Empty<string>(),
+                "repo bootstrap"),
+            new[]
+            {
+                new GenerationPhase(1, "Repo bootstrap & adaptation", "Adapt upstream", Array.Empty<AgentAssignment>()),
+                new GenerationPhase(2, "Implement core", "Auth and kanban", Array.Empty<AgentAssignment>()),
+                new GenerationPhase(3, "Tests", "Business tests", Array.Empty<AgentAssignment>()),
+            },
+            new[] { "planner", "generator", "tester" },
+            "mcr.microsoft.com/dotnet/sdk:8.0",
+            new[] { "dotnet build" },
+            new[] { "dotnet test" },
+            4);
+
+        var files = new List<GeneratedFile>
+        {
+            new("KanbanAuthApi.sln", "text", "x"),
+            new("src/KanbanAuthApi/KanbanAuthApi.csproj", "xml", "<Project Sdk=\"Microsoft.NET.Sdk.Web\" />"),
+            new("src/KanbanAuthApi/Program.cs", "csharp",
+                "builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(); app.UseAuthentication(); app.UseAuthorization(); app.MapControllers();"),
+            new("src/KanbanAuthApi/Controllers/AuthController.cs", "csharp",
+                "[ApiController][Route(\"api/auth\")] public class AuthController { [HttpPost(\"token\")] public IActionResult IssueToken() { var t = new JwtSecurityToken(); return Ok(t); } }"),
+            new("src/KanbanAuthApi/Controllers/KanbanController.cs", "csharp",
+                "[ApiController][Route(\"api/kanban\")][Authorize] public class KanbanController { [HttpGet(\"board\")] public object GetBoard() => new { columns = new[] { \"backlog\", \"in_progress\", \"done\" } }; }"),
+            new("src/KanbanAuthApi/Data/AppDbContext.cs", "csharp", "class AppDbContext {}"),
+            new("src/KanbanAuthApi/Services/KanbanService.cs", "csharp", "namespace KanbanAuthApi.Services; public sealed class KanbanService {}"),
+            new("BOOTSTRAP_EVIDENCE.md", "markdown", "repository_url: https://github.com/example/repo license: mit adaptation: upstream"),
+            new("tests/KanbanAuthApi.Tests/KanbanAuthApi.Tests.csproj", "xml", "<Project Sdk=\"Microsoft.NET.Sdk\" />"),
+            new("tests/KanbanAuthApi.Tests/KanbanAuthFlowTests.cs", "csharp",
+                "public class KanbanAuthFlowTests { [Fact] public void AuthTokenAndKanbanBoard() { Assert.Contains(\"kanban\", \"kanban\"); } }"),
+        };
+
+        var r = svc.EvaluateGeneratedFiles(files, plan);
+        r.Passed.Should().BeTrue($"score={r.Score}; reasons={string.Join(',', r.Reasons)}");
+        r.Reasons.Should().NotContain("repo_bootstrap_not_reflected_in_code");
+        r.Reasons.Should().NotContain("intent_auth_not_reflected_in_code");
+        r.Reasons.Should().NotContain("intent_kanban_not_reflected_in_code");
+        r.Reasons.Should().NotContain("business_tests_missing_or_superficial");
+    }
+
+    [Fact]
+    public void Generation_ShouldAcceptWebApplicationFactoryHttpTests_ForRepoBootstrap()
+    {
+        var svc = new AutonomousQualityGateService(Options.Create(new AutonomousQualityGateOptions
+        {
+            GenerationMinScore = 9,
+            EnableIntentHeuristics = true,
+        }));
+
+        var plan = new GenerationPlan(
+            "GeneratedApp",
+            "[[REPO_BOOTSTRAP_REQUIRED]] adapt upstream with JWT auth and kanban",
+            new TechStack(
+                new[] { "C#" },
+                new[] { "ASP.NET Core" },
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                "repo bootstrap"),
+            Array.Empty<GenerationPhase>(),
+            Array.Empty<string>(),
+            "mcr.microsoft.com/dotnet/sdk:8.0",
+            new[] { "dotnet build" },
+            new[] { "dotnet test" },
+            4);
+
+        var files = new List<GeneratedFile>
+        {
+            new("BOOTSTRAP_EVIDENCE.md", "markdown", "repository_url: https://github.com/example/repo license: mit"),
+            new("upstream/README.md", "markdown", "adapted from upstream kanban"),
+            new("src/GeneratedApp.Api/Controllers/AuthController.cs", "csharp", "JwtSecurityToken token; [Route(\"api/auth\")]"),
+            new("src/GeneratedApp.Api/Controllers/KanbanController.cs", "csharp", "[Authorize][Route(\"api/kanban\")] board columns tasks"),
+            new("tests/GeneratedApp.Api.Tests/KanbanAuthHttpTests.cs", "csharp",
+                """
+                using Microsoft.AspNetCore.Mvc.Testing;
+                public sealed class KanbanAuthHttpTests : IClassFixture<WebApplicationFactory<Program>>
+                {
+                    private readonly HttpClient _client;
+                    [Fact] public async Task Token() => await _client.PostAsync("/api/auth/token", null);
+                    [Fact] public async Task Board() => await _client.GetAsync("/api/kanban/board");
+                }
+                """),
+        };
+
+        var r = svc.EvaluateGeneratedFiles(files, plan);
+        r.Reasons.Should().NotContain("business_tests_missing_or_superficial");
+    }
 }

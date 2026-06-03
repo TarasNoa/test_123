@@ -84,21 +84,27 @@ Return ONLY valid JSON, no prose, no markdown fences:
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error analysis LLM call failed; using heuristic fallback");
-            return HeuristicAnalysis(execution);
+            _logger.LogError(ex, "Error analysis LLM call failed");
+            throw new AutonomousGenerationFailedException(
+                "error_analysis",
+                $"Error analysis LLM call failed: {ex.Message}",
+                ex);
         }
 
         if (!PromptPipelinePolicy.ValidateOutputContract("error_analysis", raw, out var contractReason))
         {
-            _logger.LogWarning("Error-analysis output contract validation failed: {Reason}; using heuristic fallback", contractReason);
-            return HeuristicAnalysis(execution);
+            throw new AutonomousGenerationFailedException(
+                "error_analysis",
+                $"Error-analysis output failed contract validation: {contractReason}");
         }
 
         using var doc = LlmJsonHelpers.ExtractJson(raw);
         if (doc is null || !doc.RootElement.TryGetProperty("errors", out var arr)
             || arr.ValueKind != JsonValueKind.Array)
         {
-            return HeuristicAnalysis(execution);
+            throw new AutonomousGenerationFailedException(
+                "error_analysis",
+                $"Error-analysis response is not a JSON object with an 'errors' array. parse={LlmJsonHelpers.LastParseError ?? "unknown"}");
         }
 
         var list = new List<ErrorReport>();
@@ -117,14 +123,17 @@ Return ONLY valid JSON, no prose, no markdown fences:
             list.Add(new ErrorReport(type, msg, fix, file, line, "SemanticBlameAgent"));
         }
 
-        if (list.Count == 0) list.AddRange(HeuristicAnalysis(execution));
+        if (list.Count == 0)
+        {
+            throw new AutonomousGenerationFailedException(
+                "error_analysis",
+                "Error-analysis LLM returned an empty errors list.");
+        }
+
         return list;
     }
 
-    /// <summary>
-    /// Minimal deterministic extraction so the loop can make progress when the
-    /// LLM is unhelpful: group errors by first 500 stderr characters.
-    /// </summary>
+    [Obsolete("Heuristic error-analysis fallback removed.")]
     private static IReadOnlyList<ErrorReport> HeuristicAnalysis(ExecutionResult execution)
     {
         var logs = execution.Logs.Select(l => l.Message).ToList();

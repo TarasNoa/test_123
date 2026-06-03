@@ -81,7 +81,8 @@ public static class DependencyInjection
         services.AddScoped<IReactionEngine, ReactionEngine>();
         services.AddScoped<IGitIntegrationService, GitIntegrationService>();
         services.AddScoped<IEnhancedMemory, PgEnhancedMemory>();
-        // services.AddScoped<ICodebaseMapper, CodebaseMapper>(); // depends on CodeExtractor
+        services.AddScoped<CodeExtractor>();
+        services.AddScoped<ICodebaseMapper, CodebaseMapper>();
         services.AddScoped<IAIDbContext>(sp => sp.GetRequiredService<AIDbContext>());
 
         // LLM Providers (ILLMProvider interface)
@@ -122,29 +123,26 @@ public static class DependencyInjection
         services.AddScoped<ILLMService, LLMService>();
 
         // Hooks
-        services.AddScoped<HumanizerHook>();
         services.AddScoped<SessionRecoveryHook>();
         services.AddScoped<CompoundingHook>();
         services.AddScoped<HarnessHook>();
         services.AddScoped<ExoskeletonHook>();
         services.AddScoped<WorkbenchHook>();
         services.AddScoped<UserProfileHook>();
-        
+        services.AddScoped<GitIntegrationHook>();
+
         // Hook Manager
         services.AddScoped<HookManager>();
-        // services.AddSingleton<SessionLoggingHook>(); // TODO: Uncomment when SessionLogger is available
         services.AddSingleton<ToolUsageLoggingHook>();
         services.AddSingleton<ContextCompressionHook>();
         services.Configure<HumanizerOptions>(configuration.GetSection("Humanizer"));
         services.AddScoped<HumanizerHook>();
-        services.AddScoped<GitIntegrationHook>();
 
         // Sandbox Executor
         services.Configure<SandboxExecutorOptions>(configuration.GetSection("SandboxExecutor"));
         services.AddSingleton<SandboxExecutorService>();
 
-        // Code Graph
-        // services.AddSingleton<CodeGraphService>(); // TODO: Uncomment when CodeGraphService is available
+        services.AddSingleton<CodeGraphService>();
 
         // LLM Router
         services.AddSingleton<LLMRouter>();

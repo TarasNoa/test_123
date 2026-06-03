@@ -60,17 +60,7 @@ public class AIService : IAIService
 
         await _hookManager.ExecuteHooksAsync(HookType.PreToolUse, hookContext);
 
-        // Smart routing if model not specified
-        if (string.IsNullOrEmpty(model))
-        {
-            var decision = _router.Route(
-                task: "completion",
-                context: prompt,
-                requiredFeatures: new List<string> { "coding", "reasoning" },
-                maxCost: 0.01);
-            model = decision.ModelId;
-            _logger.LogInformation("Routed to model {ModelId} with confidence {Confidence}", model, decision.Confidence);
-        }
+        model = ResolveCompletionModel(model, prompt, "completion");
 
         var result = await ExecuteWithCircuitBreakerAsync(
             () =>
@@ -178,6 +168,92 @@ public class AIService : IAIService
         return result;
     }
 
+    private string ResolveCompletionModel(string? model, string context, string task)
+    {
+        model = SanitizeModelId(model);
+        if (!string.IsNullOrEmpty(model))
+            return RemapModelForConfiguredProvider(model);
+
+        if (UsesLocalInferenceProvider())
+        {
+            var local = GetConfiguredDefaultModel();
+            _logger.LogInformation("Using local inference model {ModelId} for {Task}", local, task);
+            return local;
+        }
+
+        var configuredCloud = GetConfiguredDefaultModel();
+        if (string.IsNullOrWhiteSpace(configuredCloud))
+        {
+            throw new InvalidOperationException(
+                $"AI:{_configuration["AI:DefaultProvider"]}:DefaultModel is not configured.");
+        }
+
+        _logger.LogInformation(
+            "Using configured cloud model {ModelId} for {Task} (LLMRouter bypassed)",
+            configuredCloud,
+            task);
+        return configuredCloud;
+    }
+
+    private static string SanitizeModelId(string? model)
+    {
+        if (string.IsNullOrWhiteSpace(model))
+            return string.Empty;
+
+        return model.Trim().Trim('"', '\'');
+    }
+
+    private bool UsesLocalInferenceProvider()
+    {
+        var provider = _configuration["AI:DefaultProvider"] ?? string.Empty;
+        return provider.Equals("DockerModelRunner", StringComparison.OrdinalIgnoreCase)
+               || provider.Equals("Ollama", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private string GetConfiguredDefaultModel()
+    {
+        var provider = _configuration["AI:DefaultProvider"] ?? "DockerModelRunner";
+        var configured = _configuration[$"AI:{provider}:DefaultModel"];
+        if (!string.IsNullOrWhiteSpace(configured))
+            return SanitizeModelId(configured);
+
+        return provider.Equals("Ollama", StringComparison.OrdinalIgnoreCase)
+            ? "qwen35b"
+            : "docker.io/ai/gemma4:latest";
+    }
+
+    private static bool IsTransientOverload(Exception ex) =>
+        ex is TaskCanceledException or OperationCanceledException or TimeoutException
+        || (ex is HttpRequestException && ex.InnerException is TimeoutException);
+
+    private string RemapModelForConfiguredProvider(string model)
+    {
+        if (!UsesLocalInferenceProvider())
+            return model;
+
+        if (LooksLikeLocalModelId(model))
+            return model;
+
+        var local = GetConfiguredDefaultModel();
+        _logger.LogDebug(
+            "Remapping cloud model {CloudModel} to local default {LocalModel}",
+            model,
+            local);
+        return local;
+    }
+
+    private static bool LooksLikeLocalModelId(string model)
+    {
+        if (string.IsNullOrWhiteSpace(model))
+            return false;
+
+        return model.Contains("docker.io/", StringComparison.OrdinalIgnoreCase)
+               || model.Contains("huggingface.co/", StringComparison.OrdinalIgnoreCase)
+               || model.Contains(":latest", StringComparison.OrdinalIgnoreCase)
+               || model.Contains("gguf", StringComparison.OrdinalIgnoreCase)
+               || model.Equals("qwen35b", StringComparison.OrdinalIgnoreCase);
+    }
+
     // ── Circuit breaker wrapper ───────────────────────────────────────────────
 
     private async Task<string> ExecuteWithCircuitBreakerAsync(Func<Task<string>> operation)
@@ -204,10 +280,12 @@ public class AIService : IAIService
         }
         catch (Exception ex)
         {
-            _circuitBreaker.OnFailure(providerId);
-            _logger.LogWarning(ex,
-                "[CircuitBreaker] Provider {ProviderId} call failed. Failure recorded.",
-                providerId);
+            if (!IsTransientOverload(ex))
+                _circuitBreaker.OnFailure(providerId);
+            else
+                _logger.LogWarning(ex,
+                    "[CircuitBreaker] Provider {ProviderId} transient timeout/cancel — not counting toward circuit threshold.",
+                    providerId);
             throw;
         }
     }

@@ -2,6 +2,64 @@ import { createSignal, Show, type Component } from 'solid-js';
 import { store, setStore, addMessage } from '../IDEStore';
 import { config } from '../../../lib/config';
 
+async function pollAppGenerationRun(runId: string, reportUrl: string) {
+  const token = localStorage.getItem('accessToken');
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  const maxAttempts = 120;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    try {
+      const res = await fetch(`${config.apiBaseUrl}${reportUrl}`, { headers });
+      if (!res.ok) continue;
+
+      const report = await res.json();
+      const status = String(report.status ?? '');
+      const planName = report.plan?.applicationName ?? 'приложение';
+      const fileCount = Array.isArray(report.files) ? report.files.length : 0;
+
+      if (status === 'Completed' || status === 'Failed') {
+        const stack = report.plan?.techStack;
+        const langs = stack?.languages?.join(', ') ?? '';
+        const fws = stack?.frameworks?.join(', ') ?? '';
+        const text =
+          status === 'Completed'
+            ? `Генерация **${planName}** завершена.\n\nСтатус: ${status}\nФайлов: ${fileCount}\nСтек: ${langs} / ${fws}`
+            : `Генерация **${planName}** завершилась с ошибкой.\n\nСтатус: ${status}\nПричина: ${report.failureReason ?? 'не указана'}`;
+
+        addMessage({
+          type: 'ai',
+          id: crypto.randomUUID(),
+          text,
+          timestamp: new Date(),
+          isStreaming: false,
+        });
+        return;
+      }
+
+      if (attempt > 0 && attempt % 6 === 0) {
+        addMessage({
+          type: 'ai',
+          id: crypto.randomUUID(),
+          text: `Генерация \`${runId}\` в процессе… (${status || 'Running'}, файлов: ${fileCount})`,
+          timestamp: new Date(),
+          isStreaming: false,
+        });
+      }
+    } catch {
+      // keep polling
+    }
+  }
+
+  addMessage({
+    type: 'ai',
+    id: crypto.randomUUID(),
+    text: `Генерация \`${runId}\` всё ещё выполняется. Откройте отчёт: ${reportUrl}`,
+    timestamp: new Date(),
+    isStreaming: false,
+  });
+}
+
 export const AIInput: Component = () => {
   const [rows, setRows] = createSignal(1);
 
@@ -55,6 +113,13 @@ export const AIInput: Component = () => {
           timestamp: new Date(),
           isStreaming: false,
         });
+      }
+
+      if (data.generationRunId && data.generationReportUrl) {
+        void pollAppGenerationRun(
+          data.generationRunId as string,
+          data.generationReportUrl as string,
+        );
       }
     } catch (err: any) {
       const rawMessage: string = err?.message || 'Unknown error';

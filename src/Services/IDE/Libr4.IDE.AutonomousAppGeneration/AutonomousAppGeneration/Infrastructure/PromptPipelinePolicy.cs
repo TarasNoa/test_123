@@ -12,6 +12,7 @@ public static class PromptPipelinePolicy
             "generation" => 64_000,
             "fixing" => 72_000,
             "error_analysis" => 56_000,
+            "security_review" => 120_000,
             _ => 48_000
         };
 
@@ -39,6 +40,7 @@ public static class PromptPipelinePolicy
             "planning" => ValidatePlanning(root, out reason),
             "generation" or "fixing" => ValidateFilesEnvelope(root, out reason),
             "error_analysis" => ValidateErrorEnvelope(root, out reason),
+            "security_review" => ValidateSecurityReviewEnvelope(root, out reason),
             _ => true
         };
     }
@@ -106,6 +108,24 @@ public static class PromptPipelinePolicy
         if (!root.TryGetProperty("errors", out var errors) || errors.ValueKind != JsonValueKind.Array)
         {
             reason = "missing_errors_array";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static bool ValidateSecurityReviewEnvelope(JsonElement root, out string reason)
+    {
+        reason = string.Empty;
+        if (!root.TryGetProperty("score", out var score) || score.ValueKind != JsonValueKind.Number)
+        {
+            reason = "missing_score";
+            return false;
+        }
+
+        if (!root.TryGetProperty("findings", out var findings) || findings.ValueKind != JsonValueKind.Array)
+        {
+            reason = "missing_findings_array";
             return false;
         }
 

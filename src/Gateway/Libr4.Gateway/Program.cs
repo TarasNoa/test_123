@@ -8,6 +8,8 @@ builder.AddLibr4Serilog("gateway");
 
 builder.Services.AddLibr4JwtAuth(builder.Configuration);
 builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.WithOrigins("http://localhost:3000")
@@ -34,6 +36,8 @@ app.UseCors();
 app.UseAuthentication();
 // app.UseRateLimiter();  // TODO: Uncomment when RateLimitingExtensions is available
 app.UseAuthorization();
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.MapLibr4HealthChecks();
 

@@ -28,4 +28,9 @@ public sealed class AutonomousLoopGuardOptions
     /// being executed inline. Defaults to true; set to false to revert to legacy path.
     /// </summary>
     public bool UsePipelineRunnerForPlanningPrefix { get; set; } = true;
+
+    /// <summary>
+    /// Compile-only fix passes after generation (before the main test iteration loop).
+    /// </summary>
+    public int MaxStartupBuildRemediationPasses { get; set; } = 5;
 }

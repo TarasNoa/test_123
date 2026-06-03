@@ -23,6 +23,7 @@ using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Subagents;
 using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Unix;
 using Libr4.IDE.AutonomousAppGeneration.Agents;
 using Libr4.IDE.AutonomousAppGeneration.AutonomousAppGeneration.Memory;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -48,13 +49,16 @@ public static class AutonomousAppGenerationDependencyInjection
     public static IServiceCollection AddAutonomousAppGeneration(
         this IServiceCollection services,
         string? runtimeProvider = null,
-        bool allowFallbackToProcess = true)
+        bool allowFallbackToProcess = true,
+        IConfiguration? configuration = null)
     {
         // Orchestrator state + LLM-backed services.
         services.AddSingleton<IAppGenerationRepository, InMemoryAppGenerationRepository>();
+        services.AddSingleton<IAppGenerationRunStarter, AppGenerationRunStarter>();
         services.AddScoped<IAppPlannerService, LlmAppPlannerService>();
         services.AddScoped<ICodeGenerationService, LlmCodeGenerationService>();
         services.AddScoped<IErrorAnalysisService, LlmErrorAnalysisService>();
+        services.AddSingleton<ITaskGraphHydrationService, TaskGraphHydrationService>();
         services.AddSingleton<IExecutionManifestBuilder, ExecutionManifestBuilder>();
         services.AddSingleton<IAutonomousRunControlService, AutonomousRunControlService>();
         services.AddSingleton<IAutonomousQualityGateService, AutonomousQualityGateService>();
@@ -117,7 +121,7 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddSingleton<SkillSchemaValidator>();
         services.AddSingleton<IAutonomousCascadePlanner, AutonomousCascadePlanner>();
         services.AddSingleton<IAgentTaskGraphService, AgentTaskGraphService>();
-        services.AddSingleton<ISecurityReviewGateService, SecurityReviewGateService>();
+        services.AddSingleton<ISecurityReviewGateService, LlmSecurityReviewGateService>();
         services.AddSingleton<IReviewGate2Service, ReviewGate2Service>();
         services.AddSingleton<IPromptContractService, PromptContractService>();
         services.AddSingleton<IFinalReportService, FinalReportService>();
@@ -180,8 +184,17 @@ public static class AutonomousAppGenerationDependencyInjection
                 Path.Combine(assemblyDir, "Agents", "Skills"));
         });
 
-        services.AddSingleton<IAgentSpawner, AgentSpawner>();
-        services.AddSingleton<AgentOrchestrationFactory>();
+        services.AddScoped<IAgentSpawner, AgentSpawner>();
+        if (configuration is not null)
+        {
+            services.Configure<AgentOrchestrationOptions>(
+                configuration.GetSection(AgentOrchestrationOptions.SectionName));
+        }
+        else
+        {
+            services.Configure<AgentOrchestrationOptions>(_ => { });
+        }
+        services.AddScoped<AgentOrchestrationFactory>();
 
         // Reviewer agents (stack-agnostic)
         services.AddScoped<SpecReviewerAgent>(sp => new SpecReviewerAgent(

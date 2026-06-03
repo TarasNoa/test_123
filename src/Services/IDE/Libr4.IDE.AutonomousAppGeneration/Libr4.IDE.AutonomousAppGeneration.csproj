@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Libr4.IDE.Application\Libr4.IDE.Application.csproj" />
     <ProjectReference Include="..\Libr4.IDE.Domain\Libr4.IDE.Domain.csproj" />
     <ProjectReference Include="..\..\AI\Libr4.AI.Infrastructure\Libr4.AI.Infrastructure.csproj" />

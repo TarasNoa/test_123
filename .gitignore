@@ -31,6 +31,8 @@ next-env.d.ts
 ## Logs
 *.log
 logs/
+.logs/
+.logs/.openrouter-api-key
 e2e-logs/
 *_err.txt
 *_out.txt

@@ -125,35 +125,15 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
             var preflightResult = _preflight.CheckServerAvailability(meta.ServerProfileKey);
             if (!preflightResult.IsAvailable)
             {
-                if (opt.EnableDeterministicFallback)
+                if (orchestrator is not null)
                 {
-                    // Degraded mode: record audit entry but don't crash
-                    if (orchestrator is not null)
-                    {
-                        Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,
-                            HashArgs(arguments), started, 0, preflightResult.BlockerCode ?? "mcp_server_unavailable",
-                            preflightResult.DiagnosticMessage ?? "MCP server unavailable");
-                    }
-
-                    _logger.LogWarning("MCP server '{ProfileKey}' unavailable, using degraded mode: {Diagnostic}",
-                        meta.ServerProfileKey, preflightResult.DiagnosticMessage);
-
-                    return new McpInvocationOutcome(false, preflightResult.BlockerCode ?? "mcp_server_unavailable",
-                        preflightResult.DiagnosticMessage ?? "MCP server unavailable (degraded mode)", null);
+                    Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,
+                        HashArgs(arguments), started, 0, preflightResult.BlockerCode ?? "mcp_server_unavailable",
+                        preflightResult.DiagnosticMessage ?? "MCP server unavailable");
                 }
-                else
-                {
-                    // Hard failure when deterministic fallback is disabled
-                    if (orchestrator is not null)
-                    {
-                        Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,
-                            HashArgs(arguments), started, 0, preflightResult.BlockerCode ?? "mcp_server_unavailable",
-                            preflightResult.DiagnosticMessage ?? "MCP server unavailable");
-                    }
 
-                    return new McpInvocationOutcome(false, preflightResult.BlockerCode ?? "mcp_server_unavailable",
-                        preflightResult.DiagnosticMessage ?? "MCP server unavailable", null);
-                }
+                return new McpInvocationOutcome(false, preflightResult.BlockerCode ?? "mcp_server_unavailable",
+                    preflightResult.DiagnosticMessage ?? "MCP server unavailable", null);
             }
         }
 
@@ -246,6 +226,20 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
                     $"No ServerProfiles entry for '{meta.ServerProfileKey}'", null);
             }
 
+            if (!string.IsNullOrWhiteSpace(profile.WorkingDirectory) &&
+                !Directory.Exists(profile.WorkingDirectory))
+            {
+                if (orchestrator is not null)
+                {
+                    Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,
+                        HashArgs(arguments), started, 0, "working_directory_missing",
+                        $"Working directory '{profile.WorkingDirectory}' does not exist");
+                }
+
+                return new McpInvocationOutcome(false, "working_directory_missing",
+                    $"Working directory '{profile.WorkingDirectory}' does not exist", null);
+            }
+
             var sw = System.Diagnostics.Stopwatch.StartNew();
             try
             {
@@ -269,6 +263,7 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
             {
                 sw.Stop();
                 var msg = ex.Message.Length > 512 ? ex.Message[..512] : ex.Message;
+
                 if (orchestrator is not null)
                 {
                     Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,

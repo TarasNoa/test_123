@@ -26,14 +26,14 @@ public static class TaskEndpoints
         {
             var result = await mediator.Send(query);
             return Results.Ok(result);
-        }).AllowAnonymous();
+        }).RequireAuthorization();
 
         grp.MapGet("/{id:guid}", async (Guid id, ClaimsPrincipal user, ISender mediator) =>
         {
             var userId = GetUserId(user);
             var result = await mediator.Send(new GetTaskByIdQuery(id, userId));
             return result.ToHttpResult();
-        }).AllowAnonymous();
+        }).RequireAuthorization();
 
         grp.MapPost("/", async ([FromBody] CreateTaskRequest body, ClaimsPrincipal user, ISender mediator) =>
         {

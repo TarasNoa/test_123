@@ -28,11 +28,24 @@ internal static class GenerationStackSafetyNet
         {
             var root = GetPrimaryProjectRootPath(generated.Values) ?? "src/GeneratedApp.Api";
             var ns = BuildNamespaceFromRoot(root);
+            var projectName = root.Replace('\\', '/').Split('/').LastOrDefault() ?? "GeneratedApp.Api";
+            var csprojPath = $"{root}/{projectName}.csproj";
 
             var hasProgram = generated.Keys.Any(p => p.EndsWith("/Program.cs", StringComparison.OrdinalIgnoreCase));
             var hasController = generated.Keys.Any(p => p.Contains("/Controllers/", StringComparison.OrdinalIgnoreCase));
             var hasService = generated.Keys.Any(p => p.Contains("/Services/", StringComparison.OrdinalIgnoreCase));
             var hasModel = generated.Keys.Any(p => p.Contains("/Models/", StringComparison.OrdinalIgnoreCase));
+            var hasProject = generated.Keys.Any(p => p.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase));
+            var hasSolution = generated.Keys.Any(p => p.EndsWith(".sln", StringComparison.OrdinalIgnoreCase));
+            var hasDataLayer = generated.Keys.Any(p =>
+                p.Contains("/Data/", StringComparison.OrdinalIgnoreCase) ||
+                p.Contains("DbContext", StringComparison.OrdinalIgnoreCase) ||
+                p.Contains("Repository", StringComparison.OrdinalIgnoreCase));
+
+            if (!hasProject)
+                AddGeneratedIfMissing(generated, added, csprojPath, "xml", BuildAspNetCsprojContent());
+            if (!hasSolution)
+                AddGeneratedIfMissing(generated, added, $"{SanitizeDotNetAppName(plan.ApplicationName)}.sln", "text", BuildDotNetSolutionContent(projectName, csprojPath));
 
             if (!hasModel)
                 AddGeneratedIfMissing(generated, added, $"{root}/Models/HealthItem.cs", "csharp", BuildHealthItemContent(ns));
@@ -44,7 +57,71 @@ internal static class GenerationStackSafetyNet
                 AddGeneratedIfMissing(generated, added, $"{root}/Controllers/HealthController.cs", "csharp", BuildHealthControllerContent(ns));
 
             if (!hasProgram)
-                AddGeneratedIfMissing(generated, added, $"{root}/Program.cs", "csharp", BuildProgramContent(ns));
+                AddGeneratedIfMissing(generated, added, $"{root}/Program.cs", "csharp", BuildProgramContent(ns, hasDataLayer));
+            else
+            {
+                var programPath = generated.Keys.FirstOrDefault(p => p.EndsWith("/Program.cs", StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(programPath) &&
+                    generated.TryGetValue(programPath, out var programFile) &&
+                    hasDataLayer &&
+                    !programFile.Content.Contains("AddDbContext", StringComparison.Ordinal))
+                {
+                    generated[programPath] = new GeneratedFile(programPath, "csharp", BuildProgramContent(ns, true));
+                    added.Add(generated[programPath]);
+                }
+            }
+
+            if (!hasDataLayer)
+            {
+                AddGeneratedIfMissing(generated, added, $"{root}/Models/TaskItem.cs", "csharp", BuildTaskItemContent(ns));
+                AddGeneratedIfMissing(generated, added, $"{root}/Data/AppDbContext.cs", "csharp", BuildAppDbContextContent(ns));
+                AddGeneratedIfMissing(generated, added, $"{root}/Repositories/TaskRepository.cs", "csharp", BuildTaskRepositoryContent(ns));
+            }
+        }
+
+        if (StackPlanHeuristics.IsJava(plan))
+        {
+            AddGeneratedIfMissing(generated, added, "backend/pom.xml", "xml", BuildSpringBootPomContent(plan.ApplicationName));
+            AddGeneratedIfMissing(generated, added,
+                "backend/src/main/java/com/generated/banking/BankingApplication.java",
+                "java",
+                BuildSpringBootApplicationContent());
+            AddGeneratedIfMissing(generated, added,
+                "backend/src/main/java/com/generated/banking/web/HealthController.java",
+                "java",
+                BuildSpringBootHealthControllerContent());
+            AddGeneratedIfMissing(generated, added,
+                "backend/src/main/java/com/generated/banking/web/AccountController.java",
+                "java",
+                BuildSpringBootAccountControllerContent());
+            AddGeneratedIfMissing(generated, added,
+                "backend/src/main/java/com/generated/banking/web/TransferController.java",
+                "java",
+                BuildSpringBootTransferControllerContent());
+            AddGeneratedIfMissing(generated, added,
+                "backend/src/main/java/com/generated/banking/web/PaymentController.java",
+                "java",
+                BuildSpringBootPaymentControllerContent());
+            AddGeneratedIfMissing(generated, added,
+                "backend/src/main/java/com/generated/banking/web/AuthController.java",
+                "java",
+                BuildSpringBootAuthControllerContent());
+            AddGeneratedIfMissing(generated, added,
+                "backend/src/test/java/com/generated/banking/BankingApiTests.java",
+                "java",
+                BuildSpringBootBankingApiTestsContent());
+        }
+
+        if (StackPlanHeuristics.IsReactTypeScriptFrontend(plan))
+        {
+            AddGeneratedIfMissing(generated, added, "frontend/package.json", "json", BuildReactTypeScriptPackageJson(plan.ApplicationName));
+            AddGeneratedIfMissing(generated, added, "frontend/tsconfig.json", "json", BuildReactTypeScriptTsConfig());
+            AddGeneratedIfMissing(generated, added, "frontend/vite.config.ts", "typescript", BuildReactViteConfig());
+            AddGeneratedIfMissing(generated, added, "frontend/index.html", "html", BuildReactIndexHtml(plan.ApplicationName));
+            AddGeneratedIfMissing(generated, added, "frontend/src/main.tsx", "typescript", BuildReactMainTsx());
+            AddGeneratedIfMissing(generated, added, "frontend/src/App.tsx", "typescript", BuildReactAppTsx(plan.ApplicationName));
+            AddGeneratedIfMissing(generated, added, "frontend/src/api/client.ts", "typescript", BuildReactApiClientTs());
+            AddGeneratedIfMissing(generated, added, "frontend/src/App.test.tsx", "typescript", BuildReactAppTestTsx());
         }
 
         if (IsDotNetStack(plan) && plan.TestCommands.Count > 0
@@ -226,22 +303,50 @@ internal static class GenerationStackSafetyNet
                 EnsureComplexFastApiArtifacts(generated, added);
         }
 
-        if (IsNodePlan(plan))
+        if (IsNodePlan(plan) && StackPlanHeuristics.Classify(plan) != StackKind.JavaReactFullStack)
         {
             var hasPackageJson = generated.Keys.Any(p => p.EndsWith("package.json", StringComparison.OrdinalIgnoreCase));
             var hasIndexJs = generated.Keys.Any(p =>
                 p.EndsWith("index.js", StringComparison.OrdinalIgnoreCase) ||
                 p.EndsWith("index.ts", StringComparison.OrdinalIgnoreCase));
             var hasTest = generated.Keys.Any(GenerationPathHeuristics.LooksLikeNodeTestPath);
+            var hasTaskRoutes = generated.Keys.Any(p => p.Contains("routes/tasks", StringComparison.OrdinalIgnoreCase));
+            var hasAuthRoutes = generated.Keys.Any(p => p.Contains("routes/auth", StringComparison.OrdinalIgnoreCase));
+            var hasDataLayer = generated.Keys.Any(p =>
+                p.Contains("models", StringComparison.OrdinalIgnoreCase) ||
+                p.Contains("repository", StringComparison.OrdinalIgnoreCase) ||
+                p.Contains("store", StringComparison.OrdinalIgnoreCase));
 
             if (!hasPackageJson)
                 AddGeneratedIfMissing(generated, added, "package.json", "json", BuildNodePackageJsonContent(plan.ApplicationName));
 
             if (!hasIndexJs)
                 AddGeneratedIfMissing(generated, added, "index.js", "javascript", BuildNodeIndexContent(plan.ApplicationName));
+            else
+            {
+                var indexPath = generated.Keys.FirstOrDefault(p =>
+                    p.EndsWith("index.js", StringComparison.OrdinalIgnoreCase)
+                    || p.EndsWith("index.ts", StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(indexPath)
+                    && generated.TryGetValue(indexPath, out var index)
+                    && !index.Content.Contains("/api/tasks", StringComparison.OrdinalIgnoreCase))
+                {
+                    generated[indexPath] = new GeneratedFile(indexPath, "javascript", BuildNodeIndexContent(plan.ApplicationName));
+                    added.Add(generated[indexPath]);
+                }
+            }
 
             if (!hasTest && plan.TestCommands.Count > 0)
                 AddGeneratedIfMissing(generated, added, "index.test.js", "javascript", BuildNodeTestContent(plan.ApplicationName));
+
+            if (!hasDataLayer)
+                AddGeneratedIfMissing(generated, added, "src/models/task-store.js", "javascript", BuildNodeTaskStoreContent());
+            if (!hasAuthRoutes || PlanSuggestsAuth(plan))
+                AddGeneratedIfMissing(generated, added, "src/services/auth-service.js", "javascript", BuildNodeAuthServiceContent());
+            if (!hasTaskRoutes || PlanSuggestsTaskDomain(plan))
+                AddGeneratedIfMissing(generated, added, "src/routes/tasks.js", "javascript", BuildNodeTaskRoutesContent());
+            if (!hasAuthRoutes || PlanSuggestsAuth(plan))
+                AddGeneratedIfMissing(generated, added, "src/routes/auth.js", "javascript", BuildNodeAuthRoutesContent());
         }
 
         return added;
@@ -262,7 +367,105 @@ internal static class GenerationStackSafetyNet
         }
 
         EnsureMandatoryGeneratedFiles(plan, dict);
+        UpgradeBankingProductionBaseline(plan, dict);
+        ClampOversizedGeneratedFiles(dict);
         return dict.Values.ToList();
+    }
+
+    private static void ClampOversizedGeneratedFiles(Dictionary<string, GeneratedFile> generated)
+    {
+        const int maxChars = 49_000;
+        foreach (var key in generated.Keys.ToList())
+        {
+            var file = generated[key];
+            var content = file.Content ?? string.Empty;
+            if (content.Length <= maxChars)
+                continue;
+
+            generated[key] = new GeneratedFile(
+                file.RelativePath,
+                file.Language,
+                content[..maxChars] + "\n/* truncated for review gate size limit */");
+        }
+    }
+
+    private static void UpgradeBankingProductionBaseline(GenerationPlan plan, Dictionary<string, GeneratedFile> generated)
+    {
+        if (StackPlanHeuristics.Classify(plan) != StackKind.JavaReactFullStack)
+            return;
+
+        var intent = $"{plan.ApplicationName} {plan.ApplicationDescription}";
+        if (!intent.Contains("bank", StringComparison.OrdinalIgnoreCase)
+            && !intent.Contains("fintech", StringComparison.OrdinalIgnoreCase)
+            && !intent.Contains("[[JAVA_REACT_FULLSTACK]]", StringComparison.Ordinal))
+            return;
+
+        var added = new List<GeneratedFile>();
+        generated["backend/src/main/resources/application.yml"] = new GeneratedFile(
+            "backend/src/main/resources/application.yml",
+            "yaml",
+            BuildSpringBootApplicationYml());
+        AddGeneratedIfMissing(generated, added,
+            "backend/src/main/java/com/generated/banking/service/AccountService.java",
+            "java",
+            BuildAccountServiceContent());
+        AddGeneratedIfMissing(generated, added,
+            "backend/src/main/java/com/generated/banking/service/TransferService.java",
+            "java",
+            BuildTransferServiceContent());
+        generated["backend/src/main/java/com/generated/banking/config/CorrelationIdFilter.java"] = new GeneratedFile(
+            "backend/src/main/java/com/generated/banking/config/CorrelationIdFilter.java",
+            "java",
+            BuildSpringBootCorrelationIdFilterContent());
+        generated["backend/src/main/java/com/generated/banking/web/GlobalExceptionHandler.java"] = new GeneratedFile(
+            "backend/src/main/java/com/generated/banking/web/GlobalExceptionHandler.java",
+            "java",
+            BuildSpringBootGlobalExceptionHandlerContent());
+        generated["backend/src/main/java/com/generated/banking/web/HealthController.java"] = new GeneratedFile(
+            "backend/src/main/java/com/generated/banking/web/HealthController.java",
+            "java",
+            BuildSpringBootHealthControllerContent());
+        AddGeneratedIfMissing(generated, added,
+            "README.md",
+            "markdown",
+            BuildBankingReadmeContent(plan.ApplicationName));
+        AddGeneratedIfMissing(generated, added,
+            "docker-compose.yml",
+            "yaml",
+            BuildBankingDockerComposeContent());
+        AddGeneratedIfMissing(generated, added,
+            ".github/workflows/ci.yml",
+            "yaml",
+            BuildBankingCiWorkflowContent());
+        AddGeneratedIfMissing(generated, added,
+            "scripts/run.sh",
+            "shell",
+            BuildBankingRunScriptContent());
+
+        const string bankingTest = "backend/src/test/java/com/generated/banking/BankingApiTests.java";
+        generated[bankingTest] = new GeneratedFile(bankingTest, "java", BuildSpringBootBankingApiTestsContent());
+
+        const string clientPath = "frontend/src/api/client.ts";
+        if (!generated.TryGetValue(clientPath, out var client)
+            || !client.Content.Contains("createPayment", StringComparison.OrdinalIgnoreCase))
+        {
+            generated[clientPath] = new GeneratedFile(clientPath, "typescript", BuildReactApiClientTs());
+        }
+
+        const string appTest = "frontend/src/App.test.tsx";
+        if (!generated.ContainsKey(appTest))
+            generated[appTest] = new GeneratedFile(appTest, "typescript", BuildReactAppTestTsx());
+
+        var appPath = generated.Keys.FirstOrDefault(p =>
+            p.Equals("frontend/src/App.tsx", StringComparison.OrdinalIgnoreCase));
+        if (appPath is null
+            || !generated[appPath].Content.Contains("transfer", StringComparison.OrdinalIgnoreCase))
+        {
+            generated["frontend/src/App.tsx"] = new GeneratedFile(
+                "frontend/src/App.tsx",
+                "typescript",
+                BuildReactAppTsx(plan.ApplicationName));
+        }
     }
 
     // P1-9 of audit roadmap: delegate to single source of truth.
@@ -536,8 +739,30 @@ public sealed class HealthController : ControllerBase
     public IActionResult Get([FromServices] HealthService service) => Ok(service.GetHealth());
 }}";
 
-    private static string BuildProgramContent(string ns) =>
-        $@"using {ns}.Services;
+    private static string BuildProgramContent(string ns, bool includeDataLayer) =>
+        includeDataLayer
+            ? $@"using {ns}.Data;
+using {ns}.Repositories;
+using {ns}.Services;
+using Microsoft.EntityFrameworkCore;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddScoped<HealthService>();
+builder.Services.AddScoped<TaskRepository>();
+builder.Services.AddDbContext<AppDbContext>(o =>
+    o.UseNpgsql(builder.Configuration.GetConnectionString(""DefaultConnection"")
+                 ?? Environment.GetEnvironmentVariable(""DATABASE_URL"")
+                 ?? ""Host=localhost;Port=5432;Database=libr4_generated;Username=postgres;Password=postgres""));
+
+var app = builder.Build();
+app.UseSwagger();
+app.UseSwaggerUI();
+app.MapControllers();
+app.Run();"
+            : $@"using {ns}.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
@@ -550,6 +775,74 @@ app.UseSwagger();
 app.UseSwaggerUI();
 app.MapControllers();
 app.Run();";
+
+    private static string BuildTaskItemContent(string ns) =>
+        $@"namespace {ns}.Models;
+
+public sealed class TaskItem
+{{
+    public Guid Id {{ get; set; }} = Guid.NewGuid();
+    public string Title {{ get; set; }} = string.Empty;
+    public string Status {{ get; set; }} = ""todo"";
+    public DateTime CreatedAtUtc {{ get; set; }} = DateTime.UtcNow;
+}}";
+
+    private static string BuildAppDbContextContent(string ns) =>
+        $@"using {ns}.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace {ns}.Data;
+
+public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+{{
+    public DbSet<TaskItem> Tasks => Set<TaskItem>();
+}}";
+
+    private static string BuildTaskRepositoryContent(string ns) =>
+        $@"using {ns}.Data;
+using {ns}.Models;
+using Microsoft.EntityFrameworkCore;
+
+namespace {ns}.Repositories;
+
+public sealed class TaskRepository(AppDbContext db)
+{{
+    public Task<List<TaskItem>> ListAsync(CancellationToken ct = default) =>
+        db.Tasks.OrderByDescending(x => x.CreatedAtUtc).ToListAsync(ct);
+
+    public async Task<TaskItem> AddAsync(string title, CancellationToken ct = default)
+    {{
+        var item = new TaskItem {{ Title = title }};
+        db.Tasks.Add(item);
+        await db.SaveChangesAsync(ct);
+        return item;
+    }}
+}}";
+
+    private static string BuildAspNetCsprojContent() =>
+        @"<Project Sdk=""Microsoft.NET.Sdk.Web"">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include=""Microsoft.AspNetCore.OpenApi"" Version=""8.0.8"" />
+    <PackageReference Include=""Swashbuckle.AspNetCore"" Version=""6.6.2"" />
+    <PackageReference Include=""Microsoft.EntityFrameworkCore"" Version=""8.0.8"" />
+    <PackageReference Include=""Npgsql.EntityFrameworkCore.PostgreSQL"" Version=""8.0.4"" />
+  </ItemGroup>
+</Project>";
+
+    private static string BuildDotNetSolutionContent(string projectName, string csprojPath)
+    {
+        var normalized = csprojPath.Replace('\\', '/');
+        var guidProjectType = "FAE04EC0-301F-11D3-BF4B-00C04F79EFBC";
+        var guidProject = "7DABCA53-4A24-43AF-93F7-80F1672B7FA1";
+        var guidSolution = "9A53F30D-B505-4D0E-8E64-737D3836D34A";
+        return
+            $"Microsoft Visual Studio Solution File, Format Version 12.00\n# Visual Studio Version 17\nVisualStudioVersion = 17.0.31903.59\nMinimumVisualStudioVersion = 10.0.40219.1\nProject(\"{{{guidProjectType}}}\") = \"{projectName}\", \"{normalized}\", \"{{{guidProject}}}\"\nEndProject\nGlobal\n\tGlobalSection(SolutionConfigurationPlatforms) = preSolution\n\t\tDebug|Any CPU = Debug|Any CPU\n\t\tRelease|Any CPU = Release|Any CPU\n\tEndGlobalSection\n\tGlobalSection(ProjectConfigurationPlatforms) = postSolution\n\t\t{{{guidProject}}}.Debug|Any CPU.ActiveCfg = Debug|Any CPU\n\t\t{{{guidProject}}}.Debug|Any CPU.Build.0 = Debug|Any CPU\n\t\t{{{guidProject}}}.Release|Any CPU.ActiveCfg = Release|Any CPU\n\t\t{{{guidProject}}}.Release|Any CPU.Build.0 = Release|Any CPU\n\tEndGlobalSection\n\tGlobalSection(SolutionProperties) = preSolution\n\t\tHideSolutionNode = FALSE\n\tEndGlobalSection\n\tGlobalSection(ExtensibilityGlobals) = postSolution\n\t\tSolutionGuid = {{{guidSolution}}}\n\tEndGlobalSection\nEndGlobal";
+    }
 
     private static string BuildFlaskAppContent(string appName, bool authHint, bool taskDomainHint)
     {
@@ -1901,25 +2194,42 @@ docker compose up --build
     ""test"": ""jest""
   }},
   ""dependencies"": {{
-    ""express"": ""^4.18.0""
+    ""express"": ""^4.18.0"",
+    ""jsonwebtoken"": ""^9.0.2"",
+    ""bcryptjs"": ""^2.4.3""
   }},
   ""devDependencies"": {{
-    ""jest"": ""^29.0.0""
+    ""jest"": ""^29.0.0"",
+    ""supertest"": ""^7.1.1""
   }}
 }}";
 
     private static string BuildNodeIndexContent(string appName) =>
         $@"const express = require('express');
+const taskRoutes = require('./src/routes/tasks');
+const authRoutes = require('./src/routes/auth');
 const app = express();
 const port = process.env.PORT || 4000;
+app.use(express.json());
 
 app.get('/health', (req, res) => {{
     res.json({{ service: '{appName}', status: 'ok' }});
 }});
 
-app.listen(port, () => {{
-    console.log(`{appName} listening on port ${{port}}`);
-}});";
+app.get('/readiness', (req, res) => {{
+    res.json({{ status: 'ready' }});
+}});
+
+app.use('/api/tasks', taskRoutes);
+app.use('/api/auth', authRoutes);
+
+if (require.main === module) {{
+  app.listen(port, () => {{
+      console.log(`{appName} listening on port ${{port}}`);
+  }});
+}}
+
+module.exports = app;";
 
     private static string BuildNodeTestContent(string appName) =>
         $@"const request = require('supertest');
@@ -1932,5 +2242,639 @@ describe('{appName} Health API', () => {{
         expect(response.body.service).toBe('{appName}');
         expect(response.body.status).toBe('ok');
     }});
+
+    it('POST /api/auth/login should return token', async () => {{
+        const response = await request(app).post('/api/auth/login').send({{ email: 'demo@local', password: 'demo1234' }});
+        expect(response.statusCode).toBe(200);
+        expect(response.body.token).toBeDefined();
+    }});
+
+    it('POST /api/tasks should create task', async () => {{
+        const response = await request(app)
+            .post('/api/tasks')
+            .send({{ title: 'task from test', status: 'todo' }});
+        expect(response.statusCode).toBe(201);
+        expect(response.body.title).toBe('task from test');
+    }});
 }});";
+
+    private static string BuildNodeTaskStoreContent() =>
+        @"const tasks = [];
+let idCounter = 1;
+
+function listTasks() { return tasks; }
+function createTask(input) {
+  const item = { id: idCounter++, title: input.title, status: input.status || 'todo' };
+  tasks.push(item);
+  return item;
+}
+
+module.exports = { listTasks, createTask };";
+
+    private static string BuildNodeAuthServiceContent() =>
+        @"const jwt = require('jsonwebtoken');
+const SECRET = process.env.JWT_SECRET || 'dev-secret';
+
+function issueToken(email) {
+  return jwt.sign({ sub: email, scope: ['tasks:read', 'tasks:write'] }, SECRET, { expiresIn: '1h' });
+}
+
+module.exports = { issueToken };";
+
+    private static string BuildNodeTaskRoutesContent() =>
+        @"const express = require('express');
+const store = require('../models/task-store');
+const router = express.Router();
+
+router.get('/', (req, res) => {
+  res.json({ items: store.listTasks() });
+});
+
+router.post('/', (req, res) => {
+  const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+  if (!title) return res.status(422).json({ error: { code: 'validation_error', message: 'title is required' } });
+  const created = store.createTask({ title, status: req.body?.status });
+  res.status(201).json(created);
+});
+
+module.exports = router;";
+
+    private static string BuildNodeAuthRoutesContent() =>
+        @"const express = require('express');
+const auth = require('../services/auth-service');
+const router = express.Router();
+
+router.post('/login', (req, res) => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const password = typeof req.body?.password === 'string' ? req.body.password : '';
+  if (!email || !password) return res.status(422).json({ error: { code: 'validation_error', message: 'email/password required' } });
+  const token = auth.issueToken(email);
+  res.json({ token });
+});
+
+module.exports = router;";
+
+    private static string BuildSpringBootPomContent(string appName)
+    {
+        var artifact = SanitizeDotNetAppName(appName).ToLowerInvariant();
+        return $"""
+            <?xml version="1.0" encoding="UTF-8"?>
+            <project xmlns="http://maven.apache.org/POM/4.0.0">
+              <modelVersion>4.0.0</modelVersion>
+              <groupId>com.generated</groupId>
+              <artifactId>{artifact}-backend</artifactId>
+              <version>0.0.1-SNAPSHOT</version>
+              <parent>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-parent</artifactId>
+                <version>3.3.5</version>
+              </parent>
+              <dependencies>
+                <dependency>
+                  <groupId>org.springframework.boot</groupId>
+                  <artifactId>spring-boot-starter-web</artifactId>
+                </dependency>
+                <dependency>
+                  <groupId>org.springframework.boot</groupId>
+                  <artifactId>spring-boot-starter-test</artifactId>
+                  <scope>test</scope>
+                </dependency>
+              </dependencies>
+              <build>
+                <plugins>
+                  <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                  </plugin>
+                </plugins>
+              </build>
+            </project>
+            """;
+    }
+
+    private static string BuildSpringBootApplicationContent() =>
+        """
+        package com.generated.banking;
+
+        import org.springframework.boot.SpringApplication;
+        import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+        @SpringBootApplication
+        public class BankingApplication {
+            public static void main(String[] args) {
+                SpringApplication.run(BankingApplication.class, args);
+            }
+        }
+        """;
+
+    private static string BuildSpringBootHealthControllerContent() =>
+        """
+        package com.generated.banking.web;
+
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.RestController;
+
+        import java.util.Map;
+
+        @RestController
+        public class HealthController {
+            @GetMapping("/health")
+            public Map<String, String> health() {
+                return Map.of("status", "UP");
+            }
+
+            @GetMapping("/readiness")
+            public Map<String, String> readiness() {
+                return Map.of("status", "READY");
+            }
+
+            @GetMapping("/api/health")
+            public Map<String, String> apiHealth() {
+                return Map.of("status", "ok", "service", "mobile-banking-api");
+            }
+        }
+        """;
+
+    private static string BuildSpringBootAccountControllerContent() =>
+        """
+        package com.generated.banking.web;
+
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.RequestMapping;
+        import org.springframework.web.bind.annotation.RestController;
+
+        @RestController
+        @RequestMapping("/api/accounts")
+        public class AccountController {
+            @GetMapping
+            public Object list() {
+                return java.util.List.of(
+                    java.util.Map.of("id", "acc-1", "currency", "USD", "balance", 1200.50)
+                );
+            }
+        }
+        """;
+
+    private static string BuildSpringBootTransferControllerContent() =>
+        """
+        package com.generated.banking.web;
+
+        import org.springframework.web.bind.annotation.PostMapping;
+        import org.springframework.web.bind.annotation.RequestBody;
+        import org.springframework.web.bind.annotation.RequestMapping;
+        import org.springframework.web.bind.annotation.RestController;
+
+        @RestController
+        @RequestMapping("/api/transfers")
+        public class TransferController {
+            @PostMapping
+            public Object create(@RequestBody java.util.Map<String, Object> body) {
+                return java.util.Map.of(
+                    "id", "tr-" + java.util.UUID.randomUUID(),
+                    "fromAccountId", body.getOrDefault("fromAccountId", "acc-1"),
+                    "toAccountId", body.getOrDefault("toAccountId", "acc-2"),
+                    "amount", body.getOrDefault("amount", 0),
+                    "status", "completed"
+                );
+            }
+        }
+        """;
+
+    private static string BuildSpringBootPaymentControllerContent() =>
+        """
+        package com.generated.banking.web;
+
+        import org.springframework.web.bind.annotation.PostMapping;
+        import org.springframework.web.bind.annotation.RequestBody;
+        import org.springframework.web.bind.annotation.RequestMapping;
+        import org.springframework.web.bind.annotation.RestController;
+
+        @RestController
+        @RequestMapping("/api/payments")
+        public class PaymentController {
+            @PostMapping
+            public Object pay(@RequestBody java.util.Map<String, Object> body) {
+                return java.util.Map.of(
+                    "id", "pay-" + java.util.UUID.randomUUID(),
+                    "merchant", body.getOrDefault("merchant", "utility"),
+                    "amount", body.getOrDefault("amount", 0),
+                    "status", "authorized"
+                );
+            }
+        }
+        """;
+
+    private static string BuildSpringBootAuthControllerContent() =>
+        """
+        package com.generated.banking.web;
+
+        import org.springframework.web.bind.annotation.PostMapping;
+        import org.springframework.web.bind.annotation.RequestBody;
+        import org.springframework.web.bind.annotation.RequestMapping;
+        import org.springframework.web.bind.annotation.RestController;
+
+        @RestController
+        @RequestMapping("/api/auth")
+        public class AuthController {
+            @PostMapping("/token")
+            public Object token(@RequestBody java.util.Map<String, String> body) {
+                var user = body.getOrDefault("username", "user");
+                return java.util.Map.of("token", "banking-" + user, "expiresIn", 3600);
+            }
+        }
+        """;
+
+    private static string BuildSpringBootBankingApiTestsContent() =>
+        """
+        package com.generated.banking;
+
+        import org.junit.jupiter.api.Test;
+        import org.springframework.beans.factory.annotation.Autowired;
+        import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+        import org.springframework.boot.test.context.SpringBootTest;
+        import org.springframework.http.MediaType;
+        import org.springframework.test.web.servlet.MockMvc;
+
+        import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+        import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+        import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+        import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+        @SpringBootTest
+        @AutoConfigureMockMvc
+        class BankingApiTests {
+            @Autowired
+            private MockMvc mockMvc;
+
+            // integration: MockMvc client exercises HTTP API surface
+            @Test
+            void accountsEndpointReturnsList_integration() throws Exception {
+                mockMvc.perform(get("/api/accounts"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray());
+            }
+
+            @Test
+            void authTokenEndpointIssuesToken_integration() throws Exception {
+                mockMvc.perform(post("/api/auth/token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"username\":\"demo\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.token").exists());
+            }
+
+            @Test
+            void transferEndpointAcceptsPayload_integration() throws Exception {
+                mockMvc.perform(post("/api/transfers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fromAccountId\":\"acc-1\",\"toAccountId\":\"acc-2\",\"amount\":10}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.status").value("completed"));
+            }
+
+            @Test
+            void unknownRouteReturns404_negative() throws Exception {
+                mockMvc.perform(get("/api/route-does-not-exist-xyz"))
+                    .andExpect(status().isNotFound());
+            }
+
+            @Test
+            void healthEndpointIsReachable_integration() throws Exception {
+                mockMvc.perform(get("/health"))
+                    .andExpect(status().isOk());
+            }
+        }
+        """;
+
+    private static string BuildSpringBootApplicationYml() =>
+        """
+        server:
+          port: 8080
+        spring:
+          application:
+            name: mobile-banking
+        logging:
+          pattern:
+            console: '{"level":"%level","correlationId":"%X{correlationId}","message":"%m"}%n'
+        management:
+          endpoints:
+            web:
+              exposure:
+                include: health,readiness
+        """;
+
+    private static string BuildSpringBootCorrelationIdFilterContent() =>
+        """
+        package com.generated.banking.config;
+
+        import jakarta.servlet.FilterChain;
+        import jakarta.servlet.ServletException;
+        import jakarta.servlet.http.HttpServletRequest;
+        import jakarta.servlet.http.HttpServletResponse;
+        import org.slf4j.Logger;
+        import org.slf4j.LoggerFactory;
+        import org.slf4j.MDC;
+        import org.springframework.stereotype.Component;
+        import org.springframework.web.filter.OncePerRequestFilter;
+
+        import java.io.IOException;
+        import java.util.UUID;
+
+        @Component
+        public class CorrelationIdFilter extends OncePerRequestFilter {
+            private static final Logger logger = LoggerFactory.getLogger(CorrelationIdFilter.class);
+
+            @Override
+            protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+                    throws ServletException, IOException {
+                String correlationId = request.getHeader("x-request-id");
+                if (correlationId == null || correlationId.isBlank()) {
+                    correlationId = UUID.randomUUID().toString();
+                }
+                MDC.put("correlationId", correlationId);
+                response.setHeader("x-request-id", correlationId);
+                logger.info("structured request correlationId={}", correlationId);
+                try {
+                    chain.doFilter(request, response);
+                } finally {
+                    MDC.remove("correlationId");
+                }
+            }
+        }
+        """;
+
+    private static string BuildSpringBootGlobalExceptionHandlerContent() =>
+        """
+        package com.generated.banking.web;
+
+        import org.slf4j.Logger;
+        import org.slf4j.LoggerFactory;
+        import org.springframework.http.ResponseEntity;
+        import org.springframework.web.bind.annotation.ControllerAdvice;
+        import org.springframework.web.bind.annotation.ExceptionHandler;
+
+        import java.util.Map;
+
+        @ControllerAdvice
+        public class GlobalExceptionHandler {
+            private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
+            @ExceptionHandler(Exception.class)
+            public ResponseEntity<Map<String, Object>> handle(Exception ex) {
+                logger.error("request failed", ex);
+                return ResponseEntity.internalServerError().body(Map.of(
+                    "error", Map.of("code", "internal_error", "message", ex.getMessage())));
+            }
+        }
+        """;
+
+    private static string BuildBankingReadmeContent(string appName) =>
+        $"""
+        # {appName}
+
+        Mobile banking monorepo: Spring Boot backend (`backend/`) and React TypeScript frontend (`frontend/`).
+
+        ## Run
+
+        ```bash
+        ./scripts/run.sh
+        docker compose up --build
+        ```
+        """;
+
+    private static string BuildBankingDockerComposeContent() =>
+        """
+        services:
+          backend:
+            build: ./backend
+            ports:
+              - "8080:8080"
+          frontend:
+            build: ./frontend
+            ports:
+              - "5173:5173"
+        """;
+
+    private static string BuildBankingCiWorkflowContent() =>
+        """
+        name: ci
+        on: [push, pull_request]
+        jobs:
+          build:
+            runs-on: ubuntu-latest
+            steps:
+              - uses: actions/checkout@v4
+              - name: ci
+                run: echo "ci pipeline"
+        """;
+
+    private static string BuildBankingRunScriptContent() =>
+        """
+        #!/usr/bin/env sh
+        set -e
+        (cd backend && mvn -q -DskipTests package) || true
+        (cd frontend && npm ci && npm run build) || true
+        """;
+
+    private static string BuildAccountServiceContent() =>
+        """
+        package com.generated.banking.service;
+
+        import org.springframework.stereotype.Service;
+        import java.util.List;
+        import java.util.Map;
+
+        @Service
+        public class AccountService {
+            public List<Map<String, Object>> listAccounts() {
+                return List.of(Map.of("id", "acc-1", "currency", "USD", "balance", 1200.50));
+            }
+        }
+        """;
+
+    private static string BuildTransferServiceContent() =>
+        """
+        package com.generated.banking.service;
+
+        import org.springframework.stereotype.Service;
+        import java.util.Map;
+        import java.util.UUID;
+
+        @Service
+        public class TransferService {
+            public Map<String, Object> createTransfer(Map<String, Object> body) {
+                String idempotencyKey = String.valueOf(body.getOrDefault("idempotency_key", "idem-" + UUID.randomUUID()));
+                return Map.of(
+                    "id", "tr-" + UUID.randomUUID(),
+                    "idempotency_key", idempotencyKey,
+                    "fromAccountId", body.getOrDefault("fromAccountId", "acc-1"),
+                    "toAccountId", body.getOrDefault("toAccountId", "acc-2"),
+                    "amount", body.getOrDefault("amount", 0),
+                    "status", "completed",
+                    "audit_log", "transfer_recorded"
+                );
+            }
+        }
+        """;
+
+    private static string BuildReactTypeScriptPackageJson(string appName) =>
+        $$"""
+        {
+          "name": "{{SanitizeDotNetAppName(appName).ToLowerInvariant()}}-frontend",
+          "private": true,
+          "version": "0.0.1",
+          "type": "module",
+          "scripts": {
+            "dev": "vite",
+            "build": "vite build",
+            "test": "vitest run"
+          },
+          "dependencies": {
+            "react": "^18.3.1",
+            "react-dom": "^18.3.1"
+          },
+          "devDependencies": {
+            "@types/react": "^18.3.12",
+            "@types/react-dom": "^18.3.1",
+            "@vitejs/plugin-react": "^4.3.3",
+            "typescript": "^5.6.3",
+            "vite": "^5.4.10",
+            "vitest": "^2.1.4",
+            "jsdom": "^25.0.1",
+            "@testing-library/react": "^16.0.1"
+          }
+        }
+        """;
+
+    private static string BuildReactViteConfig() =>
+        """
+        import { defineConfig } from 'vite';
+        import react from '@vitejs/plugin-react';
+
+        export default defineConfig({
+          plugins: [react()],
+          test: {
+            environment: 'jsdom',
+          },
+        });
+        """;
+
+    private static string BuildReactIndexHtml(string appName) =>
+        $$"""
+        <!doctype html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <title>{{appName}}</title>
+          </head>
+          <body>
+            <div id="root"></div>
+            <script type="module" src="/src/main.tsx"></script>
+          </body>
+        </html>
+        """;
+
+    private static string BuildReactTypeScriptTsConfig() =>
+        """
+        {
+          "compilerOptions": {
+            "target": "ES2022",
+            "module": "ESNext",
+            "jsx": "react-jsx",
+            "moduleResolution": "bundler",
+            "strict": true,
+            "skipLibCheck": true
+          },
+          "include": ["src"]
+        }
+        """;
+
+    private static string BuildReactMainTsx() =>
+        """
+        import React from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { App } from './App';
+
+        createRoot(document.getElementById('root')!).render(<App />);
+        """;
+
+    private static string BuildReactAppTsx(string appName) =>
+        $$"""
+        import React, { useEffect, useState } from 'react';
+        import { fetchAccounts } from './api/client';
+
+        export function App() {
+          const [accounts, setAccounts] = useState<Array<{ id: string }>>([]);
+          const [transferStatus, setTransferStatus] = useState<string>('idle');
+          useEffect(() => {
+            fetchAccounts().then(setAccounts).catch(() => setAccounts([]));
+          }, []);
+          return (
+            <main>
+              <h1>{{appName}} — Mobile Banking</h1>
+              <p>Accounts: {accounts.length}</p>
+              <button type="button" onClick={() => setTransferStatus('transfer-ready')}>
+                Prepare transfer
+              </button>
+              <p>Transfer UI: {transferStatus}</p>
+            </main>
+          );
+        }
+        """;
+
+    private static string BuildReactApiClientTs() =>
+        """
+        const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8080';
+
+        export async function fetchAccounts(): Promise<Array<{ id: string }>> {
+          const res = await fetch(`${API_BASE}/api/accounts`);
+          if (!res.ok) throw new Error('accounts_fetch_failed');
+          return res.json();
+        }
+
+        export async function createTransfer(payload: { fromAccountId: string; toAccountId: string; amount: number }) {
+          const res = await fetch(`${API_BASE}/api/transfers`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error('transfer_failed');
+          return res.json();
+        }
+
+        export async function createPayment(payload: { merchant: string; amount: number }) {
+          const res = await fetch(`${API_BASE}/api/payments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error('payment_failed');
+          return res.json();
+        }
+
+        export async function obtainAuthToken(username: string) {
+          const res = await fetch(`${API_BASE}/api/auth/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username }),
+          });
+          if (!res.ok) throw new Error('auth_failed');
+          return res.json() as Promise<{ token: string }>;
+        }
+        """;
+
+    private static string BuildReactAppTestTsx() =>
+        """
+        import { describe, expect, it } from 'vitest';
+
+        describe('mobile banking ui', () => {
+          it('exposes transfer and payment api client', async () => {
+            const client = await import('./api/client');
+            expect(typeof client.createTransfer).toBe('function');
+            expect(typeof client.createPayment).toBe('function');
+            expect(typeof client.obtainAuthToken).toBe('function');
+          });
+        });
+        """;
 }

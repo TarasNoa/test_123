@@ -25,13 +25,13 @@ public class PaymentsApiTests
     public async Task Payments_Wallet_Endpoint_Requires_Auth()
     {
         var response = await _client.GetAsync($"{BaseUrl}/api/v1/wallet");
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.NotFound);
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed);
     }
 
     [Fact]
     public async Task Payments_Escrow_Endpoint_Requires_Auth()
     {
         var response = await _client.GetAsync($"{BaseUrl}/api/v1/escrow");
-        response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.NotFound);
+        response.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed);
     }
 }

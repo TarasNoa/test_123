@@ -14,10 +14,20 @@ public static class MassTransitExtensions
     {
         services.AddScoped<IEventBus, MassTransitEventBus>();
 
+        var envName = configuration["ASPNETCORE_ENVIRONMENT"]
+            ?? configuration["DOTNET_ENVIRONMENT"];
+        var useInMemory = string.Equals(envName, "Testing", StringComparison.OrdinalIgnoreCase);
+
         services.AddMassTransit(x =>
         {
             x.SetKebabCaseEndpointNameFormatter();
             configure?.Invoke(x);
+
+            if (useInMemory)
+            {
+                x.UsingInMemory((ctx, cfg) => cfg.ConfigureEndpoints(ctx));
+                return;
+            }
 
             x.UsingRabbitMq((ctx, cfg) =>
             {

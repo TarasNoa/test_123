@@ -16,12 +16,17 @@ internal static class TechStackArtifactFilter
             return batches;
 
         return batches
-            .Select(b => new GenerationPhaseBatchResult(b.PhaseName, PruneFiles(b.Files)))
+            .Select(b => new GenerationPhaseBatchResult(b.PhaseName, PruneFiles(b.Files, plan)))
             .ToList();
     }
 
-    public static IReadOnlyList<GeneratedFile> PruneFiles(IReadOnlyList<GeneratedFile> files) =>
-        files.Where(f => !IsDotNetOnlyArtifactPath(f.RelativePath)).ToList();
+    public static IReadOnlyList<GeneratedFile> PruneFiles(IReadOnlyList<GeneratedFile> files, GenerationPlan? plan = null)
+    {
+        IEnumerable<GeneratedFile> query = files.Where(f => !IsDotNetOnlyArtifactPath(f.RelativePath));
+        if (plan is not null && StackPlanHeuristics.Classify(plan) == StackKind.JavaReactFullStack)
+            query = query.Where(f => !IsStrayNodeArtifactForJavaReact(f.RelativePath));
+        return query.ToList();
+    }
 
     internal static bool ShouldDropDotNetArtifacts(GenerationPlan plan)
     {
@@ -44,6 +49,36 @@ internal static class TechStackArtifactFilter
                plan.TechStack.Frameworks.Any(f =>
                    f.Contains("express", StringComparison.OrdinalIgnoreCase) ||
                    f.Contains("next", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsStrayNodeArtifactForJavaReact(string relativePath)
+    {
+        var p = StackArtifactCompleteness.SanitizeRelativePath(relativePath);
+        if (p.Length == 0)
+            return true;
+
+        if (p.StartsWith("backend/", StringComparison.OrdinalIgnoreCase)
+            || p.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (p.StartsWith("upstream/", StringComparison.OrdinalIgnoreCase)
+            || p.Equals("BOOTSTRAP_EVIDENCE.md", StringComparison.OrdinalIgnoreCase)
+            || p.Equals("ADAPTATION_BRIDGE.md", StringComparison.OrdinalIgnoreCase)
+            || p.Contains("kanban", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var name = Path.GetFileName(p);
+        if (name.Equals("package.json", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("index.js", StringComparison.OrdinalIgnoreCase)
+            || name.Equals("server.js", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (p.StartsWith("src/", StringComparison.OrdinalIgnoreCase)
+            && !p.StartsWith("backend/", StringComparison.OrdinalIgnoreCase)
+            && !p.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
     }
 
     private static bool IsDotNetOnlyArtifactPath(string relativePath)

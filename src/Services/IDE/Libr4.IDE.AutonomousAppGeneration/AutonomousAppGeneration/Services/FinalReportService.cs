@@ -11,10 +11,14 @@ namespace Libr4.IDE.Application.AutonomousAppGeneration.Services;
 public sealed class FinalReportService : IFinalReportService
 {
     private readonly ILogger<FinalReportService> _logger;
+    private readonly ITaskGraphHydrationService _taskGraphHydration;
 
-    public FinalReportService(ILogger<FinalReportService> logger)
+    public FinalReportService(
+        ILogger<FinalReportService> logger,
+        ITaskGraphHydrationService taskGraphHydration)
     {
         _logger = logger;
+        _taskGraphHydration = taskGraphHydration;
     }
 
     public FinalGenerationReport GenerateFinalReport(
@@ -22,8 +26,10 @@ public sealed class FinalReportService : IFinalReportService
         string reviewGateVerdict,
         IReadOnlyList<string> artifacts)
     {
-        // Extract task graph
-        var taskGraph = orchestrator.TaskGraph;
+        _taskGraphHydration.EnsureHydrated(orchestrator);
+        var taskGraph = _taskGraphHydration.Resolve(orchestrator);
+        if (orchestrator.TaskGraph.Count == 0 && taskGraph.Count > 0)
+            orchestrator.ReplaceTaskGraph(taskGraph);
 
         // Extract executed skills
         var executedSkills = ExtractExecutedSkills(orchestrator);
@@ -137,6 +143,34 @@ public sealed class FinalReportService : IFinalReportService
             report.RunId, System.Text.Encoding.UTF8.GetByteCount(json));
 
         return json;
+    }
+
+    private static IReadOnlyList<AgentTaskGraphEntry> SynthesizeTaskGraphFromPlan(AppGenerationOrchestrator orchestrator)
+    {
+        var plan = orchestrator.Plan;
+        if (plan is null || plan.Phases.Count == 0)
+        {
+            return new[]
+            {
+                new AgentTaskGraphEntry(
+                    "t_summary",
+                    "Autonomous generation run",
+                    Array.Empty<string>(),
+                    orchestrator.Status == GenerationStatus.Completed ? AgentTaskState.Done : AgentTaskState.Failed,
+                    Array.Empty<string>(),
+                    orchestrator.FailureReason)
+            };
+        }
+
+        return plan.Phases
+            .Select((phase, index) => new AgentTaskGraphEntry(
+                $"t_phase_{index + 1}",
+                phase.Name,
+                index == 0 ? Array.Empty<string>() : new[] { $"t_phase_{index}" },
+                orchestrator.Status == GenerationStatus.Completed ? AgentTaskState.Done : AgentTaskState.Failed,
+                Array.Empty<string>(),
+                phase.Description))
+            .ToList();
     }
 
     private static IReadOnlyList<string> ExtractExecutedSkills(AppGenerationOrchestrator orchestrator)

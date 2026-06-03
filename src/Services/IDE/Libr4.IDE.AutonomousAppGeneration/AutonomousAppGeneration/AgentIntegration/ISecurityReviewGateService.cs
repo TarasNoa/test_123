@@ -4,8 +4,9 @@ namespace Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 
 public interface ISecurityReviewGateService
 {
-    SecurityReviewAuditEntry EvaluateArtifacts(
+    Task<SecurityReviewAuditEntry> EvaluateArtifactsAsync(
         string stage,
         IReadOnlyList<GeneratedFile> files,
-        GenerationPlan plan);
+        GenerationPlan plan,
+        CancellationToken ct = default);
 }

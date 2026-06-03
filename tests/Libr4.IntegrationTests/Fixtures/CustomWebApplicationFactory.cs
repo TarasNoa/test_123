@@ -1,11 +1,17 @@
 using Libr4.Auth.Api;
+using Libr4.Auth.Application.Abstractions;
 using Libr4.Auth.Infrastructure.Persistence;
+using MassTransit;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Testcontainers.RabbitMq;
+using Moq;
 
 namespace Libr4.IntegrationTests.Fixtures;
 
@@ -20,58 +26,67 @@ public class CustomWebApplicationFactory : WebApplicationFactory<AuthApiWebAppli
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.ConfigureServices(services =>
+        builder.UseSetting(WebHostDefaults.EnvironmentKey, Environments.Development);
+        builder.UseEnvironment(Environments.Development);
+
+        builder.ConfigureAppConfiguration((_, config) =>
         {
-            // Remove existing DbContext registration
-            var descriptor = services.SingleOrDefault(
-                d => d.ServiceType == typeof(DbContextOptions<AuthDbContext>));
-            if (descriptor != null)
-                services.Remove(descriptor);
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["ConnectionStrings:Postgres"] = _fixture.PostgresConnectionString,
+                ["ConnectionStrings:Redis"] = _fixture.RedisConnectionString,
+                ["RabbitMq:Host"] = _fixture.RabbitMqContainer.Hostname,
+                ["RabbitMq:User"] = "test",
+                ["RabbitMq:Password"] = "test",
+                ["Jwt:Issuer"] = "libr4-test",
+                ["Jwt:Audience"] = "libr4-test",
+                ["Jwt:SigningKey"] = "test-signing-key-must-be-at-least-32-characters-long-for-hmac",
+            });
+        });
 
-            // Add PostgreSQL from TestContainer
+        builder.ConfigureTestServices(services =>
+        {
+            RemoveDbContext<AuthDbContext>(services);
+
             services.AddDbContext<AuthDbContext>(options =>
-                options.UseNpgsql(_fixture.PostgresConnectionString));
+                options.UseNpgsql(
+                    _fixture.PostgresConnectionString,
+                    npgsql => npgsql.MigrationsAssembly(typeof(AuthDbContext).Assembly.GetName().Name)));
 
-            // Override RabbitMQ configuration
-            services.Configure<RabbitMqSettings>(options =>
-            {
-                options.Host = _fixture.RabbitMqContainer.Hostname;
-                options.Port = RabbitMqBuilder.RabbitMqPort;
-                options.Username = "test";
-                options.Password = "test";
-            });
+            services.RemoveAll<IAuthDbContext>();
+            services.AddScoped<IAuthDbContext>(sp => sp.GetRequiredService<AuthDbContext>());
 
-            // Override Redis configuration
-            services.Configure<RedisSettings>(options =>
-            {
-                options.ConnectionString = _fixture.RedisConnectionString;
-            });
-
-            // Ensure database is created and migrated
-            var sp = services.BuildServiceProvider();
-            using var scope = sp.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
-            db.Database.Migrate();
+            services.RemoveAll<IPublishEndpoint>();
+            services.AddSingleton(Mock.Of<IPublishEndpoint>());
         });
 
         builder.ConfigureLogging(logging =>
         {
             logging.ClearProviders();
-            logging.AddConsole();
             logging.SetMinimumLevel(LogLevel.Warning);
         });
     }
-}
 
-public class RabbitMqSettings
-{
-    public string Host { get; set; } = "localhost";
-    public int Port { get; set; } = 5672;
-    public string Username { get; set; } = "guest";
-    public string Password { get; set; } = "guest";
-}
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        var host = base.CreateHost(builder);
+        using var scope = host.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<AuthDbContext>().Database.Migrate();
+        return host;
+    }
 
-public class RedisSettings
-{
-    public string ConnectionString { get; set; } = "localhost:6379";
+    private static void RemoveDbContext<TContext>(IServiceCollection services)
+        where TContext : DbContext
+    {
+        var descriptors = services
+            .Where(d =>
+                d.ServiceType == typeof(TContext)
+                || d.ServiceType == typeof(DbContextOptions<TContext>)
+                || (d.ServiceType.IsGenericType
+                    && d.ServiceType.GetGenericTypeDefinition() == typeof(DbContextOptions<>)))
+            .ToList();
+
+        foreach (var descriptor in descriptors)
+            services.Remove(descriptor);
+    }
 }

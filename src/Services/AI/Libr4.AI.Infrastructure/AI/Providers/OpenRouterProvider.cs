@@ -26,7 +26,8 @@ public class OpenRouterProvider : IAIProvider
         _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
         _httpClient.DefaultRequestHeaders.Add("HTTP-Referer", "https://libr4.com");
         _httpClient.DefaultRequestHeaders.Add("X-Title", "Libr4");
-        _httpClient.Timeout = TimeSpan.FromMinutes(5);
+        var timeoutMinutes = configuration.GetValue("AI:OpenRouter:TimeoutMinutes", 15);
+        _httpClient.Timeout = TimeSpan.FromMinutes(Math.Clamp(timeoutMinutes, 5, 30));
     }
 
     public async Task<string> GenerateCompletionAsync(string prompt, string? systemPrompt = null, string? model = null)

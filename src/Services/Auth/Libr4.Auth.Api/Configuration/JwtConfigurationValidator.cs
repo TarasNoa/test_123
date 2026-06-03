@@ -22,7 +22,7 @@ public static class JwtConfigurationValidator
         var watermarkKey = configuration["Security:WatermarkKey"];
         
         // In production, reject development keys
-        if (!environment.IsDevelopment())
+        if (!environment.IsDevelopment() && !environment.IsEnvironment("Testing"))
         {
             if (string.IsNullOrWhiteSpace(signingKey))
             {

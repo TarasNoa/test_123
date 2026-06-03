@@ -12,15 +12,18 @@ public sealed class GetAppGenerationReportQueryHandler
     private readonly IAppGenerationRepository _repository;
     private readonly IExecutionManifestBuilder _manifestBuilder;
     private readonly IRunQualityAssessmentService _qualityAssessment;
+    private readonly ITaskGraphHydrationService _taskGraphHydration;
 
     public GetAppGenerationReportQueryHandler(
         IAppGenerationRepository repository,
         IExecutionManifestBuilder manifestBuilder,
-        IRunQualityAssessmentService qualityAssessment)
+        IRunQualityAssessmentService qualityAssessment,
+        ITaskGraphHydrationService taskGraphHydration)
     {
         _repository = repository;
         _manifestBuilder = manifestBuilder;
         _qualityAssessment = qualityAssessment;
+        _taskGraphHydration = taskGraphHydration;
     }
 
     public async Task<AppGenerationReportDto?> Handle(
@@ -28,6 +31,8 @@ public sealed class GetAppGenerationReportQueryHandler
     {
         var o = await _repository.GetAsync(request.OrchestratorId, ct);
         if (o is null) return null;
+
+        _taskGraphHydration.EnsureHydrated(o);
 
         var iterations = o.Iterations.Select(i => new IterationDto(
             Id: i.Id,
@@ -112,6 +117,8 @@ public sealed class GetAppGenerationReportQueryHandler
             Id: o.Id,
             Status: o.Status.ToString(),
             FailureReason: o.FailureReason,
+            ApplicationName: o.Plan?.ApplicationName,
+            FileCount: o.Files.Count,
             Plan: planDto,
             QualityGates: qualityGates,
             QualityAssessment: qualityAssessment,

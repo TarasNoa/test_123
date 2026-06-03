@@ -97,6 +97,7 @@ public sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
     {
         e.ToTable("roles");
         e.HasKey(x => x.Id);
+        e.Property(x => x.UserId).IsRequired();
         e.Property(x => x.Name).IsRequired().HasMaxLength(32);
         e.Property(x => x.Description).HasMaxLength(256);
         e.Property(x => x.Permissions).HasConversion(

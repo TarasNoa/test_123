@@ -11,9 +11,8 @@ namespace Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
 /// <summary>
 /// Planner that turns a natural-language request into a <see cref="GenerationPlan"/>
 /// by asking an LLM (OpenRouter free model by default).
-/// Falls back to a safe default plan if the LLM output cannot be parsed - this
-/// keeps the orchestrator running even when the free model misbehaves.
-/// Now includes self-healing recovery cascade for LLM errors.
+/// Fail-fast: invalid or missing LLM planner output throws
+/// <see cref="AutonomousGenerationFailedException"/> (no synthetic plans).
 /// </summary>
 public sealed class LlmAppPlannerService : IAppPlannerService
 {
@@ -89,10 +88,7 @@ The <thinking> section will be extracted and shown to the user separately.
   - Rust: [""cargo test""]
 
 ====================== OUTPUT CONTRACT (HARD) ======================
-Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> section).
-<thinking>
-[your reasoning process here]
-</thinking>
+After the optional <thinking> block, output one JSON object (no markdown fences).
 {
   ""applicationName"": string,
   ""description"": string,
@@ -126,6 +122,11 @@ Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> 
 - requiredAgents MUST include CodeGenerationAgent, CodeReviewAgent, SecurityTestingAgent.
 - Build/test commands MUST run in the runtime image without extra installs.
 - CRITICAL: If the user names a language or framework (e.g. ""Python and Flask"", ""FastAPI"", ""Node Express""), techStack.languages and techStack.frameworks MUST match. Never substitute C# / ASP.NET Core when the user asked for Python or Node.
+- If request contains [REPO_BOOTSTRAP_CONTEXT] or mentions GitHub/Obscura repository adaptation:
+  - Include a dedicated phase ""Repo bootstrap & adaptation"".
+  - Description MUST explicitly require upstream adaptation evidence and forbid generic template output.
+  - Phases MUST include concrete auth + kanban implementation deliverables and business test deliverables.
+- Prefer explicit failure-oriented planning over fake/degraded output when constraints are unsatisfied.
 - Output only the JSON object described above.
 ";
 
@@ -215,35 +216,38 @@ Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> 
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Planner LLM call failed; using fallback plan. Error: {Error}", ex.Message);
-            var p = FallbackPlan(userRequest);
-            p = ReconcilePlanWithUserRequest(p, userRequest);
-            return AlignRuntimeAndCommandsWithTechStack(p);
+            _logger.LogError(ex, "Planner LLM call failed");
+            throw new AutonomousGenerationFailedException(
+                "planning",
+                $"Planner LLM call failed: {ex.Message}",
+                ex);
         }
 
         if (string.IsNullOrWhiteSpace(raw))
         {
-            _logger.LogWarning("LLM returned empty response; using fallback plan");
-            var p = FallbackPlan(userRequest);
-            p = ReconcilePlanWithUserRequest(p, userRequest);
-            return AlignRuntimeAndCommandsWithTechStack(p);
+            throw new AutonomousGenerationFailedException(
+                "planning",
+                "Planner LLM returned an empty response.");
         }
 
         if (!PromptPipelinePolicy.ValidateOutputContract("planning", raw, out var contractReason))
         {
-            _logger.LogWarning("Planner output contract validation failed: {Reason}; using fallback plan", contractReason);
-            var p = FallbackPlan(userRequest);
-            p = ReconcilePlanWithUserRequest(p, userRequest);
-            return AlignRuntimeAndCommandsWithTechStack(p);
+            var parseHint = LlmJsonHelpers.LastParseError;
+            var detail = string.IsNullOrWhiteSpace(parseHint)
+                ? contractReason
+                : $"{contractReason}; parse={parseHint}";
+            throw new AutonomousGenerationFailedException(
+                "planning",
+                $"Planner output failed contract validation: {detail}");
         }
 
         using var doc = LlmJsonHelpers.ExtractJson(raw);
         if (doc is null)
         {
-            _logger.LogWarning("Planner returned unparseable JSON; using fallback plan. Raw: {Raw}", raw.Substring(0, Math.Min(500, raw.Length)));
-            var p = FallbackPlan(userRequest);
-            p = ReconcilePlanWithUserRequest(p, userRequest);
-            return AlignRuntimeAndCommandsWithTechStack(p);
+            var snippet = raw.Length <= 500 ? raw : raw[..500];
+            throw new AutonomousGenerationFailedException(
+                "planning",
+                $"Planner returned unparseable JSON. parse={LlmJsonHelpers.LastParseError ?? "unknown"} snippet={snippet}");
         }
 
         try
@@ -253,12 +257,13 @@ Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> 
             plan = ReconcilePlanWithUserRequest(plan, userRequest);
             return AlignRuntimeAndCommandsWithTechStack(plan);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not AutonomousGenerationFailedException)
         {
-            _logger.LogError(ex, "Failed to map planner JSON into GenerationPlan; using fallback plan");
-            var fb = FallbackPlan(userRequest);
-            fb = ReconcilePlanWithUserRequest(fb, userRequest);
-            return AlignRuntimeAndCommandsWithTechStack(fb);
+            _logger.LogError(ex, "Failed to map planner JSON into GenerationPlan");
+            throw new AutonomousGenerationFailedException(
+                "planning",
+                $"Failed to map planner JSON: {ex.Message}",
+                ex);
         }
     }
 
@@ -287,7 +292,10 @@ Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> 
             .Where(a => KnownAgents.Contains(a))
             .Distinct()
             .ToList();
-        if (requiredAgents.Count == 0) requiredAgents = DefaultAgents();
+        var repoBootstrap = IsRepoBootstrapRequest(userRequest);
+        var requiresAuth = MentionsAuth(userRequest);
+        var requiresKanban = MentionsKanban(userRequest);
+        if (requiredAgents.Count == 0) requiredAgents = DefaultAgents(repoBootstrap);
 
         var phases = new List<GenerationPhase>();
         if (root.TryGetProperty("phases", out var phasesEl) && phasesEl.ValueKind == JsonValueKind.Array)
@@ -312,7 +320,7 @@ Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> 
                 phases.Add(new GenerationPhase(order, name, phaseDesc, assignments));
             }
         }
-        if (phases.Count == 0) phases = DefaultPhases();
+        if (phases.Count == 0) phases = DefaultPhases(repoBootstrap, requiresAuth, requiresKanban);
 
         var runtimeImage = LlmJsonHelpers.GetString(root, "runtimeImage",
             GuessImage(stack.Languages));
@@ -665,17 +673,36 @@ Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> 
              f.Contains("next", StringComparison.OrdinalIgnoreCase)))
         && !ts.Languages.Any(l => l.Contains("c#", StringComparison.OrdinalIgnoreCase) || l.Contains("csharp", StringComparison.OrdinalIgnoreCase));
 
-    private static GenerationPlan FallbackPlan(string userRequest) =>
-        new(
+    private static GenerationPlan FallbackPlan(string userRequest)
+    {
+        var repoBootstrap = IsRepoBootstrapRequest(userRequest);
+        var requiresAuth = MentionsAuth(userRequest);
+        var requiresKanban = MentionsKanban(userRequest);
+
+        var description = userRequest;
+        if (repoBootstrap)
+        {
+            description +=
+                "\n[[REPO_BOOTSTRAP_REQUIRED]] " +
+                "Use discovered upstream repository adaptation with explicit evidence; reject generic template output.";
+        }
+
+        if (requiresAuth)
+            description += "\n[[AUTH_REQUIRED]] Implement JWT auth with token issuance and protected endpoints.";
+        if (requiresKanban)
+            description += "\n[[KANBAN_REQUIRED]] Implement board/columns/tasks with transition operations.";
+
+        return new GenerationPlan(
             applicationName: "GeneratedApp",
-            applicationDescription: userRequest,
+            applicationDescription: description,
             techStack: DefaultTechStack(),
-            phases: DefaultPhases(),
-            requiredAgents: DefaultAgents(),
+            phases: DefaultPhases(repoBootstrap, requiresAuth, requiresKanban),
+            requiredAgents: DefaultAgents(repoBootstrap),
             runtimeImage: "mcr.microsoft.com/dotnet/sdk:8.0",
             buildCommands: new[] { "dotnet restore", "dotnet build" },
             testCommands: new[] { "dotnet test" },
             maxIterations: 8);
+    }
 
     private static TechStack DefaultTechStack() =>
         new(
@@ -703,8 +730,8 @@ Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> 
         };
     }
 
-    private static List<string> DefaultAgents() =>
-        new()
+    private static List<string> DefaultAgents(bool repoBootstrap) =>
+        new List<string>
         {
             "TaskDecompositionAgent",
             "CodeGenerationAgent",
@@ -714,10 +741,11 @@ Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> 
             "DatabaseDesignAgent",
             "CICDPipelineAgent",
             "ObservabilityAgent"
-        };
+        }.Concat(repoBootstrap ? new[] { "WebSearchAgent" } : Array.Empty<string>()).Distinct().ToList();
 
-    private static List<GenerationPhase> DefaultPhases() =>
-        new()
+    private static List<GenerationPhase> DefaultPhases(bool repoBootstrap, bool requiresAuth, bool requiresKanban)
+    {
+        var phases = new List<GenerationPhase>
         {
             new GenerationPhase(1, "Scaffold",
                 "Create project structure, csproj, entry point.",
@@ -751,4 +779,73 @@ Return ONLY valid JSON. No prose, no markdown fences (except for the <thinking> 
                     new("ObservabilityAgent", "SRE", "Design monitoring and alerting strategy")
                 })
         };
+
+        if (repoBootstrap)
+        {
+            phases.Insert(0, new GenerationPhase(
+                1,
+                "Repo bootstrap & adaptation",
+                "Discover permissive-license upstream repository and adapt code with evidence.",
+                new List<AgentAssignment>
+                {
+                    new("WebSearchAgent", "Discovery", "Discover upstream GitHub repository and capture license evidence"),
+                    new("CodeGenerationAgent", "Adaptation", "Adapt upstream code instead of creating template-only scaffold"),
+                    new("CodeReviewAgent", "Verification", "Verify adaptation evidence and remove generic placeholder output")
+                }));
+        }
+
+        if (requiresAuth || requiresKanban)
+        {
+            phases.Add(new GenerationPhase(
+                phases.Count + 1,
+                "Business hardening",
+                "Implement explicit auth/kanban business workflows and corresponding tests.",
+                new List<AgentAssignment>
+                {
+                    new("CodeGenerationAgent", "Generator", "Implement requested business features and tests"),
+                    new("CodeReviewAgent", "Reviewer", "Check feature completeness against request"),
+                    new("SecurityTestingAgent", "Tester", "Validate auth boundaries and failure modes")
+                }));
+        }
+
+        for (var i = 0; i < phases.Count; i++)
+        {
+            var phase = phases[i];
+            phases[i] = new GenerationPhase(i + 1, phase.Name, phase.Description, phase.Assignments);
+        }
+
+        return phases;
+    }
+
+    private static bool IsRepoBootstrapRequest(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        return text.Contains("repo_bootstrap_context", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("github", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("repository", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("obscura", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("open-source", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("opensource", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("лиценз", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("репозитор", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool MentionsAuth(string text) =>
+        !string.IsNullOrWhiteSpace(text) &&
+        (text.Contains("auth", StringComparison.OrdinalIgnoreCase)
+         || text.Contains("jwt", StringComparison.OrdinalIgnoreCase)
+         || text.Contains("login", StringComparison.OrdinalIgnoreCase)
+         || text.Contains("token", StringComparison.OrdinalIgnoreCase)
+         || text.Contains("авториза", StringComparison.OrdinalIgnoreCase));
+
+    private static bool MentionsKanban(string text) =>
+        !string.IsNullOrWhiteSpace(text) &&
+        (text.Contains("kanban", StringComparison.OrdinalIgnoreCase)
+         || text.Contains("board", StringComparison.OrdinalIgnoreCase)
+         || text.Contains("backlog", StringComparison.OrdinalIgnoreCase)
+         || text.Contains("column", StringComparison.OrdinalIgnoreCase)
+         || text.Contains("доска", StringComparison.OrdinalIgnoreCase)
+         || text.Contains("канбан", StringComparison.OrdinalIgnoreCase));
 }

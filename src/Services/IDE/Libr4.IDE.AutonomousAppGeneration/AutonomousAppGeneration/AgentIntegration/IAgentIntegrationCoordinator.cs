@@ -36,8 +36,9 @@ public interface IAgentIntegrationCoordinator
 
     Task OnPostFixAsync(AppGenerationOrchestrator orchestrator, GenerationPlan plan, CancellationToken ct);
 
-    SecurityReviewAuditEntry ReviewGeneratedCode(
+    Task<SecurityReviewAuditEntry> ReviewGeneratedCodeAsync(
         string stage,
         IReadOnlyList<GeneratedFile> files,
-        GenerationPlan plan);
+        GenerationPlan plan,
+        CancellationToken ct = default);
 }

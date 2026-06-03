@@ -9,6 +9,7 @@ using Libr4.Shared.Web.Auth;
 using Libr4.Shared.Web.CurrentUser;
 using Libr4.Shared.Web.HealthChecks;
 using Libr4.Shared.Web.Logging;
+using Libr4.Shared.Web.Persistence;
 using Libr4.Shared.Web.Swagger;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Cors;
@@ -76,14 +77,7 @@ app.MapFileEndpoints();
 app.MapCallEndpoints();
 app.MapHub<ChatHub>("/chatHub").RequireAuthorization();
 
-// Ensure database is created for E2E testing
-using (var scope = app.Services.CreateScope())
-    {
-        var db = scope.ServiceProvider.GetRequiredService<ChatDbContext>();
-        if (app.Environment.IsDevelopment())
-            db.Database.EnsureCreated();
-        else
-            db.Database.Migrate();
-    }
+await app.ApplyDatabaseBootstrapAsync<ChatDbContext>(
+    useMigrations: !app.Environment.IsDevelopment());
 
 app.Run();

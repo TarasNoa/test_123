@@ -1,5 +1,5 @@
 ﻿using FluentAssertions;
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Libr4.IDE.Application.AutonomousAppGeneration.Commands;
 using Libr4.IDE.Application.AutonomousAppGeneration.Handlers;
@@ -370,6 +370,85 @@ public sealed class AutonomousGenerationPipelineTests
         var second = planner.Build(plan, "Generate task API");
 
         first.Phases.Select(p => p.PhaseId).Should().Equal(second.Phases.Select(p => p.PhaseId));
+    }
+
+    [Fact]
+    public void CascadePlanner_DeterministicMode_ShouldExposeRepoBootstrapInstructions_WhenRepoBootstrapRequested()
+    {
+        var plan = new GenerationPlan(
+            "KanbanAuthApi",
+            "[[REPO_BOOTSTRAP_REQUIRED]] Adapt GitHub repo with JWT auth and kanban board.",
+            new TechStack(
+                new[] { "C#" },
+                new[] { "ASP.NET Core" },
+                new[] { "PostgreSQL" },
+                Array.Empty<string>(),
+                "repo bootstrap"),
+            new[]
+            {
+                new GenerationPhase(1, "Repo bootstrap & adaptation", "Adapt upstream repo", Array.Empty<AgentAssignment>()),
+                new GenerationPhase(2, "Scaffold", "Create project structure", Array.Empty<AgentAssignment>()),
+                new GenerationPhase(3, "Implement core", "Auth and kanban", Array.Empty<AgentAssignment>()),
+                new GenerationPhase(4, "Tests", "Business tests", Array.Empty<AgentAssignment>()),
+            },
+            new[] { "CodeGenerationAgent" },
+            "mcr.microsoft.com/dotnet/sdk:8.0",
+            new[] { "dotnet build" },
+            new[] { "dotnet test" },
+            4);
+
+        var planner = new AutonomousCascadePlanner();
+        var cascade = planner.Build(plan, "Use Obscura on GitHub to find permissive-license repo and adapt with auth+kanban");
+
+        cascade.Rationale.Should().Contain("Repo-bootstrap cascade");
+        cascade.PlannerMode.Should().Be("deterministic");
+
+        var bootstrapPhase = cascade.Phases.First(p => p.PhaseName.Contains("bootstrap", StringComparison.OrdinalIgnoreCase));
+        bootstrapPhase.Instructions.Should().ContainKey("repo_bootstrap_mode");
+        bootstrapPhase.Instructions["repo_bootstrap_mode"].Should().Be("required");
+        bootstrapPhase.Instructions.Should().ContainKey("require_bootstrap_evidence");
+        bootstrapPhase.ExpectedOutput.Should().Contain("BOOTSTRAP_EVIDENCE.md");
+
+        var testPhase = cascade.Phases.First(p => p.PhaseName.Contains("Tests", StringComparison.OrdinalIgnoreCase));
+        testPhase.Instructions["require_business_tests"].Should().Be("auth+kanban");
+    }
+
+    [Fact]
+    public void StackPlanHeuristics_ShouldPreferAspNetCore_ForRepoBootstrapWithoutExplicitNodePython()
+    {
+        const string request =
+            "Using obscura find GitHub repo with permissive license, add JWT auth and kanban board";
+
+        StackPlanHeuristics.ShouldPreferAspNetCoreForRepoBootstrap(request).Should().BeTrue();
+
+        var nodePlan = new GenerationPlan(
+            "App",
+            "[[REPO_BOOTSTRAP_REQUIRED]]",
+            new TechStack(
+                new[] { "JavaScript" },
+                new[] { "Express" },
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                "node"),
+            Array.Empty<GenerationPhase>(),
+            Array.Empty<string>(),
+            "node:22-alpine",
+            new[] { "npm ci" },
+            new[] { "npm test" },
+            4);
+
+        var aligned = StackPlanHeuristics.AlignAspNetCoreRepoBootstrapPlan(nodePlan, request);
+        aligned.TechStack.Languages.Should().Contain("C#");
+        aligned.TechStack.Frameworks.Should().Contain("ASP.NET Core");
+        aligned.RuntimeImage.Should().Contain("dotnet");
+        aligned.BuildCommands.Should().Contain(c => c.Contains("dotnet build", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void StackPlanHeuristics_ShouldRespectExplicitNodeRequest_ForRepoBootstrap()
+    {
+        const string request = "Build express node.js API with github repo bootstrap and kanban";
+        StackPlanHeuristics.ShouldPreferAspNetCoreForRepoBootstrap(request).Should().BeFalse();
     }
 
     [Fact]

@@ -20,13 +20,16 @@ public sealed class ExecutionManifestBuilder : IExecutionManifestBuilder
     private readonly string _manifestRoot;
     private readonly IRunQualityAssessmentService _qualityAssessment;
     private readonly IMcpLaneWatchdog _watchdog;
+    private readonly ITaskGraphHydrationService _taskGraphHydration;
 
     public ExecutionManifestBuilder(
         IRunQualityAssessmentService qualityAssessment,
-        IMcpLaneWatchdog watchdog)
+        IMcpLaneWatchdog watchdog,
+        ITaskGraphHydrationService taskGraphHydration)
     {
         _qualityAssessment = qualityAssessment;
         _watchdog = watchdog;
+        _taskGraphHydration = taskGraphHydration;
         _manifestRoot = Path.Combine(Path.GetTempPath(), "libr4-autogen-manifests");
         Directory.CreateDirectory(_manifestRoot);
     }
@@ -113,6 +116,11 @@ public sealed class ExecutionManifestBuilder : IExecutionManifestBuilder
                 Outcome: s.Outcome,
                 Detail: s.Detail))
             .ToList();
+
+        _taskGraphHydration.EnsureHydrated(orchestrator);
+        var resolvedGraph = _taskGraphHydration.Resolve(orchestrator);
+        if (orchestrator.TaskGraph.Count == 0 && resolvedGraph.Count > 0)
+            orchestrator.ReplaceTaskGraph(resolvedGraph);
 
         var taskGraphDtos = orchestrator.TaskGraph
             .Select(t => new TaskGraphEntryDto(

@@ -1,5 +1,5 @@
 using FluentAssertions;
-using Libr4.AI.Infrastructure.AI;
+using Libr4.AI.Application.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;

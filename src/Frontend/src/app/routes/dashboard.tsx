@@ -104,6 +104,41 @@ const Dashboard: Component = () => {
   const [editLocation, setEditLocation] = createSignal("");
   const [editSaving, setEditSaving] = createSignal(false);
 
+  /* View profile modal */
+  const [profileModalOpen, setProfileModalOpen] = createSignal(false);
+  const [profileUserId, setProfileUserId] = createSignal<string | null>(null);
+  const [profileData, setProfileData] = createSignal<{
+    name: string;
+    bio?: string;
+    profileImageUrl?: string;
+    location?: string;
+    followerCount: number;
+    followingCount: number;
+    posts: {
+      id: string;
+      content: string;
+      tags: string[];
+      likesCount: number;
+      commentsCount: number;
+      createdAt: string;
+    }[];
+  } | null>(null);
+  const [profileLoading, setProfileLoading] = createSignal(false);
+
+  const openProfileModal = async (userId: string) => {
+    setProfileUserId(userId);
+    setProfileModalOpen(true);
+    setProfileLoading(true);
+    try {
+      const data = await apiClient.getUserProfile(userId);
+      setProfileData(data);
+    } catch {
+      setProfileData(null);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
   let coverInputRef!: HTMLInputElement;
 
   onMount(async () => {
@@ -737,7 +772,7 @@ const Dashboard: Component = () => {
               <For each={recommended()}>
                 {(u) => (
                   <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2 cursor-pointer" onClick={() => navigate(`/social/profile/${u.id}`)}>
+                    <div class="flex items-center gap-2 cursor-pointer" onClick={() => openProfileModal(u.id)}>
                       <div class="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-medium">
                         {u.displayName?.[0] ?? "?"}
                       </div>
@@ -813,6 +848,97 @@ const Dashboard: Component = () => {
                 {editSaving() ? "Saving…" : "Save"}
               </button>
             </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* View Profile Modal */}
+      <Show when={profileModalOpen()}>
+        <div class="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/50 backdrop-blur-sm py-4 overflow-y-auto"
+             onClick={e => { if (e.target === e.currentTarget) setProfileModalOpen(false); }}>
+          <div class="bg-[#0F131A] border border-white/10 rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <Show when={!profileLoading()} fallback={
+              <div class="flex items-center justify-center py-12">
+                <div class="animate-pulse text-secondary font-medium">Loading profile…</div>
+              </div>
+            }>
+              <Show when={profileData()} fallback={
+                <div class="text-center py-12 p-6">
+                  <p class="text-sm text-muted-foreground">Failed to load profile</p>
+                  <button onClick={() => setProfileModalOpen(false)} class="mt-3 px-4 py-2 rounded-xl bg-white/5 text-sm hover:bg-white/10 transition-colors">Close</button>
+                </div>
+              }>
+                {/* Header + Avatar */}
+                <div class="relative">
+                  <div class="h-28 bg-gradient-to-r from-[#0a1628] via-[#1a1a2e] to-[#0f131a] rounded-t-2xl" />
+                  <div class="absolute -bottom-10 left-6">
+                    <Show when={profileData()!.profileImageUrl} fallback={
+                      <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#35E0D0] to-[#2bc4b6] flex items-center justify-center text-black text-2xl font-bold border-4 border-[#0F131A]">
+                        {profileData()!.name?.[0] ?? "?"}
+                      </div>
+                    }>
+                      <img src={profileData()!.profileImageUrl!} class="w-20 h-20 rounded-2xl object-cover border-4 border-[#0F131A]" alt="avatar" />
+                    </Show>
+                  </div>
+                </div>
+
+                <div class="px-6 pt-12 pb-4">
+                  <h2 class="text-lg font-bold">{profileData()!.name}</h2>
+                  <Show when={profileData()!.location}>
+                    <p class="text-xs text-muted-foreground mt-0.5">📍 {profileData()!.location}</p>
+                  </Show>
+
+                  {/* Stats */}
+                  <div class="flex items-center gap-x-6 gap-y-2 mt-3 text-sm">
+                    <span><strong class="text-foreground">{profileData()!.followerCount ?? 0}</strong> <span class="text-muted-foreground">followers</span></span>
+                    <span><strong class="text-foreground">{profileData()!.followingCount ?? 0}</strong> <span class="text-muted-foreground">following</span></span>
+                    <span><strong class="text-foreground">{(profileData()!.posts ?? []).length}</strong> <span class="text-muted-foreground">posts</span></span>
+                  </div>
+
+                  {/* Bio */}
+                  <Show when={profileData()!.bio}>
+                    <p class="text-sm text-foreground mt-3 whitespace-pre-wrap">{profileData()!.bio}</p>
+                  </Show>
+                </div>
+
+                {/* Posts */}
+                <div class="px-6 pb-6">
+                  <h3 class="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">Posts</h3>
+                  <Show when={(profileData()!.posts ?? []).length === 0}>
+                    <p class="text-sm text-muted-foreground text-center py-6">No posts yet</p>
+                  </Show>
+                  <div class="space-y-3">
+                    <For each={profileData()!.posts ?? []}>
+                      {(post) => (
+                        <div class="bg-white/5 rounded-xl p-4 border border-white/5">
+                          <p class="text-sm text-foreground whitespace-pre-wrap mb-2">{post.content}</p>
+                          <Show when={post.tags && post.tags.length > 0}>
+                            <div class="flex flex-wrap gap-1.5 mb-2">
+                              <For each={post.tags}>
+                                {(tag) => <span class="text-xs text-secondary">#{tag}</span>}
+                              </For>
+                            </div>
+                          </Show>
+                          <div class="flex items-center gap-4 text-xs text-muted-foreground">
+                            <span>❤️ {post.likesCount}</span>
+                            <span>💬 {post.commentsCount}</span>
+                            <span class="ml-auto">{new Date(post.createdAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      )}
+                    </For>
+                  </div>
+                </div>
+
+                {/* Close button */}
+                <div class="p-4 border-t border-white/5">
+                  <button onClick={() => setProfileModalOpen(false)}
+                    class="w-full py-2.5 rounded-xl bg-white/5 text-sm hover:bg-white/10 transition-colors">
+                    Close
+                  </button>
+                </div>
+              </Show>
+            </Show>
           </div>
         </div>
       </Show>

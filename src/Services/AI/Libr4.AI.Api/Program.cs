@@ -15,8 +15,8 @@ using Microsoft.OpenApi.Models;
 using Asp.Versioning;
 using HealthChecks.UI.Client;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.EntityFrameworkCore;
 using Libr4.AI.Infrastructure.Persistence;
+using Libr4.Shared.Web.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -136,15 +136,8 @@ app.MapDocumentVerificationEndpoints();
 app.UseExceptionHandler("/error");
 app.MapGet("/error", () => Results.Problem("An error occurred.", statusCode: 500));
 
-// Ensure database is created for E2E testing
-using (var scope = app.Services.CreateScope())
-    {
-        var db = scope.ServiceProvider.GetRequiredService<AIDbContext>();
-        if (app.Environment.IsDevelopment())
-            db.Database.EnsureCreated();
-        else
-            db.Database.Migrate();
-    }
+await app.ApplyDatabaseBootstrapAsync<AIDbContext>(
+    useMigrations: !app.Environment.IsDevelopment());
 
 app.Run();
 

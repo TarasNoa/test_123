@@ -123,6 +123,68 @@ This is the top failure mode. Inside ""content"":
 Return only valid JSON.
 ";
 
+    private const string SecurityRemediationFixerSystemPrompt = @"
+You are the Security Remediation agent. Harden generated application code to resolve security findings.
+
+====================== OUTPUT CONTRACT (HARD) ======================
+Return ONLY a JSON object: { ""files"": [ { ""relativePath"", ""content"" } ] }
+- Include ONLY files you modified, with their FULL NEW content.
+- Valid JSON string escaping only.
+
+====================== SECURITY FIX RULES ======================
+1. Remove hardcoded secrets/passwords/API keys from source; use environment variables or Spring @Value placeholders with safe dev defaults in application-test only.
+2. Replace in-memory demo users (admin/password) with proper UserDetailsService backed by config or documented dev-only profile separated from production path.
+3. For banking apps: keep JWT auth functional; use ${APP_JWT_SECRET:} with fail-fast if empty in prod profile, or document dev profile.
+4. Enable CSRF only where appropriate; for stateless JWT APIs document why csrf is disabled and add security headers instead.
+5. Fix race conditions in transfer/payment services with synchronized blocks, locks, or transactional isolation.
+6. Remove mock auth tokens from production controllers; wire real auth flow or gate mocks behind test profile.
+7. Do not weaken security to pass review — implement real fixes.
+8. Preserve tech stack and file layout (backend/, frontend/).
+
+Return only valid JSON.
+";
+
+    private const string GenerationGapFixerSystemPrompt = @"
+You are the Generation Gap Remediation agent. Expand an incomplete generated app to satisfy structural quality gates.
+
+====================== OUTPUT CONTRACT (HARD) ======================
+Return ONLY a JSON object: { ""files"": [ { ""relativePath"", ""content"" } ] }
+- Include NEW and MODIFIED files under backend/ and frontend/ only (POSIX paths).
+- Full file content, valid JSON escaping.
+
+====================== GAP FIX RULES ======================
+1. missing_data_layer: add entities, repositories, DB config (JPA/Hibernate or equivalent), migrations or schema.
+2. intent_auth_not_reflected_in_code: JWT or session auth, UserDetails/security config, protected routes.
+3. intent_http_api_not_reflected_in_code: REST controllers, DTOs, validation, consistent error responses.
+4. intent_task_domain_not_reflected_in_code: domain models and APIs aligned to the user request (banking, not generic kanban unless requested).
+5. Keep Java Spring Boot + React TypeScript stack; do not switch frameworks.
+6. You MAY create new files; relativePath must start with backend/ or frontend/.
+7. No placeholders, no empty method bodies, no hardcoded production secrets.
+
+Return only valid JSON.
+";
+
+    private const string UpstreamSemanticAdaptationFixerSystemPrompt = @"
+You are the Upstream Adaptation agent. Map semantics from the cloned upstream/ snapshot into the generated ASP.NET Core product.
+
+====================== OUTPUT CONTRACT (HARD) ======================
+Return ONLY a JSON object: { ""files"": [ { ""relativePath"", ""content"" } ] }
+- Modify ONLY product files under src/ and tests/ (NEVER rewrite upstream/ snapshot files).
+- Prefer updating Domain/, Services/, Controllers/ to reflect upstream board/column/task/card concepts.
+- Keep JWT auth (AuthController, AddJwtBearer) and Kanban routes (/api/auth/token, /api/kanban/*) intact.
+- Preserve UPSTREAM_SEMANTIC_EXTRACT.md and integration docs unless you must append mapping notes.
+- Full file content only, valid JSON string escaping (no literal newlines inside JSON strings).
+
+====================== ADAPTATION RULES ======================
+1. Read upstream TypeScript/JavaScript and map enums/interfaces/constants into C# domain types.
+2. Wire KanbanBoardService and KanbanController to the adapted domain (not hardcoded demo columns only).
+3. Add/adjust business tests when behavior changes; keep WebApplicationFactory HTTP tests passing.
+4. Do NOT emit generic template scaffold; cite upstream concepts in code comments where mapped.
+5. Never remove BOOTSTRAP_EVIDENCE.md, ADAPTATION_BRIDGE.md, or UPSTREAM_INTEGRATION.md.
+
+Return only valid JSON.
+";
+
     public LlmCodeGenerationService(
         IAIService ai,
         ILogger<LlmCodeGenerationService> logger,
@@ -162,10 +224,9 @@ Return only valid JSON.
         var manifest = await PlanFileManifestAsync(plan, generated.Values, ct);
         if (manifest.Count == 0)
         {
-            _logger.LogWarning("Manifest step produced no files; falling back to single-pass generation");
-            var singlePass = await GenerateSinglePassAsync(plan, ct);
-            var merged = GenerationStackSafetyNet.MergeWithStackSafetyNet(plan, singlePass);
-            return new List<GenerationPhaseBatchResult> { new("full", merged) };
+            throw new AutonomousGenerationFailedException(
+                "generation_manifest",
+                "Manifest step returned zero files to generate.");
         }
 
         manifest = manifest
@@ -216,9 +277,9 @@ Return only valid JSON.
 
         if (generated.Count == 0)
         {
-            _logger.LogWarning("No files produced across batches; using minimal fallback project");
-            var merged = GenerationStackSafetyNet.MergeWithStackSafetyNet(plan, MinimalFallbackProject(plan));
-            return new List<GenerationPhaseBatchResult> { new("full", merged) };
+            throw new AutonomousGenerationFailedException(
+                "generation",
+                "Phased code generation produced zero files across all batches.");
         }
 
         var mandatorySafetyFiles = GenerationStackSafetyNet.EnsureMandatoryGeneratedFiles(plan, generated);
@@ -241,15 +302,19 @@ Return only valid JSON.
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Code generation LLM call failed; using minimal fallback project");
-            return MinimalFallbackProject(plan);
+            _logger.LogError(ex, "Code generation LLM call failed");
+            throw new AutonomousGenerationFailedException(
+                "generation",
+                $"Code generation LLM call failed: {ex.Message}",
+                ex);
         }
 
         var files = TryParseFiles(raw);
         if (files.Count == 0)
         {
-            _logger.LogWarning("Code generator returned no parseable files; using minimal fallback project");
-            return MinimalFallbackProject(plan);
+            throw new AutonomousGenerationFailedException(
+                "generation",
+                "Code generator returned no parseable files in the files envelope.");
         }
         ValidateAndLogJsonFiles(files);
         return files;
@@ -279,14 +344,27 @@ Return only valid JSON.
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Manifest LLM call failed");
-            return Array.Empty<PlannedFile>();
+            _logger.LogError(ex, "Manifest LLM call failed");
+            throw new AutonomousGenerationFailedException(
+                "generation_manifest",
+                $"Manifest LLM call failed: {ex.Message}",
+                ex);
         }
 
         using var doc = LlmJsonHelpers.ExtractJson(raw);
-        if (doc is null) return Array.Empty<PlannedFile>();
+        if (doc is null)
+        {
+            throw new AutonomousGenerationFailedException(
+                "generation_manifest",
+                $"Manifest response is not valid JSON. parse={LlmJsonHelpers.LastParseError ?? "unknown"}");
+        }
+
         if (!doc.RootElement.TryGetProperty("files", out var arr) || arr.ValueKind != JsonValueKind.Array)
-            return Array.Empty<PlannedFile>();
+        {
+            throw new AutonomousGenerationFailedException(
+                "generation_manifest",
+                "Manifest JSON is missing a non-empty 'files' array.");
+        }
 
         var list = new List<PlannedFile>();
         foreach (var item in arr.EnumerateArray())
@@ -492,22 +570,52 @@ FAILURE to include these folders will cause generation to be rejected by quality
     {
         if (errors.Count == 0) return Array.Empty<GeneratedFile>();
 
+        var isUpstreamSemanticAdaptation = errors.All(e =>
+            string.Equals(e.ErrorType, "UpstreamSemanticAdaptation", StringComparison.OrdinalIgnoreCase));
+        var isSecurityRemediation = errors.Count > 0 && errors.All(e =>
+            string.Equals(e.ErrorType, "SecurityFinding", StringComparison.OrdinalIgnoreCase));
+        var isGenerationGapRemediation = errors.Count > 0 && errors.All(e =>
+            string.Equals(e.ErrorType, "GenerationQualityError", StringComparison.OrdinalIgnoreCase));
+        var isSoftRemediation = isSecurityRemediation || isGenerationGapRemediation;
+
         var fixContext = BuildFixContext(currentFiles, errors);
         var prompt = BuildFixerPrompt(plan, fixContext, errors);
+        var systemPrompt = isUpstreamSemanticAdaptation
+            ? UpstreamSemanticAdaptationFixerSystemPrompt
+            : isSecurityRemediation
+                ? SecurityRemediationFixerSystemPrompt
+            : isGenerationGapRemediation
+                ? GenerationGapFixerSystemPrompt
+                : FixerSystemPrompt;
         string raw;
         try
         {
-            raw = await GenerateCompletionWithTimeoutAsync(prompt, FixerSystemPrompt, ct, "fixing");
+            raw = await GenerateCompletionWithTimeoutAsync(prompt, systemPrompt, ct, "fixing");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Fixer LLM call failed; applying deterministic fallback fixes");
-            return BuildDeterministicFallbackFixes(plan, currentFiles, errors);
+            _logger.LogError(ex, "Fixer LLM call failed");
+            throw new AutonomousGenerationFailedException(
+                "fixing",
+                $"Fixer LLM call failed: {ex.Message}",
+                ex);
         }
 
         var parsed = TryParseFiles(raw);
         if (parsed.Count == 0)
-            return BuildDeterministicFallbackFixes(plan, currentFiles, errors);
+        {
+            if (isSoftRemediation)
+            {
+                _logger.LogWarning(
+                    "Fixer returned no parseable patches for soft remediation ({ErrorType}); continuing.",
+                    errors[0].ErrorType);
+                return Array.Empty<GeneratedFile>();
+            }
+
+            throw new AutonomousGenerationFailedException(
+                "fixing",
+                "Fixer returned no parseable file patches.");
+        }
 
         // Accept only files that are within dependency-aware fix scope
         // plus known project manifests.
@@ -516,9 +624,40 @@ FAILURE to include these folders will cause generation to be rejected by quality
         foreach (var projectFile in currentFiles.Where(f => IsReferenceFile(f.RelativePath)))
             allowed.Add(projectFile.RelativePath);
 
-        var filtered = parsed.Where(f => allowed.Contains(f.RelativePath)).ToList();
+        if (isUpstreamSemanticAdaptation)
+        {
+            foreach (var productFile in currentFiles.Where(f => IsProductAdaptationTarget(f.RelativePath)))
+                allowed.Add(productFile.RelativePath);
+        }
+
+        if (isGenerationGapRemediation)
+        {
+            foreach (var productFile in currentFiles.Where(f => IsGenerationGapProductPath(f.RelativePath)))
+                allowed.Add(productFile.RelativePath);
+        }
+
+        if (isSecurityRemediation)
+        {
+            foreach (var productFile in currentFiles.Where(f =>
+                         IsSecuritySensitivePath(f.RelativePath) || IsGenerationGapProductPath(f.RelativePath)))
+                allowed.Add(productFile.RelativePath);
+        }
+
+        var filtered = FilterPatchesToAllowedScope(parsed, allowed, isSoftRemediation || isUpstreamSemanticAdaptation);
         if (filtered.Count == 0)
-            return BuildDeterministicFallbackFixes(plan, currentFiles, errors);
+        {
+            if (isSoftRemediation)
+            {
+                _logger.LogWarning(
+                    "Fixer patches did not match strict scope for {ErrorType}; continuing without applying.",
+                    errors[0].ErrorType);
+                return Array.Empty<GeneratedFile>();
+            }
+
+            throw new AutonomousGenerationFailedException(
+                "fixing",
+                "Fixer returned files outside the allowed patch scope.");
+        }
 
         var maxFiles = Math.Clamp(_options.MaxFilesToPatchPerIteration, 1, 64);
         if (filtered.Count > maxFiles)
@@ -567,17 +706,28 @@ FAILURE to include these folders will cause generation to be rejected by quality
         }
 
         if (accepted.Count == 0)
-            return BuildDeterministicFallbackFixes(plan, currentFiles, errors);
+        {
+            throw new AutonomousGenerationFailedException(
+                "fixing",
+                "Fixer patches were rejected (empty set after rewrite-ratio filtering).");
+        }
 
         return accepted;
     }
 
+    [Obsolete("Deterministic fixer fallback removed — failures must surface to the orchestrator.")]
     private static IReadOnlyList<GeneratedFile> BuildDeterministicFallbackFixes(
         GenerationPlan plan,
         IReadOnlyList<GeneratedFile> currentFiles,
         IReadOnlyList<ErrorReport> errors)
     {
         var fixes = new List<GeneratedFile>();
+
+        if (errors.Any(e =>
+                string.Equals(e.ErrorType, "UpstreamSemanticAdaptation", StringComparison.OrdinalIgnoreCase)))
+        {
+            fixes.AddRange(UpstreamSemanticAdaptationEnricher.BuildPatches(plan, currentFiles));
+        }
 
         var hasSrcMain = currentFiles.Any(f => f.RelativePath.Equals("src/main.py", StringComparison.OrdinalIgnoreCase));
         if (hasSrcMain)
@@ -1934,6 +2084,7 @@ All responses must include:
         sb.AppendLine("10. Ensure all generated commands work in the specified runtime image");
 
         AppendDesignArtifactBinding(plan, sb);
+        AppendRepoBootstrapContract(plan, sb);
         
         sb.AppendLine("\nGenerate ALL project files so that the build and test commands above succeed inside the runtime image.");
         
@@ -1969,6 +2120,7 @@ All responses must include:
         sb.AppendLine("- Always include Program.cs (or equivalent entry), appsettings.json, Dockerfile, README.md.");
         sb.AppendLine("- Tests project MUST contain one test file per controller and one per service.");
         sb.AppendLine("- Use POSIX paths. .NET layout: src/<Project>/... and tests/<Project>.Tests/...");
+        AppendRepoBootstrapContract(plan, sb);
         sb.AppendLine();
         sb.AppendLine("OUTPUT: Only the JSON described in the system prompt. Keep 'purpose' <=80 chars.");
         return sb.ToString();
@@ -1993,6 +2145,7 @@ All responses must include:
             sb.AppendLine($"Test commands: {string.Join(" && ", plan.TestCommands)}");
 
         AppendDesignArtifactBinding(plan, sb);
+        AppendRepoBootstrapContract(plan, sb);
 
         sb.AppendLine();
         sb.AppendLine("Full project file manifest (context; DO NOT output these, they belong to other batches):");
@@ -2041,6 +2194,35 @@ All responses must include:
         sb.AppendLine("- Remember: \\n for newlines, \\\" for quotes, \\\\ for backslashes inside the JSON content string.");
         sb.AppendLine("- Output ONLY the JSON {\"files\":[...]} described in the system prompt. No prose, no fences.");
         return sb.ToString();
+    }
+
+    private static bool RequiresRepoBootstrapContract(GenerationPlan plan)
+    {
+        var text = $"{plan.ApplicationDescription}\n{plan.TechStack.Rationale}";
+        return text.Contains("[[REPO_BOOTSTRAP_REQUIRED]]", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("repo_bootstrap_context", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("obscura", StringComparison.OrdinalIgnoreCase)
+               || text.Contains("github", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AppendRepoBootstrapContract(GenerationPlan plan, StringBuilder sb)
+    {
+        if (!RequiresRepoBootstrapContract(plan))
+            return;
+
+        sb.AppendLine();
+        sb.AppendLine("REPO BOOTSTRAP CONTRACT (HARD):");
+        sb.AppendLine("- Do NOT generate generic scaffold/template app.");
+        sb.AppendLine("- Adapt upstream repository logic and keep evidence of adapted source.");
+        sb.AppendLine("- When upstream/ snapshot exists, wire Kanban domain/services/controllers to it (see ADAPTATION_BRIDGE.md / UPSTREAM_INTEGRATION.md).");
+        sb.AppendLine("- MUST include BOOTSTRAP_EVIDENCE.md containing:");
+        sb.AppendLine("  - repository_url");
+        sb.AppendLine("  - license");
+        sb.AppendLine("  - adaptation_summary (what was reused and modified)");
+        sb.AppendLine("- MUST include explicit JWT auth implementation files/endpoints.");
+        sb.AppendLine("- MUST include explicit Kanban implementation files/endpoints (board, columns, tasks, move/transition).");
+        sb.AppendLine("- MUST include business tests for auth and kanban workflows (not only health checks).");
+        sb.AppendLine("- If any requirement cannot be implemented with provided context, return structured error-oriented files explaining blockers.");
     }
 
     private static void AppendDesignArtifactBinding(GenerationPlan plan, StringBuilder sb)
@@ -2122,6 +2304,53 @@ All responses must include:
         return text[start..end].Trim();
     }
 
+    private static bool IsProductAdaptationTarget(string relativePath)
+    {
+        var path = relativePath.Replace('\\', '/').TrimStart('/');
+        if (path.StartsWith("upstream/", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return path.StartsWith("src/", StringComparison.OrdinalIgnoreCase)
+               || path.StartsWith("tests/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsGenerationGapProductPath(string relativePath)
+    {
+        var path = relativePath.Replace('\\', '/').TrimStart('/');
+        if (path.StartsWith("upstream/", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return path.StartsWith("backend/", StringComparison.OrdinalIgnoreCase)
+               || path.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase)
+               || path.StartsWith("src/", StringComparison.OrdinalIgnoreCase)
+               || path.StartsWith("tests/", StringComparison.OrdinalIgnoreCase)
+               || path.Equals("docker-compose.yml", StringComparison.OrdinalIgnoreCase)
+               || path.Equals("docker-compose.yaml", StringComparison.OrdinalIgnoreCase)
+               || path.Equals("pom.xml", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static List<GeneratedFile> FilterPatchesToAllowedScope(
+        IReadOnlyList<GeneratedFile> parsed,
+        HashSet<string> allowed,
+        bool allowProductTreeFallback)
+    {
+        var strict = parsed.Where(f => allowed.Contains(f.RelativePath)).ToList();
+        if (strict.Count > 0 || !allowProductTreeFallback)
+            return strict;
+
+        return parsed.Where(f => IsGenerationGapProductPath(f.RelativePath)).ToList();
+    }
+
+    private static bool IsSecuritySensitivePath(string relativePath)
+    {
+        var p = relativePath.Replace('\\', '/').ToLowerInvariant();
+        return p.Contains("/security/", StringComparison.Ordinal) ||
+               p.Contains("/auth/", StringComparison.Ordinal) ||
+               p.Contains("jwt", StringComparison.Ordinal) ||
+               p.EndsWith(".properties", StringComparison.Ordinal) ||
+               p.Contains("application.yml", StringComparison.Ordinal) ||
+               p.Contains("application.yaml", StringComparison.Ordinal) ||
+               p.Contains("securityconfig", StringComparison.Ordinal);
+    }
+
     private static bool IsReferenceFile(string relativePath)
     {
         var name = System.IO.Path.GetFileName(relativePath);
@@ -2196,6 +2425,31 @@ All responses must include:
         foreach (var file in currentFiles.Where(f => IsReferenceFile(f.RelativePath)))
             selected[file.RelativePath] = file;
 
+        if (errors.All(e =>
+                string.Equals(e.ErrorType, "UpstreamSemanticAdaptation", StringComparison.OrdinalIgnoreCase)))
+        {
+            foreach (var file in currentFiles.Where(f =>
+                         IsProductAdaptationTarget(f.RelativePath)
+                         || f.RelativePath.StartsWith("upstream/", StringComparison.OrdinalIgnoreCase)
+                         || f.RelativePath.Equals("ADAPTATION_BRIDGE.md", StringComparison.OrdinalIgnoreCase)
+                         || f.RelativePath.Equals("UPSTREAM_SEMANTIC_EXTRACT.md", StringComparison.OrdinalIgnoreCase)
+                         || f.RelativePath.Equals("UPSTREAM_INTEGRATION.md", StringComparison.OrdinalIgnoreCase)))
+                selected[file.RelativePath] = file;
+        }
+
+        if (errors.Any(e => string.Equals(e.ErrorType, "SecurityFinding", StringComparison.OrdinalIgnoreCase)))
+        {
+            foreach (var file in currentFiles.Where(f =>
+                         IsSecuritySensitivePath(f.RelativePath) || IsGenerationGapProductPath(f.RelativePath)))
+                selected[file.RelativePath] = file;
+        }
+
+        if (errors.All(e => string.Equals(e.ErrorType, "GenerationQualityError", StringComparison.OrdinalIgnoreCase)))
+        {
+            foreach (var file in currentFiles.Where(f => IsGenerationGapProductPath(f.RelativePath)))
+                selected[file.RelativePath] = file;
+        }
+
         // 3) Dependency-aware expansion by symbol name heuristics.
         var symbolTokens = errors
             .SelectMany(e => ExtractSymbolCandidates(e.Message))
@@ -2216,8 +2470,12 @@ All responses must include:
             }
         }
 
-        // Keep context bounded.
-        return selected.Values.Take(25).ToList();
+        // Keep context bounded (generation-gap remediation needs broader product context).
+        var contextLimit = errors.All(e =>
+            string.Equals(e.ErrorType, "GenerationQualityError", StringComparison.OrdinalIgnoreCase))
+            ? 60
+            : 25;
+        return selected.Values.Take(contextLimit).ToList();
     }
 
     private static string NormalizePath(string path) =>

@@ -25,6 +25,51 @@ public sealed class SubagentOrchestratorNestedTests
             => Task.FromResult(new AgentResult { IsSuccess = true, Content = "approved" });
     }
 
+    private sealed class RejectingReviewerAgent : IAgent
+    {
+        public Task<AgentResult> ExecuteAsync(AgentContext context)
+            => Task.FromResult(new AgentResult { IsSuccess = true, Content = "NEEDS_FIX: rejected" });
+    }
+
+    private sealed class JsonImplementerAgent : IAgent
+    {
+        public Task<AgentResult> ExecuteAsync(AgentContext context) =>
+            Task.FromResult(new AgentResult
+            {
+                IsSuccess = true,
+                Content = """{"files":[{"relativePath":"backend/App.java","content":"class App{}"}]}"""
+            });
+    }
+
+    [Fact]
+    public async Task FastPath_AcceptsParseableJson_WithoutSpecReviewer()
+    {
+        var implementer = new JsonImplementerAgent();
+        var orchestrator = new SubagentOrchestrator(
+            implementer,
+            new RejectingReviewerAgent(),
+            new RejectingReviewerAgent(),
+            NullLogger.Instance,
+            options: new AgentOrchestrationOptions
+            {
+                SkipLlmReviewWhenParseableFiles = true,
+                MaxLlmReviewRounds = 0
+            });
+
+        var result = await orchestrator.ExecuteParallelAsync(new List<AgentTask>
+        {
+            new()
+            {
+                Id = "json-task",
+                Description = "emit files",
+                Context = new AgentContext()
+            }
+        });
+
+        Assert.Equal(1, result.SuccessCount);
+        Assert.True(result.Results[0].IsSuccess);
+    }
+
     [Fact]
     public async Task ExecuteParallelAsync_ShouldExecuteNestedSubtasks_WhenProvidedInTask()
     {
@@ -34,7 +79,8 @@ public sealed class SubagentOrchestratorNestedTests
             codeQualityReviewerAgent: new ApprovingReviewerAgent(),
             logger: NullLogger.Instance,
             maxConcurrency: 2,
-            maxSubtaskDepth: 2);
+            maxSubtaskDepth: 2,
+            options: new AgentOrchestrationOptions { MaxLlmReviewRounds = 2 });
 
         var task = new AgentTask
         {

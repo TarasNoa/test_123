@@ -106,25 +106,30 @@ public static class McpStdioJsonRpc
         CancellationToken ct,
         StringBuilder stderr)
     {
-        var line = await proc.StandardOutput.ReadLineAsync(ct).ConfigureAwait(false);
-        if (string.IsNullOrWhiteSpace(line))
-            throw new IOException($"MCP server closed stdout before responding. stderr: {stderr}");
-
-        using var doc = JsonDocument.Parse(line);
-        var root = doc.RootElement;
-        if (!root.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.Number ||
-            idEl.GetInt32() != expectId)
+        while (true)
         {
-            throw new IOException($"Unexpected JSON-RPC id in response: {line}");
-        }
+            var line = await proc.StandardOutput.ReadLineAsync(ct).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(line))
+                throw new IOException($"MCP server closed stdout before responding. stderr: {stderr}");
 
-        if (root.TryGetProperty("error", out var err))
-        {
-            var msg = err.TryGetProperty("message", out var m) ? m.GetString() : err.ToString();
-            throw new InvalidOperationException($"MCP error: {msg}. stderr: {stderr}");
-        }
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
 
-        return root.Clone();
+            // MCP servers may emit async notifications (e.g. "notifications/initialized").
+            // Ignore these and continue waiting for the request/response envelope with expected id.
+            if (!root.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.Number)
+                continue;
+            if (idEl.GetInt32() != expectId)
+                throw new IOException($"Unexpected JSON-RPC id in response: {line}");
+
+            if (root.TryGetProperty("error", out var err))
+            {
+                var msg = err.TryGetProperty("message", out var m) ? m.GetString() : err.ToString();
+                throw new InvalidOperationException($"MCP error: {msg}. stderr: {stderr}");
+            }
+
+            return root.Clone();
+        }
     }
 
     private static object BuildInitialize(int id) => new
@@ -147,4 +152,5 @@ public static class McpStdioJsonRpc
         method = "tools/call",
         @params = new { name, arguments },
     };
+
 }
