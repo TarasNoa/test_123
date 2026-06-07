@@ -3,15 +3,22 @@ using Libr4.IDE.Application.AutonomousAppGeneration.Services;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Pipeline;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Libr4.IntegrationTests.IDE;
 
 public sealed class PlanCommandValidationStageTests
 {
-    private readonly PlanCommandValidationStage _sut = new(
-        new DefaultPlanCommandValidator(),
-        NullLogger<PlanCommandValidationStage>.Instance);
+    private static PlanCommandValidationStage CreateSut(bool benchmarkMode = true) =>
+        new(
+            new DefaultPlanCommandValidator(),
+            Options.Create(new AutonomousBenchmarkModeOptions
+            {
+                EnableBenchmarkMode = benchmarkMode,
+                UseSafeDefaultsOnPlanValidationFailure = true
+            }),
+            NullLogger<PlanCommandValidationStage>.Instance);
 
     [Fact]
     public async Task Execute_ValidPlan_ReturnsContinue_WithoutMutation()
@@ -24,17 +31,18 @@ public sealed class PlanCommandValidationStageTests
             Plan = plan
         };
 
-        var outcome = await _sut.ExecuteAsync(ctx, CancellationToken.None);
+        var outcome = await CreateSut().ExecuteAsync(ctx, CancellationToken.None);
 
         outcome.ShouldContinue.Should().BeTrue();
         ctx.Plan.Should().BeSameAs(plan);
+        ctx.Orchestrator.PipelineStageReached.Should().Be(AutonomousPipelineStages.Planning);
     }
 
     [Fact]
     public async Task Execute_MalformedCommands_SubstitutesSafeDefaults_AndContinues()
     {
         var plan = MakePlan(
-            buildCommands: new[] { "dotnet 'restore" }, // unbalanced quote
+            buildCommands: new[] { "dotnet 'restore" },
             testCommands: new[] { "dotnet test" });
         var ctx = new GenerationContext
         {
@@ -43,7 +51,7 @@ public sealed class PlanCommandValidationStageTests
             Plan = plan
         };
 
-        var outcome = await _sut.ExecuteAsync(ctx, CancellationToken.None);
+        var outcome = await CreateSut().ExecuteAsync(ctx, CancellationToken.None);
 
         outcome.ShouldContinue.Should().BeTrue();
         ctx.Plan.Should().NotBeSameAs(plan);
@@ -61,7 +69,7 @@ public sealed class PlanCommandValidationStageTests
             Plan = null
         };
 
-        var outcome = await _sut.ExecuteAsync(ctx, CancellationToken.None);
+        var outcome = await CreateSut().ExecuteAsync(ctx, CancellationToken.None);
 
         outcome.ShouldContinue.Should().BeTrue();
     }

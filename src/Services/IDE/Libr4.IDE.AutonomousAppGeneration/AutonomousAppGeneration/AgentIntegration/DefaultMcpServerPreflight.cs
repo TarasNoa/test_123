@@ -20,6 +20,18 @@ public sealed class DefaultMcpServerPreflight : IMcpServerPreflight
     public McpServerPreflightResult CheckServerAvailability(string profileKey)
     {
         var opt = _options.Value;
+
+        if (opt.BrowserLane.UsesObscuraProvider() &&
+            profileKey.Equals("obscura-browser-lane", StringComparison.OrdinalIgnoreCase))
+        {
+            return McpServerPreflightResult.Available();
+        }
+
+        if (opt.BrowserLane.UsesObscuraProvider() &&
+            profileKey.Equals("browser-lane", StringComparison.OrdinalIgnoreCase))
+        {
+            return McpServerPreflightResult.Available();
+        }
         
         if (!opt.ServerProfiles.TryGetValue(profileKey, out var profile))
         {

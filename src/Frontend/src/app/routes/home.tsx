@@ -1,9 +1,11 @@
 import { Component } from "solid-js";
+import { A } from "@solidjs/router";
 
 const Home: Component = () => {
   const modules = [
     { name: 'Dashboard', path: '/dashboard', desc: 'Your profile, posts & stats', color: 'bg-primary' },
     { name: 'IDE', path: '/ide', desc: 'AI-powered code editor with agents', color: 'bg-secondary' },
+    { name: 'Agent Board', path: '/ide/agent-board', desc: 'Fleet Kanban for agent runs', color: 'bg-secondary' },
   ];
 
   return (
@@ -15,14 +17,14 @@ const Home: Component = () => {
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-5xl">
         {modules.map((m) => (
-          <a
+          <A
             href={m.path}
             class={`group p-5 bg-surface border border-surface-3 rounded-2xl hover:bg-surface-2 transition-all ${m.name === 'Dashboard' ? 'hover:border-primary/40' : 'hover:border-secondary/40'}`}
           >
             <div class={`w-10 h-10 ${m.color} rounded-lg mb-3 opacity-80 group-hover:opacity-100 transition-opacity`} />
             <h3 class="font-semibold text-foreground mb-1">{m.name}</h3>
             <p class="text-sm text-muted-foreground">{m.desc}</p>
-          </a>
+          </A>
         ))}
       </div>
 

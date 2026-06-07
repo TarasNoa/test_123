@@ -2,6 +2,7 @@ using System.Net.WebSockets;
 using System.Text.Json;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentOrchestration;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentRuntime.Events;
 using Microsoft.Extensions.Logging;
 
 namespace Libr4.IDE.Api;
@@ -92,6 +93,34 @@ public class AgentEventWebSocketHandler
         await BroadcastToRun(evt.RunId, message);
     }
 
+    public async Task BroadcastRuntimeNdjsonAsync(AgentRuntimePublishedEvent evt)
+    {
+        object message;
+        try
+        {
+            using var doc = JsonDocument.Parse(evt.PayloadJson);
+            message = new Dictionary<string, object?>
+            {
+                ["type"] = evt.EventType,
+                ["runId"] = evt.RunId,
+                ["timestamp"] = evt.TimestampUtc.ToUnixTimeMilliseconds(),
+                ["payload"] = doc.RootElement.Clone()
+            };
+        }
+        catch
+        {
+            message = new
+            {
+                type = evt.EventType,
+                runId = evt.RunId,
+                timestamp = evt.TimestampUtc.ToUnixTimeMilliseconds(),
+                raw = evt.PayloadJson
+            };
+        }
+
+        await BroadcastToRun(evt.RunId, message);
+    }
+
     public async Task BroadcastOrchestrationAsync(AgentOrchestrationEvent evt)
     {
         var message = new
@@ -137,6 +166,22 @@ public class AgentEventWebSocketHandler
             AgentEventType.SecurityScanStart => "security-scan",
             AgentEventType.SecurityScanComplete => "security-complete",
             AgentEventType.TerminalOutput => "terminal-output",
+            AgentEventType.BrowserLaunch => "browser-launch",
+            AgentEventType.BrowserNavigate => "browser-navigate",
+            AgentEventType.BrowserScreenshot => "browser-screenshot",
+            AgentEventType.BrowserExecuteJavaScript => "browser-execute-js",
+            AgentEventType.BrowserClose => "browser-close",
+            AgentEventType.BrowserSnapshot => "browser-snapshot",
+            AgentEventType.BrowserClick => "browser-click",
+            AgentEventType.BrowserType => "browser-type",
+            AgentEventType.BrowserScroll => "browser-scroll",
+            AgentEventType.BrowserWait => "browser-wait",
+            AgentEventType.BrowserConsole => "browser-console",
+            AgentEventType.BrowserGetContent => "browser-get-content",
+            AgentEventType.BrowserExtract => "browser-extract",
+            AgentEventType.BrowserRecordStart => "browser-record-start",
+            AgentEventType.BrowserRecordStop => "browser-record-stop",
+            AgentEventType.RuntimeNdjson => "runtime-ndjson",
             _ => "unknown"
         };
     }

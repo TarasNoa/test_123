@@ -1,0 +1,23 @@
+default: prompt
+rules:
+  - action: bash
+    pattern: "rm -rf*"
+    decision: forbid
+  - action: bash
+    pattern: "curl*|bash"
+    decision: forbid
+  - action: bash
+    pattern: "wget*|bash"
+    decision: forbid
+  - action: bash
+    pattern: "mvn*"
+    decision: allow
+  - action: bash
+    pattern: "npm*"
+    decision: allow
+  - action: bash
+    pattern: "pip*"
+    decision: allow
+  - action: bash
+    pattern: "python manage.py*"
+    decision: allow

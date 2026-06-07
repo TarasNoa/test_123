@@ -128,6 +128,24 @@ public sealed class QdrantVectorMemoryStore : IVectorMemoryStore
         }
     }
 
+    public async Task DeleteAsync(string id, string collectionId, CancellationToken ct = default)
+    {
+        await _fallback.DeleteAsync(id, collectionId, ct);
+        if (!_qdrantAvailable) return;
+        try
+        {
+            var body = new { points = new[] { ToQdrantId(id) } };
+            await _http.PostAsJsonAsync(
+                $"{_options.BaseUrl}/collections/{collectionId}/points/delete?wait=false",
+                body,
+                ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[Qdrant] Delete point failed");
+        }
+    }
+
     private async Task EnsureCollectionAsync(string collectionId, int dimensions, CancellationToken ct)
     {
         if (_ensuredCollections.Contains(collectionId)) return;

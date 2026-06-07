@@ -137,15 +137,61 @@ public class AgentEventEmitter : IAgentEventEmitter
         return Task.CompletedTask;
     }
 
+    public Task EmitBrowserToolAsync(Guid runId, string toolName, string sessionId, bool success, string? detail = null)
+    {
+        var eventType = MapBrowserToolEventType(toolName);
+        var command = string.IsNullOrWhiteSpace(detail) ? sessionId : $"{sessionId}:{detail}";
+        var evt = new AgentEvent(eventType, runId, command: command, exitCode: success ? 0 : 1);
+        PersistEvent(evt);
+
+        _logger.LogInformation(
+            "[Browser {Tool}] RunId: {RunId}, SessionId: {SessionId}, Success: {Success}",
+            toolName,
+            runId,
+            sessionId,
+            success);
+        return Task.CompletedTask;
+    }
+
+    public Task EmitRuntimeNdjsonAsync(Guid runId, string eventType, string payloadJson)
+    {
+        var evt = new AgentEvent(AgentEventType.RuntimeNdjson, runId, command: eventType, output: payloadJson);
+        PersistEvent(evt);
+        return Task.CompletedTask;
+    }
+
+    public event Func<AgentEvent, Task>? EventPublished;
+
+    private static AgentEventType MapBrowserToolEventType(string toolName) => toolName switch
+    {
+        "browser_launch" => AgentEventType.BrowserLaunch,
+        "browser_navigate" => AgentEventType.BrowserNavigate,
+        "browser_screenshot" => AgentEventType.BrowserScreenshot,
+        "browser_execute_js" => AgentEventType.BrowserExecuteJavaScript,
+        "browser_close" => AgentEventType.BrowserClose,
+        "browser_snapshot" => AgentEventType.BrowserSnapshot,
+        "browser_click" => AgentEventType.BrowserClick,
+        "browser_type" => AgentEventType.BrowserType,
+        "browser_scroll" => AgentEventType.BrowserScroll,
+        "browser_wait" => AgentEventType.BrowserWait,
+        "browser_console" => AgentEventType.BrowserConsole,
+        "browser_get_content" => AgentEventType.BrowserGetContent,
+        "browser_extract" => AgentEventType.BrowserExtract,
+        "browser_record_start" => AgentEventType.BrowserRecordStart,
+        "browser_record_stop" => AgentEventType.BrowserRecordStop,
+        _ => AgentEventType.RuntimeNdjson
+    };
+
     private void PersistEvent(AgentEvent evt)
     {
         lock (_lock)
         {
             _events.Add(evt);
         }
-        
-        // TODO: Save to repository when circular dependency is resolved
-        // await _repository.SaveAsync(evt);
+
+        var handler = EventPublished;
+        if (handler is not null)
+            _ = Task.Run(() => handler(evt));
     }
 
     /// <summary>

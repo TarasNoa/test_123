@@ -1,0 +1,17 @@
+id: django-saas
+displayName: Django SaaS
+runs: 10
+maxIterations: 10
+expectedRecipeId: calorie-vision
+tags:
+  - python
+  - django
+  - saas
+userRequest: |
+  Build a minimal Django REST SaaS backend for subscription billing:
+  - Django 4+ with Django REST framework
+  - Plan model (name, price) and Subscription model (plan, customer_email, active)
+  - API endpoints: list plans, create subscription, cancel subscription
+  - pytest or Django tests for plan list and subscription create
+  - manage.py, settings, requirements.txt
+  No frontend. SQLite database.

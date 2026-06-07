@@ -1,0 +1,46 @@
+name: nextjs-shop
+version: 1
+description: Next.js e-commerce storefront
+nodes:
+  - id: plan
+    type: stage
+    stage: planning
+  - id: generate-app
+    type: stage
+    stage: generating
+    phase: Frontend
+  - id: app-gate
+    type: gate
+    preconditions:
+      - kind: files_exist
+        paths:
+          - frontend/package.json
+          - frontend/app/page.tsx
+  - id: test
+    type: stage
+    stage: testing
+  - id: verify
+    type: stage
+    stage: verify
+edges:
+  - from: plan
+    to: generate-app
+    on: success
+  - from: generate-app
+    to: app-gate
+    on: success
+  - from: app-gate
+    to: test
+    on: success
+  - from: app-gate
+    to: generate-app
+    on: failure
+    action: retry
+    maxRetries: 2
+  - from: test
+    to: verify
+    on: success
+  - from: test
+    to: generate-app
+    on: failure
+    action: skip

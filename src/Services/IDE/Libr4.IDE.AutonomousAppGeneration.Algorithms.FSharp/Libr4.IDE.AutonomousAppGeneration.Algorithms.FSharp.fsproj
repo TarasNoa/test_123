@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Libr4.IDE.AutonomousAppGeneration.Algorithms.FSharp</AssemblyName>
+    <RootNamespace>Libr4.IDE.AutonomousAppGeneration.Algorithms</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="RepoGraph\LanguageImportParsers.fs" />
+    <Compile Include="RepoGraph\TopologicalSorter.fs" />
+    <Compile Include="RepoGraph\RepoGraphEngine.fs" />
+    <Compile Include="Patching\UnifiedDiffParser.fs" />
+    <Compile Include="Patching\PatchApplicator.fs" />
+    <Compile Include="FastContext\FusionRanker.fs" />
+    <Compile Include="Playbook\RepairPlaybookSignature.fs" />
+    <Compile Include="Memory\HermesMemoryScoring.fs" />
+    <Compile Include="Memory\ReciprocalRankFusion.fs" />
+    <Compile Include="Context\HeuristicSemanticCompactor.fs" />
+    <Compile Include="Context\ContextFragmentBudget.fs" />
+    <Compile Include="ModelRouting\RoleModelCircuit.fs" />
+    <Compile Include="MetaAgent\AgentSpecEvolution.fs" />
+    <Compile Include="AgentRuntime\ReasoningChannelParser.fs" />
+    <Compile Include="AgentRuntime\AgentSessionTurnMachine.fs" />
+    <Compile Include="AgentRuntime\AgentResponseParser.fs" />
+  </ItemGroup>
+
+</Project>

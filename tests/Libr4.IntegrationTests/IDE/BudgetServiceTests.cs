@@ -118,4 +118,86 @@ public sealed class BudgetServiceTests
         usage.TokensUsed.Should().Be(50 * 100);
         usage.RequestsIssued.Should().Be(50);
     }
+
+    [Fact]
+    public async Task TryConsume_PerStageTokenCap_DeniesWhenExceeded()
+    {
+        var sut = new InMemoryBudgetService(new BudgetOptions
+        {
+            PerRunTokenCap = 1_000_000,
+            PerRunCostUsdCap = 100m,
+            StageCaps = new Dictionary<string, StageBudgetCapOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["planning"] = new StageBudgetCapOptions { TokenCap = 5_000, CostUsdCap = 10m }
+            }
+        });
+        var runId = Guid.NewGuid();
+
+        await sut.TryConsumeAsync(runId, "planning", 4_000, 0.10m);
+        var second = await sut.TryConsumeAsync(runId, "planning", 2_000, 0.05m);
+
+        second.Granted.Should().BeFalse();
+        second.DenialReason.Should().Contain("per_stage_token_cap_exceeded:planning");
+    }
+
+    [Fact]
+    public async Task GetStageUsage_ReportsPerStageTotals()
+    {
+        var sut = new InMemoryBudgetService(new BudgetOptions
+        {
+            PerRunTokenCap = 1_000_000,
+            PerRunCostUsdCap = 100m,
+            StageCaps = new Dictionary<string, StageBudgetCapOptions>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["planning"] = new StageBudgetCapOptions { TokenCap = 50_000, CostUsdCap = 10m },
+                ["generation"] = new StageBudgetCapOptions { TokenCap = 100_000, CostUsdCap = 10m }
+            }
+        });
+        var runId = Guid.NewGuid();
+        await sut.TryConsumeAsync(runId, "planning", 1_000, 0.10m);
+        await sut.TryConsumeAsync(runId, "generation", 2_000, 0.20m);
+
+        var stageUsage = sut.GetStageUsage(runId);
+
+        stageUsage.Should().ContainKey("planning");
+        stageUsage["planning"].TokensUsed.Should().Be(1_000);
+        stageUsage["generation"].CostUsdUsed.Should().Be(0.20m);
+    }
+
+    [Fact]
+    public async Task TryConsume_WithBackendKind_TracksBackendUsage()
+    {
+        var sut = new InMemoryBudgetService(new BudgetOptions
+        {
+            PerRunTokenCap = 1_000_000,
+            PerRunCostUsdCap = 100m
+        });
+        var runId = Guid.NewGuid();
+
+        await sut.TryConsumeAsync(runId, "backend:codex-cli", 5_000, 0.25m, "CodexCli");
+        await sut.TryConsumeAsync(runId, "backend:codex-cli", 2_000, 0.10m, "CodexCli");
+
+        var backendUsage = sut.GetBackendUsage(runId);
+        backendUsage.Should().ContainKey("CodexCli");
+        backendUsage["CodexCli"].TokensUsed.Should().Be(7_000);
+        backendUsage["CodexCli"].CostUsdUsed.Should().Be(0.35m);
+        backendUsage["CodexCli"].RequestsIssued.Should().Be(2);
+    }
+
+    [Fact]
+    public void AttributeUsageToBackend_DoesNotChangeRunTotals()
+    {
+        var sut = new InMemoryBudgetService();
+        var runId = Guid.NewGuid();
+
+        sut.AttributeUsageToBackend(runId, "Libr4Native", 3_000, 0.15m);
+
+        var usage = sut.GetUsage(runId);
+        usage.TokensUsed.Should().Be(0);
+        usage.CostUsdUsed.Should().Be(0);
+
+        var backendUsage = sut.GetBackendUsage(runId);
+        backendUsage["Libr4Native"].TokensUsed.Should().Be(3_000);
+        backendUsage["Libr4Native"].CostUsdUsed.Should().Be(0.15m);
+    }
 }

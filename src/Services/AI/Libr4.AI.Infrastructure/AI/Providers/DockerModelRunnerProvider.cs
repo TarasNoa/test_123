@@ -20,6 +20,7 @@ public class DockerModelRunnerProvider : IAIProvider
     private readonly IConfiguration _configuration;
     private readonly ILogger<DockerModelRunnerProvider> _logger;
     private readonly HttpClient _httpClient;
+    private readonly IGpuResourceGuard _gpuGuard;
     private readonly string _endpoint;
 
     public string ProviderName => "DockerModelRunner";
@@ -27,11 +28,13 @@ public class DockerModelRunnerProvider : IAIProvider
     public DockerModelRunnerProvider(
         IConfiguration configuration,
         ILogger<DockerModelRunnerProvider> logger,
-        HttpClient httpClient)
+        HttpClient httpClient,
+        IGpuResourceGuard gpuGuard)
     {
         _configuration = configuration;
         _logger = logger;
         _httpClient = httpClient;
+        _gpuGuard = gpuGuard;
         _endpoint = _configuration["AI:DockerModelRunner:Endpoint"]
                     ?? "http://localhost:12434/engines/v1";
         // Local inference can take a while on the first token; be generous.
@@ -44,8 +47,12 @@ public class DockerModelRunnerProvider : IAIProvider
             ?? SanitizeModelId(_configuration["AI:DockerModelRunner:DefaultModel"])
             ?? "docker.io/ai/gemma4:latest";
 
-        _logger.LogInformation("DockerModelRunner: Calling model {Model} with prompt length {PromptLength}",
-            modelName, prompt?.Length ?? 0);
+        var maxTokens = ResolveMaxTokens(modelName);
+        _logger.LogInformation(
+            "DockerModelRunner: Calling model {Model} with prompt length {PromptLength}, max_tokens={MaxTokens}",
+            modelName,
+            prompt?.Length ?? 0,
+            maxTokens);
 
         var messages = new object[]
         {
@@ -58,9 +65,7 @@ public class DockerModelRunnerProvider : IAIProvider
             model = modelName,
             messages,
             temperature = 0.3,
-            // Local models have no streaming-window budget. Allow much larger outputs so
-            // code-gen batches don't need aggressive splitting.
-            max_tokens = 16000,
+            max_tokens = maxTokens,
             stream = true,
             // Ignored by models without a reasoning channel; disables chain-of-thought on
             // those that honor it (some qwen3 / gemma-thinking builds).
@@ -74,6 +79,8 @@ public class DockerModelRunnerProvider : IAIProvider
 
         try
         {
+            await _gpuGuard.WaitForHeadroomAsync(ambientCancellation).ConfigureAwait(false);
+
             var json = JsonSerializer.Serialize(requestBody);
             _logger.LogDebug("DockerModelRunner: Request body (streaming): {RequestBody}", json);
 
@@ -96,6 +103,19 @@ public class DockerModelRunnerProvider : IAIProvider
             if (!response.IsSuccessStatusCode)
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
+                var fallbackModel = SanitizeModelId(_configuration["AI:DockerModelRunner:DefaultModel"]);
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound
+                    && errorContent.Contains("model not found", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(fallbackModel)
+                    && !string.Equals(fallbackModel, modelName, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogWarning(
+                        "DockerModelRunner: model {RequestedModel} not found; retrying with DefaultModel {FallbackModel}",
+                        modelName,
+                        fallbackModel);
+                    return await GenerateCompletionAsync(prompt, systemPrompt, fallbackModel);
+                }
+
                 _logger.LogError("DockerModelRunner: API call failed with status {StatusCode}. Response: {Response}",
                     response.StatusCode, errorContent);
                 throw new HttpRequestException($"DockerModelRunner API call failed: {response.StatusCode} - {errorContent}");
@@ -114,6 +134,10 @@ public class DockerModelRunnerProvider : IAIProvider
                     _configuration.GetValue("AI:DockerModelRunner:MaxSseLinesWithoutContent", 6000),
                     500,
                     50000);
+                var maxReasoningWithoutContent = Math.Clamp(
+                    _configuration.GetValue("AI:DockerModelRunner:MaxReasoningCharsWithoutContent", 12_000),
+                    2_000,
+                    100_000);
                 while ((line = await reader.ReadLineAsync().WaitAsync(ambientCancellation)) != null)
                 {
                     lineCount++;
@@ -168,6 +192,13 @@ public class DockerModelRunnerProvider : IAIProvider
                         reasoningBuilder.Append(reasoningContent);
                         if (!string.IsNullOrEmpty(reasoningContent))
                             linesWithoutAnyContent = 0;
+
+                        if (contentBuilder.Length == 0
+                            && reasoningBuilder.Length >= maxReasoningWithoutContent)
+                        {
+                            throw new HttpRequestException(
+                                $"DockerModelRunner: reasoning-only stream exceeded {maxReasoningWithoutContent} chars without content; aborting early.");
+                        }
                     }
 
                     // Guard against endless streams producing only empty deltas.
@@ -313,6 +344,34 @@ public class DockerModelRunnerProvider : IAIProvider
 
     public Task<string> ChatAsync(string message, string? systemPrompt = null, string? model = null)
         => GenerateCompletionAsync(message, systemPrompt, model);
+
+    private int ResolveMaxTokens(string? modelName)
+    {
+        static int ReadConfig(IConfiguration config, string key, int fallback)
+        {
+            if (!int.TryParse(config[key], out var value))
+                return fallback;
+            return Math.Clamp(value, 256, 32_768);
+        }
+
+        var baseline = ReadConfig(_configuration, "AI:DockerModelRunner:MaxTokens", 3000);
+        var codegen = ReadConfig(_configuration, "AI:DockerModelRunner:MaxTokensCodegen", baseline);
+        var planning = ReadConfig(_configuration, "AI:DockerModelRunner:MaxTokensPlanning", 8192);
+
+        if (string.IsNullOrWhiteSpace(modelName))
+            return baseline;
+
+        if (modelName.Contains("coder", StringComparison.OrdinalIgnoreCase)
+            || modelName.Contains("9b-coder", StringComparison.OrdinalIgnoreCase))
+            return codegen;
+
+        if (modelName.Contains("reasoning", StringComparison.OrdinalIgnoreCase)
+            || modelName.Contains("35b", StringComparison.OrdinalIgnoreCase)
+            || modelName.Contains("opus", StringComparison.OrdinalIgnoreCase))
+            return planning;
+
+        return baseline;
+    }
 
     private static string? SanitizeModelId(string? model)
     {

@@ -2,6 +2,17 @@ namespace Libr4.Collaboration.Domain.Algorithms
 
 open System
 
+type DiffResult = { Insertions: int; Deletions: int; LinesChanged: int }
+
+type ChangeTracker = { UserId: Guid; Timestamp: DateTimeOffset; Changes: DiffResult }
+
+type CodeBlock = { Language: string; Code: string }
+
+type OTOperation =
+    | Insert of pos: int * text: string
+    | Delete of pos: int * length: int
+    | Replace of pos: int * oldText: string * newText: string
+
 [<CLIMutable>]
 type DocumentData =
     { Id: Guid
@@ -22,8 +33,8 @@ and [<CLIMutable>] DocumentVersion =
 module DocumentAlgorithms =
 
     let calculateDiff (oldContent: string) (newContent: string) =
-        let oldLines = oldContent.Split([|'\n'|])
-        let newLines = newContent.Split([|'\n'|])
+        let oldLines = oldContent.Split([| '\n' |])
+        let newLines = newContent.Split([| '\n' |])
         let insertions = newLines.Length - oldLines.Length
         let deletions = if insertions < 0 then -insertions else 0
         { Insertions = max insertions 0; Deletions = deletions; LinesChanged = abs insertions }
@@ -49,7 +60,7 @@ module DocumentAlgorithms =
 
     let applyOperationalTransform (document: DocumentData) (operation: OTOperation) =
         match operation with
-        | Insert (pos, text) -> 
+        | Insert (pos, text) ->
             let before = document.Content.Substring(0, pos)
             let after = document.Content.Substring(pos)
             { document with Content = before + text + after }
@@ -61,11 +72,3 @@ module DocumentAlgorithms =
             let before = document.Content.Substring(0, pos)
             let after = document.Content.Substring(pos + oldText.Length)
             { document with Content = before + newText + after }
-
-type DiffResult = { Insertions: int; Deletions: int; LinesChanged: int }
-type ChangeTracker = { UserId: Guid; Timestamp: DateTimeOffset; Changes: DiffResult }
-type CodeBlock = { Language: string; Code: string }
-type OTOperation = 
-    | Insert of pos: int * text: string
-    | Delete of pos: int * length: int
-    | Replace of pos: int * oldText: string * newText: string

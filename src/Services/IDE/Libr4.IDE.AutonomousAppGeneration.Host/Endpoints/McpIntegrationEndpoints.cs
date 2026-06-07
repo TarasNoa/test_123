@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration.McpHost;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
 using Microsoft.AspNetCore.Mvc;
 
@@ -78,6 +79,25 @@ public static class McpIntegrationEndpoints
         .WithName("InvokeMcpTool")
         .WithSummary(
             "Call an MCP tool by name. When RunId is set, MCP audit rows are stored on that orchestrator run.");
+
+        group.MapGet("/host/catalog", (IMcpHostCatalog catalog) => Results.Ok(new
+        {
+            tools = catalog.ListTools(),
+            resources = catalog.ListResources(),
+            prompts = catalog.ListPrompts(),
+        }))
+        .WithName("McpHostCatalog")
+        .WithSummary("Unified MCP tool/resource/prompt catalog.");
+
+        group.MapGet("/host/discovery", (IMcpRunHostManager host) =>
+            Results.Ok(host.DiscoverServers()))
+        .WithName("McpHostDiscovery")
+        .WithSummary("External MCP server discovery and preflight status.");
+
+        group.MapGet("/host/sessions", (IMcpRunHostManager host) =>
+            Results.Ok(host.ListActiveSessions()))
+        .WithName("McpHostSessions")
+        .WithSummary("Active per-run MCP host sessions.");
     }
 }
 

@@ -77,8 +77,8 @@ public sealed class PlanCommandValidatorTests
 
         var (build, test) = _sut.GetSafeDefaults(plan);
 
-        build.Should().Contain("pip install -r requirements.txt");
-        test.Should().Contain("pytest");
+        build.Should().Contain(c => c.Contains("pip install -r requirements.txt", StringComparison.OrdinalIgnoreCase));
+        test.Should().Contain(c => c.Contains("pytest", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -92,6 +92,69 @@ public sealed class PlanCommandValidatorTests
         var (build, _) = _sut.GetSafeDefaults(plan);
 
         build.Should().Contain("dotnet restore");
+    }
+
+    [Fact]
+    public void EnsureValidOrThrow_JavaReactCombinedMvnAndNpm_NormalizesToValid()
+    {
+        var plan = MakePlan(
+            languages: new[] { "Java", "TypeScript" },
+            frameworks: new[] { "Spring Boot", "React" },
+            buildCommands: new[] { "cd backend && mvn -B -ntp -DskipTests package && npm run build" },
+            testCommands: new[] { "cd backend && mvn -B -ntp test", "cd frontend && npm test -- --watch=false" });
+
+        var normalized = _sut.EnsureValidOrThrow(plan);
+        var validation = _sut.Validate(normalized);
+
+        validation.IsValid.Should().BeTrue();
+        normalized.BuildCommands.Should().Contain(c => c.Contains("cd backend", StringComparison.OrdinalIgnoreCase));
+        normalized.BuildCommands.Should().Contain(c => c.Contains("cd frontend", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void EnsureValidOrThrow_JavaReactSeed_StripsAptGetBootstrapAndKeepsRealBuilds()
+    {
+        var plan = MakePlan(
+            languages: new[] { "Java", "TypeScript" },
+            frameworks: new[] { "Spring Boot", "React" },
+            buildCommands: new[]
+            {
+                "cd frontend && export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && apt-get install -y -qq maven npm > /dev/null",
+                "cd backend && mvn -B -ntp -DskipTests package",
+                "cd frontend && npm ci && npm run build"
+            },
+            testCommands: new[]
+            {
+                "cd frontend && export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && apt-get install -y -qq maven npm > /dev/null",
+                "cd backend && mvn -B -ntp test",
+                "cd frontend && npm test -- --watch=false"
+            });
+
+        var normalized = _sut.EnsureValidOrThrow(plan);
+
+        normalized.BuildCommands.Should().NotContain(c => c.Contains("apt-get", StringComparison.OrdinalIgnoreCase));
+        normalized.BuildCommands[0].Should().Be("cd backend && mvn -B -ntp -DskipTests package");
+        normalized.BuildCommands[1].Should().Be("cd frontend && npm ci && npm run build");
+        normalized.TestCommands.Should().NotContain(c => c.Contains("apt-get", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetSafeDefaults_JavaReactFullStack_UsesMvnAndNpmOnly()
+    {
+        var plan = MakePlan(
+            languages: new[] { "Java", "TypeScript" },
+            frameworks: new[] { "Spring Boot", "React" },
+            buildCommands: Array.Empty<string>(),
+            testCommands: Array.Empty<string>());
+
+        var (build, test) = _sut.GetSafeDefaults(plan);
+
+        build.Should().BeEquivalentTo(new[]
+        {
+            "cd backend && mvn -B -ntp -DskipTests package",
+            "cd frontend && npm ci && npm run build"
+        });
+        test.Should().NotContain(c => c.Contains("apt-get", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -109,6 +172,13 @@ public sealed class PlanCommandValidatorTests
     }
 
     private static GenerationPlan MakePlan(
+        IReadOnlyList<string> languages,
+        IReadOnlyList<string> buildCommands,
+        IReadOnlyList<string> testCommands,
+        IReadOnlyList<string>? frameworks = null) =>
+        BuildPlan(languages, buildCommands, testCommands, frameworks);
+
+    private static GenerationPlan BuildPlan(
         IReadOnlyList<string> languages,
         IReadOnlyList<string> buildCommands,
         IReadOnlyList<string> testCommands,

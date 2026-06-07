@@ -37,6 +37,7 @@ public sealed class DefaultGenerationPipelineRunner : IGenerationPipelineRunner
         ILogger<DefaultGenerationPipelineRunner> logger)
     {
         _stages = stages
+            .Where(s => s.Order <= 120)
             .OrderBy(s => s.Order)
             .ThenBy(s => s.Name, StringComparer.Ordinal)
             .ToList();

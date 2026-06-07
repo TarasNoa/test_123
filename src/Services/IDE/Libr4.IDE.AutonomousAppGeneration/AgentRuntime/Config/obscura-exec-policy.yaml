@@ -1,0 +1,29 @@
+default: prompt
+urlRules:
+  - pattern: "file://*"
+    decision: forbid
+  - pattern: "http://localhost*"
+    decision: allow
+  - pattern: "http://127.0.0.1*"
+    decision: allow
+  - pattern: "https://localhost*"
+    decision: allow
+  - pattern: "https://127.0.0.1*"
+    decision: allow
+  - pattern: "https://*"
+    decision: prompt
+  - pattern: "http://*"
+    decision: prompt
+scriptRules:
+  - pattern: "*localStorage*"
+    decision: forbid
+  - pattern: "*sessionStorage*"
+    decision: forbid
+  - pattern: "*document.cookie*"
+    decision: forbid
+  - pattern: "*navigator.sendBeacon*"
+    decision: forbid
+  - pattern: "*fetch(*"
+    decision: prompt
+  - pattern: "*XMLHttpRequest*"
+    decision: prompt

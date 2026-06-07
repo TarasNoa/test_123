@@ -28,8 +28,8 @@ public interface IPlanCommandValidator
 {
     PlanCommandValidationResult Validate(GenerationPlan plan);
 
-    /// <summary>Normalizes fixable monorepo commands, then throws if still invalid.</summary>
-    GenerationPlan EnsureValidOrThrow(GenerationPlan plan);
+    /// <summary>Normalizes fixable monorepo commands; optionally applies safe defaults instead of throwing.</summary>
+    GenerationPlan EnsureValidOrThrow(GenerationPlan plan, bool useSafeDefaultsOnFailure = false);
 
     /// <summary>Suggest known-good build/test commands for the detected stack.</summary>
     (IReadOnlyList<string> Build, IReadOnlyList<string> Test) GetSafeDefaults(GenerationPlan plan);
@@ -61,12 +61,28 @@ public sealed class DefaultPlanCommandValidator : IPlanCommandValidator
         return new PlanCommandValidationResult(issues.Count == 0, issues, replacements);
     }
 
-    public GenerationPlan EnsureValidOrThrow(GenerationPlan plan)
+    public GenerationPlan EnsureValidOrThrow(GenerationPlan plan, bool useSafeDefaultsOnFailure = false)
     {
         var normalized = NormalizeJavaReactMonorepoCommands(plan);
         var validation = Validate(normalized);
         if (validation.IsValid)
             return normalized;
+
+        if (useSafeDefaultsOnFailure)
+        {
+            var (build, test) = GetSafeDefaults(normalized);
+            var repaired = new GenerationPlan(
+                normalized.ApplicationName,
+                normalized.ApplicationDescription,
+                normalized.TechStack,
+                normalized.Phases,
+                normalized.RequiredAgents,
+                normalized.RuntimeImage,
+                build,
+                test,
+                normalized.MaxIterations);
+            return NormalizeJavaReactMonorepoCommands(repaired);
+        }
 
         throw new AutonomousGenerationFailedException(
             "plan_command_validation",
@@ -82,8 +98,8 @@ public sealed class DefaultPlanCommandValidator : IPlanCommandValidator
                  new[] { "dotnet test --configuration Release" }),
 
             Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure.StackKind.Python =>
-                (new[] { "pip install -r requirements.txt" },
-                 new[] { "pytest" }),
+                (new[] { "python -m pip install -r requirements.txt" },
+                 new[] { "python -m pytest -q" }),
 
             Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure.StackKind.Node =>
                 (new[] { "npm ci", "npm run build" },
@@ -92,20 +108,18 @@ public sealed class DefaultPlanCommandValidator : IPlanCommandValidator
             Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure.StackKind.JavaReactFullStack =>
                 (new[]
                     {
-                        "export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && apt-get install -y -qq maven npm > /dev/null",
-                        "cd backend && mvn -q -DskipTests package",
+                        "cd backend && mvn -B -ntp -DskipTests package",
                         "cd frontend && npm ci && npm run build"
                     },
                  new[]
                     {
-                        "export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && apt-get install -y -qq maven npm > /dev/null",
-                        "cd backend && mvn -q test",
+                        "cd backend && mvn -B -ntp test",
                         "cd frontend && npm test -- --watch=false"
                     }),
 
             Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure.StackKind.Java =>
-                (new[] { "cd backend && mvn -q -DskipTests package" },
-                 new[] { "cd backend && mvn -q test" }),
+                (new[] { "cd backend && mvn -B -ntp -DskipTests package" },
+                 new[] { "cd backend && mvn -B -ntp test" }),
 
             _ => (new[] { "echo no_build_command_configured" },
                   new[] { "echo no_test_command_configured" })
@@ -118,54 +132,17 @@ public sealed class DefaultPlanCommandValidator : IPlanCommandValidator
             != Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure.StackKind.JavaReactFullStack)
             return plan;
 
-        static string NormalizeCommand(string cmd, bool backend)
-        {
-            if (string.IsNullOrWhiteSpace(cmd)) return cmd;
-            var trimmed = cmd.Trim();
-            if (backend)
-            {
-                if (trimmed.Contains("cd backend", StringComparison.OrdinalIgnoreCase)) return trimmed;
-                if (trimmed.Contains("mvn", StringComparison.OrdinalIgnoreCase)
-                    || trimmed.Contains("mvnw", StringComparison.OrdinalIgnoreCase)
-                    || trimmed.Contains("gradle", StringComparison.OrdinalIgnoreCase))
-                    return $"cd backend && {trimmed}";
-            }
-            else
-            {
-                if (trimmed.Contains("cd frontend", StringComparison.OrdinalIgnoreCase)) return trimmed;
-                if (trimmed.Contains("npm", StringComparison.OrdinalIgnoreCase)
-                    || trimmed.Contains("yarn", StringComparison.OrdinalIgnoreCase)
-                    || trimmed.Contains("pnpm", StringComparison.OrdinalIgnoreCase))
-                    return $"cd frontend && {trimmed}";
-            }
+        var build = SanitizeJavaReactCommandList(
+            plan.BuildCommands,
+            requireMvnPackage: true,
+            requireNpmBuild: true);
 
-            return trimmed;
-        }
-
-        var build = plan.BuildCommands
-            .Select(c =>
-                c.Contains("mvn", StringComparison.OrdinalIgnoreCase)
-                || c.Contains("mvnw", StringComparison.OrdinalIgnoreCase)
-                || c.Contains("gradle", StringComparison.OrdinalIgnoreCase)
-                    ? NormalizeCommand(c, backend: true)
-                    : (c.Contains("npm", StringComparison.OrdinalIgnoreCase)
-                       || c.Contains("yarn", StringComparison.OrdinalIgnoreCase)
-                       || c.Contains("pnpm", StringComparison.OrdinalIgnoreCase)
-                        ? NormalizeCommand(c, backend: false)
-                        : c))
-            .ToList();
-
-        var test = plan.TestCommands
-            .Select(c =>
-                c.Contains("mvn", StringComparison.OrdinalIgnoreCase)
-                || c.Contains("mvnw", StringComparison.OrdinalIgnoreCase)
-                    ? NormalizeCommand(c, backend: true)
-                    : (c.Contains("npm", StringComparison.OrdinalIgnoreCase)
-                       || c.Contains("yarn", StringComparison.OrdinalIgnoreCase)
-                       || c.Contains("pnpm", StringComparison.OrdinalIgnoreCase)
-                        ? NormalizeCommand(c, backend: false)
-                        : c))
-            .ToList();
+        var test = SanitizeJavaReactCommandList(
+            plan.TestCommands,
+            requireMvnPackage: false,
+            requireNpmBuild: false,
+            requireMvnTest: true,
+            requireNpmTest: true);
 
         return new GenerationPlan(
             plan.ApplicationName,
@@ -177,6 +154,133 @@ public sealed class DefaultPlanCommandValidator : IPlanCommandValidator
             build,
             test,
             plan.MaxIterations);
+    }
+
+    private static IEnumerable<string> ExpandCompoundJavaReactCommand(string cmd)
+    {
+        if (string.IsNullOrWhiteSpace(cmd))
+            return new[] { cmd };
+
+        if (ContainsMvnTooling(cmd) && ContainsNodeToolchain(cmd))
+        {
+            return cmd.Split("&&", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        return new[] { cmd };
+    }
+
+    private static List<string> SanitizeJavaReactCommandList(
+        IReadOnlyList<string> commands,
+        bool requireMvnPackage,
+        bool requireNpmBuild,
+        bool requireMvnTest = false,
+        bool requireNpmTest = false)
+    {
+        var list = commands
+            .SelectMany(ExpandCompoundJavaReactCommand)
+            .Where(c => !IsPackageBootstrapCommand(c))
+            .Select(NormalizeJavaReactCommandSegment)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (requireMvnPackage && !list.Any(ContainsMvnPackageBuild))
+            list.Add("cd backend && mvn -B -ntp -DskipTests package");
+
+        if (requireNpmBuild && !list.Any(ContainsNpmBuild))
+            list.Add("cd frontend && npm ci && npm run build");
+
+        if (requireMvnTest && !list.Any(c => ContainsMvnTooling(c) && c.Contains("test", StringComparison.OrdinalIgnoreCase)))
+            list.Add("cd backend && mvn -B -ntp test");
+
+        if (requireNpmTest && !list.Any(c => ContainsNodeToolchain(c) && c.Contains("test", StringComparison.OrdinalIgnoreCase)))
+            list.Add("cd frontend && npm test -- --watch=false");
+
+        return list;
+    }
+
+    private static bool IsPackageBootstrapCommand(string cmd)
+    {
+        if (string.IsNullOrWhiteSpace(cmd))
+            return false;
+
+        var lower = cmd.ToLowerInvariant();
+        return lower.Contains("apt-get", StringComparison.Ordinal)
+               || lower.Contains("apt install", StringComparison.Ordinal)
+               || lower.Contains("yum install", StringComparison.Ordinal)
+               || lower.Contains("apk add", StringComparison.Ordinal)
+               || lower.Contains("dnf install", StringComparison.Ordinal);
+    }
+
+    private static bool ContainsMvnPackageBuild(string cmd) =>
+        ContainsMvnTooling(cmd)
+        && cmd.Contains("package", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ContainsNpmBuild(string cmd) =>
+        ContainsNodeToolchain(cmd)
+        && cmd.Contains("build", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeJavaReactCommandSegment(string cmd)
+    {
+        if (string.IsNullOrWhiteSpace(cmd))
+            return cmd;
+
+        if (IsPackageBootstrapCommand(cmd))
+            return string.Empty;
+
+        if (ContainsMvnTooling(cmd))
+        {
+            cmd = cmd
+                .Replace(" mvn -q", " mvn -B -ntp", StringComparison.OrdinalIgnoreCase)
+                .Replace(" mvn.cmd -q", " mvn.cmd -B -ntp", StringComparison.OrdinalIgnoreCase);
+            return NormalizeJavaReactShellCommand(cmd, backend: true);
+        }
+
+        if (ContainsNodeToolchain(cmd))
+            return NormalizeJavaReactShellCommand(cmd, backend: false);
+
+        return cmd.Trim();
+    }
+
+    private static string NormalizeJavaReactShellCommand(string cmd, bool backend)
+    {
+        if (string.IsNullOrWhiteSpace(cmd))
+            return cmd;
+
+        var trimmed = cmd.Trim();
+        if (backend)
+        {
+            if (trimmed.Contains("cd backend", StringComparison.OrdinalIgnoreCase))
+                return trimmed;
+            if (ContainsMvnTooling(trimmed))
+                return $"cd backend && {trimmed}";
+        }
+        else
+        {
+            if (trimmed.Contains("cd frontend", StringComparison.OrdinalIgnoreCase))
+                return trimmed;
+            if (ContainsNodeToolchain(trimmed))
+                return $"cd frontend && {trimmed}";
+        }
+
+        return trimmed;
+    }
+
+    private static bool ContainsMvnTooling(string cmd) =>
+        cmd.Contains("mvn", StringComparison.OrdinalIgnoreCase)
+        || cmd.Contains("mvnw", StringComparison.OrdinalIgnoreCase)
+        || cmd.Contains("gradle", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ContainsNodeToolchain(string cmd)
+    {
+        if (IsPackageBootstrapCommand(cmd))
+            return false;
+
+        return cmd.Contains("npm ", StringComparison.OrdinalIgnoreCase)
+               || cmd.Contains("npm ci", StringComparison.OrdinalIgnoreCase)
+               || cmd.Contains("npm run", StringComparison.OrdinalIgnoreCase)
+               || cmd.Contains("yarn ", StringComparison.OrdinalIgnoreCase)
+               || cmd.Contains("pnpm ", StringComparison.OrdinalIgnoreCase);
     }
 
     private static void ValidateJavaReactMonorepoLayout(GenerationPlan plan, List<string> issues)
@@ -192,8 +296,7 @@ public sealed class DefaultPlanCommandValidator : IPlanCommandValidator
             {
                 issues.Add("java_react_build_missing_backend_cd");
             }
-            if ((cmd.Contains("npm", StringComparison.OrdinalIgnoreCase)
-                 || cmd.Contains("yarn", StringComparison.OrdinalIgnoreCase))
+            if (ContainsNodeToolchain(cmd)
                 && !cmd.Contains("cd frontend", StringComparison.OrdinalIgnoreCase))
             {
                 issues.Add("java_react_build_missing_frontend_cd");

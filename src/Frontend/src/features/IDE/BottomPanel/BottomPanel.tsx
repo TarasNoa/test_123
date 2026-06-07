@@ -5,12 +5,16 @@ import { OutputPanel } from './OutputPanel';
 import { ProblemsPanel } from './ProblemsPanel';
 import { Timeline } from './Timeline';
 import { AILog } from './AILog';
+import { SubagentsPanel } from './SubagentsPanel';
+import { FlowPanel } from './FlowPanel';
 
 const tabs = [
   { key: 'terminal' as const, label: 'Terminal' },
   { key: 'output' as const, label: 'Output' },
   { key: 'problems' as const, label: 'Problems' },
   { key: 'timeline' as const, label: 'Timeline' },
+  { key: 'subagents' as const, label: 'Subagents' },
+  { key: 'flow' as const, label: 'Flow' },
   { key: 'ai-log' as const, label: 'AI Log' },
 ];
 
@@ -48,6 +52,8 @@ export const BottomPanel: Component = () => {
           <Show when={store.bottomPanelTab === 'output'}><OutputPanel /></Show>
           <Show when={store.bottomPanelTab === 'problems'}><ProblemsPanel /></Show>
           <Show when={store.bottomPanelTab === 'timeline'}><Timeline /></Show>
+          <Show when={store.bottomPanelTab === 'subagents'}><SubagentsPanel /></Show>
+          <Show when={store.bottomPanelTab === 'flow'}><FlowPanel /></Show>
           <Show when={store.bottomPanelTab === 'ai-log'}><AILog /></Show>
         </div>
       </div>

@@ -25,6 +25,9 @@ public sealed class AutonomousQualityGateOptions
     public int ExecutionMinScore { get; set; } = 9;
     public int FixMinScore { get; set; } = 9;
 
+    /// <summary>LLM remediation passes when generation quality gate fails (analogous to security remediation).</summary>
+    public int MaxGenerationRemediationAttempts { get; set; } = 5;
+
     /// <summary>
     /// Default-blocking per-phase build gate (P0-6 of audit). Use <see cref="BuildGateBlockingMode.WarnOnly"/>
     /// only for safety-net debugging where you intentionally want the run to proceed past failed builds.

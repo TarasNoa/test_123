@@ -1,0 +1,14 @@
+D:\lib4_project\libr4\src\Services\AI\Rust\libr4-sandbox-executor\target\release\deps\serde-5977831c42621968.d: C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs D:\lib4_project\libr4\src\Services\AI\Rust\libr4-sandbox-executor\target\release\build\serde-fded502cf81492dd\out/private.rs
+
+D:\lib4_project\libr4\src\Services\AI\Rust\libr4-sandbox-executor\target\release\deps\libserde-5977831c42621968.rlib: C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs D:\lib4_project\libr4\src\Services\AI\Rust\libr4-sandbox-executor\target\release\build\serde-fded502cf81492dd\out/private.rs
+
+D:\lib4_project\libr4\src\Services\AI\Rust\libr4-sandbox-executor\target\release\deps\libserde-5977831c42621968.rmeta: C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs D:\lib4_project\libr4\src\Services\AI\Rust\libr4-sandbox-executor\target\release\build\serde-fded502cf81492dd\out/private.rs
+
+C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs:
+C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs:
+C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs:
+C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs:
+C:\Users\user\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs:
+D:\lib4_project\libr4\src\Services\AI\Rust\libr4-sandbox-executor\target\release\build\serde-fded502cf81492dd\out/private.rs:
+
+# env-dep:OUT_DIR=D:\\lib4_project\\libr4\\src\\Services\\AI\\Rust\\libr4-sandbox-executor\\target\\release\\build\\serde-fded502cf81492dd\\out

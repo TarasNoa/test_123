@@ -1,0 +1,15 @@
+id: react-status-badge
+stack: react-components
+style: humaneval
+prompt: |
+  Write a React component StatusBadge that renders a span with className "status-badge" and text prop.
+solution: |
+  export function StatusBadge({ text }: { text: string }) {
+    return <span className="status-badge">{text}</span>;
+  }
+requiredPatterns:
+  - "StatusBadge"
+  - "status-badge"
+  - "text"
+forbiddenPatterns:
+  - "dangerouslySetInnerHTML"

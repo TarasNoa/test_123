@@ -146,7 +146,41 @@ export interface IDEState {
 
   bottomPanelOpen: boolean;
   bottomPanelHeight: number;
-  bottomPanelTab: 'terminal' | 'output' | 'problems' | 'timeline' | 'ai-log';
+  bottomPanelTab: 'terminal' | 'output' | 'problems' | 'timeline' | 'ai-log' | 'subagents' | 'flow';
+  activeGenerationRunId: string | null;
+  subagents: Array<{
+    id: string;
+    runId: string;
+    name: string;
+    task: string;
+    status: string;
+    createdAtUtc: string;
+    updatedAtUtc: string;
+    outputPreview?: string | null;
+    error?: string | null;
+  }>;
+  delegations: Array<{
+    id: string;
+    runId: string;
+    task: string;
+    status: string;
+    createdAtUtc: string;
+    updatedAtUtc: string;
+    outputPreview?: string | null;
+    error?: string | null;
+  }>;
+  backgroundFleet: {
+    runningCount: number;
+    queuedCount: number;
+  } | null;
+  flowProgress: {
+    runId: string;
+    flowName: string;
+    currentNodeId?: string | null;
+    status: string;
+    nodes: Array<{ nodeId: string; status: string; attempts?: number; lastError?: string | null }>;
+    updatedAtUtc: string;
+  } | null;
   problems: BuildError[];
   outputLog: Array<{ level: string; text: string; timestamp: Date }>;
   timelineEvents: Array<{
@@ -197,6 +231,11 @@ export const [store, setStore] = createStore<IDEState>({
   bottomPanelOpen: true,
   bottomPanelHeight: 200,
   bottomPanelTab: 'terminal',
+  activeGenerationRunId: null,
+  subagents: [],
+  delegations: [],
+  backgroundFleet: null,
+  flowProgress: null,
   problems: [],
   outputLog: [],
   timelineEvents: [],

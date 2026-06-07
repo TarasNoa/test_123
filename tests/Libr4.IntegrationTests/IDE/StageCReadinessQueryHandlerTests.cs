@@ -18,7 +18,7 @@ public sealed class StageCReadinessQueryHandlerTests
         {
             new McpLaneWatchdogSnapshot
             {
-                ProfileKey = "browser-lane",
+                ProfileKey = "obscura-browser-lane",
                 Lane = "Browser",
                 LastCheckTimeUtc = DateTime.UtcNow,
                 Status = "degraded",
@@ -30,7 +30,7 @@ public sealed class StageCReadinessQueryHandlerTests
         {
             new McpToolMetadata(
                 "browser.smoke",
-                "browser-lane",
+                "obscura-browser-lane",
                 "desc",
                 McpToolRiskLevel.High,
                 McpExecutionLaneKind.Browser,
@@ -48,7 +48,7 @@ public sealed class StageCReadinessQueryHandlerTests
 
         result.OverallStatus.Should().Be("degraded");
         result.DegradedProfiles.Should().Be(1);
-        result.Items.Should().ContainSingle(i => i.ProfileKey == "browser-lane" && i.BlockerCode == "mcp_server_missing");
+        result.Items.Should().ContainSingle(i => i.ProfileKey == "obscura-browser-lane" && i.BlockerCode == "mcp_server_missing");
     }
 
     [Fact]
@@ -86,16 +86,15 @@ public sealed class StageCReadinessQueryHandlerTests
     }
 
     [Fact]
-    public void McpServerStub_BrowserLane_ShouldExistAndBeValid()
+    public void BrowserLane_DefaultProvider_ShouldBeObscura()
     {
-        var browserServerPath = "d:/lib4_project/browser-mcp-server/server.js";
-        var browserPackagePath = "d:/lib4_project/browser-mcp-server/package.json";
+        var options = Options.Create(new McpExecutionOptions
+        {
+            BrowserLane = new BrowserLaneOptions { Provider = "Obscura" }
+        });
 
-        File.Exists(browserServerPath).Should().BeTrue("browser-mcp-server stub should exist");
-        File.Exists(browserPackagePath).Should().BeTrue("browser-mcp-server package.json should exist");
-
-        var serverContent = File.ReadAllText(browserServerPath);
-        serverContent.Should().Contain("initialize", "browser-mcp-stub", "tools/list");
+        options.Value.BrowserLane.UsesObscuraProvider().Should().BeTrue();
+        options.Value.BrowserLane.DeprecationNotice.Should().Contain("browser-mcp-server");
     }
 
     [Fact]

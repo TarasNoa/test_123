@@ -3,6 +3,7 @@ using System.Text.Json;
 using Libr4.AI.Application.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services.PlatformUtilization;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 
@@ -80,31 +81,35 @@ Return ONLY valid JSON, no prose, no markdown fences:
             _logger.LogInformation("Model routing for error analysis: {Provider}/{Model} (reason: {Reason})",
                 routingDecision.ProviderId, routingDecision.ModelId, routingDecision.RoutingReason);
             
-            raw = await _ai.GenerateCompletionAsync(prompt, SystemPrompt, routingDecision.ModelId);
+            raw = await _ai.GenerateCompletionAsync(
+                PlatformCapabilityBriefingScope.AppendToPrompt(
+                    prompt,
+                    PlatformCapabilityBriefingStage.ErrorAnalysis),
+                SystemPrompt,
+                routingDecision.ModelId);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error analysis LLM call failed");
-            throw new AutonomousGenerationFailedException(
-                "error_analysis",
-                $"Error analysis LLM call failed: {ex.Message}",
-                ex);
+            _logger.LogWarning(ex, "Error analysis LLM call failed; using log heuristics.");
+            return BuildExecutionLogHeuristics.ExtractErrors(execution, files);
         }
 
         if (!PromptPipelinePolicy.ValidateOutputContract("error_analysis", raw, out var contractReason))
         {
-            throw new AutonomousGenerationFailedException(
-                "error_analysis",
-                $"Error-analysis output failed contract validation: {contractReason}");
+            _logger.LogWarning(
+                "Error-analysis contract validation failed ({Reason}); using log heuristics.",
+                contractReason);
+            return BuildExecutionLogHeuristics.ExtractErrors(execution, files);
         }
 
         using var doc = LlmJsonHelpers.ExtractJson(raw);
         if (doc is null || !doc.RootElement.TryGetProperty("errors", out var arr)
             || arr.ValueKind != JsonValueKind.Array)
         {
-            throw new AutonomousGenerationFailedException(
-                "error_analysis",
-                $"Error-analysis response is not a JSON object with an 'errors' array. parse={LlmJsonHelpers.LastParseError ?? "unknown"}");
+            _logger.LogWarning(
+                "Error-analysis JSON parse failed ({Parse}); using log heuristics.",
+                LlmJsonHelpers.LastParseError ?? "unknown");
+            return BuildExecutionLogHeuristics.ExtractErrors(execution, files);
         }
 
         var list = new List<ErrorReport>();
@@ -124,16 +129,12 @@ Return ONLY valid JSON, no prose, no markdown fences:
         }
 
         if (list.Count == 0)
-        {
-            throw new AutonomousGenerationFailedException(
-                "error_analysis",
-                "Error-analysis LLM returned an empty errors list.");
-        }
+            return BuildExecutionLogHeuristics.ExtractErrors(execution, files);
 
         return list;
     }
 
-    [Obsolete("Heuristic error-analysis fallback removed.")]
+    [Obsolete("Legacy heuristic kept for reference; use BuildExecutionLogHeuristics.")]
     private static IReadOnlyList<ErrorReport> HeuristicAnalysis(ExecutionResult execution)
     {
         var logs = execution.Logs.Select(l => l.Message).ToList();

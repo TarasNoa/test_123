@@ -1,4 +1,5 @@
 using Libr4.IDE.Application.Obscura.Commands;
+using Libr4.IDE.Application.Obscura;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -121,5 +122,18 @@ public static class ObscuraEndpoints
         .WithName("TypeInObscura")
         .WithSummary("Type text")
         .WithDescription("Types text into an element in the Obscura browser");
+
+        app.MapObscuraHealthEndpoints();
+    }
+
+    public static void MapObscuraHealthEndpoints(this IEndpointRouteBuilder app)
+    {
+        app.MapGet("/health/obscura", async (IObscuraHealthService health, CancellationToken ct) =>
+        {
+            var status = await health.CheckAsync(ct).ConfigureAwait(false);
+            return status.GrpcHealthy || status.CdpHealthy
+                ? Results.Ok(status)
+                : Results.StatusCode(503);
+        }).WithTags("Obscura Health");
     }
 }

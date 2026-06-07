@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using Libr4.AI.Application.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services.PlatformUtilization;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -53,6 +54,7 @@ public sealed class LlmSecurityReviewGateService : ISecurityReviewGateService
         """;
 
     private readonly IAIService _ai;
+    private readonly IProviderCapabilityMatrix _providerMatrix;
     private readonly ILogger<LlmSecurityReviewGateService> _logger;
     private readonly SecurityReviewGateOptions _options;
     private readonly SecurityReviewGateService _deterministic;
@@ -60,10 +62,12 @@ public sealed class LlmSecurityReviewGateService : ISecurityReviewGateService
 
     public LlmSecurityReviewGateService(
         IAIService ai,
+        IProviderCapabilityMatrix providerMatrix,
         IOptions<SecurityReviewGateOptions> options,
         ILogger<LlmSecurityReviewGateService> logger)
     {
         _ai = ai;
+        _providerMatrix = providerMatrix;
         _logger = logger;
         _options = options.Value;
         _deterministic = new SecurityReviewGateService(options);
@@ -100,15 +104,17 @@ public sealed class LlmSecurityReviewGateService : ISecurityReviewGateService
             selected.Count,
             files.Count,
             prompt.Length,
-            _options.Model ?? "(host default)");
+            ResolveSecurityReviewModelId() ?? "(host default)");
 
         string raw;
         try
         {
             raw = await _ai.GenerateCompletionAsync(
-                prompt,
+                PlatformCapabilityBriefingScope.AppendToPrompt(
+                    prompt,
+                    PlatformCapabilityBriefingStage.SecurityReview),
                 $"{_skillInstructions}\n\n{OutputContract}",
-                _options.Model);
+                ResolveSecurityReviewModelId());
         }
         catch (Exception ex)
         {
@@ -325,6 +331,24 @@ public sealed class LlmSecurityReviewGateService : ISecurityReviewGateService
             score -= 15;
 
         return score;
+    }
+
+    private string? ResolveSecurityReviewModelId()
+    {
+        if (!string.IsNullOrWhiteSpace(_options.Model))
+            return _options.Model;
+
+        var requirement = _providerMatrix.GetStageRequirements("review")
+                          ?? new StageModelRequirement(
+                              Stage: "review",
+                              RequiresFunctionCalling: false,
+                              RequiresStreaming: false,
+                              RequiresJsonMode: false,
+                              MinContextTokens: 16000,
+                              MinOutputTokens: 2048,
+                              MaxCostPer1kTokens: 0.01);
+
+        return _providerMatrix.RouteStage("review", requirement).ModelId;
     }
 
     private static string LoadSkillInstructions()

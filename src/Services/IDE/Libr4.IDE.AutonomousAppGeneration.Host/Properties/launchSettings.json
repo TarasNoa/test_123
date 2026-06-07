@@ -7,7 +7,49 @@
       "launchUrl": "swagger",
       "applicationUrl": "http://localhost:5199",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "AutonomousAppGeneration__HostProfile__ActiveProfile": "OpenRouter",
+        "LIBR4_HOST_PROFILE": "OpenRouter"
+      }
+    },
+    "OpenRouter": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5199",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "AutonomousAppGeneration__HostProfile__ActiveProfile": "OpenRouter",
+        "LIBR4_HOST_PROFILE": "OpenRouter"
+      }
+    },
+    "DockerModelRunner": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5199",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "AutonomousAppGeneration__HostProfile__ActiveProfile": "DockerModelRunner",
+        "LIBR4_HOST_PROFILE": "DockerModelRunner"
+      }
+    },
+    "BatchCi": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5199",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "AutonomousAppGeneration__HostProfile__ActiveProfile": "BatchCi",
+        "LIBR4_HOST_PROFILE": "BatchCi"
+      }
+    },
+    "Benchmark": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "applicationUrl": "http://localhost:5199",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "AutonomousAppGeneration__HostProfile__ActiveProfile": "Benchmark",
+        "LIBR4_HOST_PROFILE": "Benchmark"
       }
     }
   }

@@ -15,11 +15,35 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Build Rust native libraries (Wave 3 muscle)
+        run: |
+          cargo build --release --manifest-path rust/Cargo.toml
+          cargo build --release --manifest-path src/Services/AI/Rust/libr4-sandbox-executor/Cargo.toml
+          cargo build --release -p libr4-embeddings --manifest-path rust/Cargo.toml
+      - name: Build C++ native libraries (Wave 6 muscle)
+        run: |
+          sudo apt-get update && sudo apt-get install -y build-essential cmake libclang-dev
+          cmake -S native/cpp -B native/cpp/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build native/cpp/build --config Release --parallel
+      - name: Download MiniLM ONNX assets (optional ORT smoke)
+        run: |
+          mkdir -p .ci-models/minilm
+          curl -fsSL -o .ci-models/minilm/model.onnx \
+            "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/onnx/model.onnx"
+          curl -fsSL -o .ci-models/minilm/vocab.txt \
+            "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/vocab.txt"
+        continue-on-error: true
       - name: Restore
         run: dotnet restore libr4.sln
       - name: Build
         run: dotnet build libr4.sln --configuration Release --no-restore
       - name: Test
+        env:
+          LIBR4_ONNX_MODEL_PATH: .ci-models/minilm/model.onnx
+          LIBR4_ONNX_VOCAB_PATH: .ci-models/minilm/vocab.txt
         run: dotnet test libr4.sln --configuration Release --no-build --verbosity normal
 
   frontend:
@@ -39,7 +63,7 @@ jobs:
       - run: bun run build
 
   rust:
-    name: Rust (Sandbox)
+    name: Rust (Obscura)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -50,3 +74,18 @@ jobs:
         run: cargo build --manifest-path=obscura/Cargo.toml --release
       - name: Test
         run: cargo test --manifest-path=obscura/Cargo.toml --release
+
+  rust-embeddings:
+    name: Rust (Embeddings gRPC)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Install protobuf compiler
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+      - name: Build libr4-embeddings binary
+        run: cargo build --release -p libr4-embeddings --manifest-path rust/Cargo.toml
+      - name: Build Docker image
+        run: docker build -f rust/libr4-embeddings/Dockerfile .

@@ -16,7 +16,7 @@ public class McpLaneWatchdogTests
         {
             ServerProfiles = new Dictionary<string, McpServerLaunchProfile>
             {
-                ["browser-lane"] = new McpServerLaunchProfile
+                ["libr4-agent-bridge"] = new McpServerLaunchProfile
                 {
                     FileName = "nonexistent-executable",
                     Arguments = new List<string>()
@@ -38,9 +38,9 @@ public class McpLaneWatchdogTests
         // The watchdog checks profiles used by registered tools
         // DefaultMcpToolRegistry has tools that use "browser-lane"
         snapshot.Should().NotBeEmpty();
-        snapshot.Should().ContainSingle(s => s.ProfileKey == "browser-lane");
-        snapshot.First(s => s.ProfileKey == "browser-lane").Status.Should().Be("degraded");
-        snapshot.First(s => s.ProfileKey == "browser-lane").BlockerCode.Should().Be("mcp_server_missing");
+        snapshot.Should().ContainSingle(s => s.ProfileKey == "libr4-agent-bridge");
+        snapshot.First(s => s.ProfileKey == "libr4-agent-bridge").Status.Should().Be("degraded");
+        snapshot.First(s => s.ProfileKey == "libr4-agent-bridge").BlockerCode.Should().Be("mcp_server_missing");
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public class McpLaneWatchdogTests
         {
             ServerProfiles = new Dictionary<string, McpServerLaunchProfile>
             {
-                ["browser-lane"] = new McpServerLaunchProfile
+                ["libr4-agent-bridge"] = new McpServerLaunchProfile
                 {
                     FileName = "nonexistent-executable",
                     Arguments = new List<string>()
@@ -175,7 +175,7 @@ public class McpLaneWatchdogTests
         {
             ServerProfiles = new Dictionary<string, McpServerLaunchProfile>
             {
-                ["browser-lane"] = new McpServerLaunchProfile
+                ["libr4-agent-bridge"] = new McpServerLaunchProfile
                 {
                     FileName = "nonexistent-executable",
                     Arguments = new List<string>()
@@ -196,7 +196,7 @@ public class McpLaneWatchdogTests
         watchdog.PerformWatchdogCheck();
         watchdog.PerformWatchdogCheck();
 
-        var history = watchdog.GetHistory("browser-lane");
+        var history = watchdog.GetHistory("libr4-agent-bridge");
         history.Should().HaveCountGreaterOrEqualTo(1);
     }
 
@@ -208,7 +208,7 @@ public class McpLaneWatchdogTests
             WatchdogHistoryDepth = 5,
             ServerProfiles = new Dictionary<string, McpServerLaunchProfile>
             {
-                ["browser-lane"] = new McpServerLaunchProfile
+                ["libr4-agent-bridge"] = new McpServerLaunchProfile
                 {
                     FileName = "nonexistent-executable",
                     Arguments = new List<string>()
@@ -230,7 +230,7 @@ public class McpLaneWatchdogTests
             watchdog.PerformWatchdogCheck();
         }
 
-        var history = watchdog.GetHistory("browser-lane");
+        var history = watchdog.GetHistory("libr4-agent-bridge");
         history.Should().HaveCountGreaterOrEqualTo(1);
         history.Should().HaveCountLessOrEqualTo(5); // Should be bounded by WatchdogHistoryDepth
     }
@@ -242,7 +242,7 @@ public class McpLaneWatchdogTests
         {
             ServerProfiles = new Dictionary<string, McpServerLaunchProfile>
             {
-                ["browser-lane"] = new McpServerLaunchProfile
+                ["libr4-agent-bridge"] = new McpServerLaunchProfile
                 {
                     FileName = "nonexistent-executable",
                     Arguments = new List<string>()
@@ -260,7 +260,7 @@ public class McpLaneWatchdogTests
 
         // Perform check with degraded status
         watchdog.PerformWatchdogCheck();
-        var firstHistory = watchdog.GetHistory("browser-lane");
+        var firstHistory = watchdog.GetHistory("libr4-agent-bridge");
         firstHistory.Should().NotBeEmpty();
         firstHistory.First().Status.Should().Be("degraded");
     }
@@ -307,7 +307,7 @@ public class McpLaneWatchdogTests
             WatchdogHistoryDepth = 10,
             ServerProfiles = new Dictionary<string, McpServerLaunchProfile>
             {
-                ["browser-lane"] = new McpServerLaunchProfile
+                ["libr4-agent-bridge"] = new McpServerLaunchProfile
                 {
                     FileName = "nonexistent-executable",
                     Arguments = new List<string>()
@@ -324,9 +324,9 @@ public class McpLaneWatchdogTests
             NullLogger<DefaultMcpLaneWatchdog>.Instance);
 
         watchdog.PerformWatchdogCheck();
-        var first = watchdog.GetHistory("browser-lane").Count;
+        var first = watchdog.GetHistory("libr4-agent-bridge").Count;
         watchdog.PerformWatchdogCheck();
-        var second = watchdog.GetHistory("browser-lane").Count;
+        var second = watchdog.GetHistory("libr4-agent-bridge").Count;
 
         second.Should().BeGreaterThan(first);
     }

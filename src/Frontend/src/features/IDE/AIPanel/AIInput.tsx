@@ -1,6 +1,8 @@
-import { createSignal, Show, type Component } from 'solid-js';
+import { createSignal, onCleanup, Show, type Component } from 'solid-js';
 import { store, setStore, addMessage } from '../IDEStore';
 import { config } from '../../../lib/config';
+import { subscribeGenerationRunEvents, stopGenerationRunEvents } from '../services/runEvents';
+import { startRunOrchestrationPolling, stopRunOrchestrationPolling } from '../services/runOrchestration';
 
 async function pollAppGenerationRun(runId: string, reportUrl: string) {
   const token = localStorage.getItem('accessToken');
@@ -62,6 +64,12 @@ async function pollAppGenerationRun(runId: string, reportUrl: string) {
 
 export const AIInput: Component = () => {
   const [rows, setRows] = createSignal(1);
+  let stopRunSubscriptions: (() => void) | null = null;
+
+  onCleanup(() => {
+    stopRunSubscriptions?.();
+    stopRunSubscriptions = null;
+  });
 
   const send = async () => {
     const text = store.inputText.trim();
@@ -116,10 +124,20 @@ export const AIInput: Component = () => {
       }
 
       if (data.generationRunId && data.generationReportUrl) {
-        void pollAppGenerationRun(
-          data.generationRunId as string,
-          data.generationReportUrl as string,
-        );
+        const runId = data.generationRunId as string;
+        stopRunSubscriptions?.();
+        setStore('activeGenerationRunId', runId);
+        setStore('bottomPanelOpen', true);
+        setStore('bottomPanelTab', 'timeline');
+        const stopEvents = subscribeGenerationRunEvents(runId);
+        const stopPoll = startRunOrchestrationPolling(runId);
+        stopRunSubscriptions = () => {
+          stopEvents();
+          stopPoll();
+          stopGenerationRunEvents(runId);
+          stopRunOrchestrationPolling(runId);
+        };
+        void pollAppGenerationRun(runId, data.generationReportUrl as string);
       }
     } catch (err: any) {
       const rawMessage: string = err?.message || 'Unknown error';

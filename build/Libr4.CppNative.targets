@@ -1,0 +1,64 @@
+<Project>
+  <Import Project="Libr4.CppNative.props" Condition="'$(Libr4RepoRoot)' == ''" />
+
+  <Target Name="BuildLibr4CppNativeLibraries"
+          BeforeTargets="Build"
+          Condition="'$(BuildLibr4CppNative)' == 'true'">
+    <Message Importance="high" Text="Building Libr4 C++ native libraries (Release)..." />
+    <Exec Command="cmake -S &quot;$(Libr4CppNativeDir)&quot; -B &quot;$(Libr4CppNativeBuildDir)&quot; -DCMAKE_BUILD_TYPE=Release"
+          Condition="'$(OS)' != 'Windows_NT'" />
+    <Exec Command="cmake --build &quot;$(Libr4CppNativeBuildDir)&quot; --config Release --parallel"
+          Condition="'$(OS)' != 'Windows_NT'" />
+    <Exec Command="cmake -S &quot;$(Libr4CppNativeDir)&quot; -B &quot;$(Libr4CppNativeBuildDir)&quot; -DCMAKE_BUILD_TYPE=Release"
+          Condition="'$(OS)' == 'Windows_NT'" />
+    <Exec Command="cmake --build &quot;$(Libr4CppNativeBuildDir)&quot; --config Release --parallel"
+          Condition="'$(OS)' == 'Windows_NT'" />
+  </Target>
+
+  <Target Name="CopyLibr4CppNativeLibrariesToOutput"
+          AfterTargets="Build"
+          Condition="'$(CopyLibr4CppNativeLibraries)' == 'true'">
+    <PropertyGroup>
+      <_CppNativePrefix Condition="$([MSBuild]::IsOsPlatform('Windows'))"></_CppNativePrefix>
+      <_CppNativePrefix Condition="$([MSBuild]::IsOsPlatform('Linux'))">lib</_CppNativePrefix>
+      <_CppNativePrefix Condition="$([MSBuild]::IsOsPlatform('OSX'))">lib</_CppNativePrefix>
+      <_CppNativeExt Condition="$([MSBuild]::IsOsPlatform('Windows'))">.dll</_CppNativeExt>
+      <_CppNativeExt Condition="$([MSBuild]::IsOsPlatform('Linux'))">.so</_CppNativeExt>
+      <_CppNativeExt Condition="$([MSBuild]::IsOsPlatform('OSX'))">.dylib</_CppNativeExt>
+      <_CppNativeConfigSuffix Condition="'$(OS)' == 'Windows_NT'">\Release</_CppNativeConfigSuffix>
+      <_CppNativeConfigSuffix Condition="'$(OS)' != 'Windows_NT'"></_CppNativeConfigSuffix>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\$(_CppNativePrefix)libr4_tree_sitter$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\$(_CppNativePrefix)libr4_tree_sitter$(_CppNativeExt)')" />
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)\$(_CppNativePrefix)libr4_tree_sitter$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)\$(_CppNativePrefix)libr4_tree_sitter$(_CppNativeExt)')" />
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\$(_CppNativePrefix)libr4_ort_ep$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\$(_CppNativePrefix)libr4_ort_ep$(_CppNativeExt)')" />
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)\$(_CppNativePrefix)libr4_ort_ep$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)\$(_CppNativePrefix)libr4_ort_ep$(_CppNativeExt)')" />
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\$(_CppNativePrefix)onnxruntime$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\$(_CppNativePrefix)onnxruntime$(_CppNativeExt)')" />
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)\$(_CppNativePrefix)onnxruntime$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)\$(_CppNativePrefix)onnxruntime$(_CppNativeExt)')" />
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\onnxruntime$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\onnxruntime$(_CppNativeExt)')" />
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)\onnxruntime$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)\onnxruntime$(_CppNativeExt)')" />
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\$(_CppNativePrefix)libr4_libclang$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)$(_CppNativeConfigSuffix)\$(_CppNativePrefix)libr4_libclang$(_CppNativeExt)')" />
+      <_Libr4CppLibSource Include="$(Libr4CppNativeReleaseDir)\$(_CppNativePrefix)libr4_libclang$(_CppNativeExt)"
+                          Condition="Exists('$(Libr4CppNativeReleaseDir)\$(_CppNativePrefix)libr4_libclang$(_CppNativeExt)')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_Libr4CppLibSource)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="'@(_Libr4CppLibSource)' != ''" />
+
+    <Message Importance="low"
+             Text="Copied @(_Libr4CppLibSource->'%(Filename)%(Extension)', ', ') to $(OutputPath)"
+             Condition="'@(_Libr4CppLibSource)' != ''" />
+  </Target>
+</Project>

@@ -1,4 +1,5 @@
 using System.Threading.Channels;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Consolidation;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -41,17 +42,17 @@ public sealed class MemoryConsolidationBackgroundService : BackgroundService
             await foreach (var runId in _queue.DequeueAllAsync(stoppingToken))
             {
                 using var scope = _services.CreateScope();
-                var consolidator = scope.ServiceProvider.GetService<IAutonomousMemoryConsolidationService>();
-                if (consolidator is null)
+                var dreamConsolidation = scope.ServiceProvider.GetService<IDreamConsolidationService>();
+                if (dreamConsolidation is null)
                 {
-                    _logger.LogDebug("[Consolidation] Service not registered; skipping run {RunId}", runId);
+                    _logger.LogDebug("[Consolidation] Dream consolidation not registered; skipping trigger from run {RunId}", runId);
                     continue;
                 }
                 try
                 {
-                    await consolidator.TriggerConsolidationAsync(runId, stoppingToken);
+                    await dreamConsolidation.RunAsync(stoppingToken).ConfigureAwait(false);
                     AutoGenTelemetry.ConsolidationProcessed.Add(1);
-                    _logger.LogInformation("[Consolidation] Completed for run {RunId}", runId);
+                    _logger.LogInformation("[Consolidation] Dream consolidation completed (triggered by run {RunId})", runId);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {

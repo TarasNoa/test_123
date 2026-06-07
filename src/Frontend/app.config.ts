@@ -20,7 +20,7 @@ export default defineConfig({
     },
     server: {
       headers: {
-        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' http: https:; connect-src 'self' ws: wss: http: https: localhost:5000 localhost:5001 localhost:5002 localhost:5004 localhost:5007 localhost:3000; img-src 'self' data: blob: http: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' http: https:; connect-src 'self' ws: wss: http: https: localhost:5000 localhost:5001 localhost:5002 localhost:5004 localhost:5007 localhost:3000 localhost:3099; img-src 'self' data: blob: http: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:;",
       },
       proxy: {
         "/api": {

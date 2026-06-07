@@ -10,6 +10,10 @@ const AuthCallback = lazy(() => import("./app/routes/auth-callback"));
 const Dashboard = lazy(() => import("./app/routes/dashboard"));
 const Social = lazy(() => import("./app/routes/social"));
 const IDE = lazy(() => import("./app/routes/ide"));
+const Verification = lazy(() => import("./app/routes/verification"));
+const AgentBoardPage = lazy(() => import("./app/routes/agent-board"));
+const SpaceDetailPage = lazy(() => import("./app/routes/space-detail"));
+const SpaceWorktreePage = lazy(() => import("./app/routes/space-worktree"));
 
 const App: Component = () => {
   const { changeLocale } = useI18n();
@@ -28,8 +32,15 @@ const App: Component = () => {
         <Route path="/" component={Home} />
         <Route path="/auth" component={Auth} />
         <Route path="/auth/callback" component={AuthCallback} />
+        <Route path="/verification" component={Verification} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/social" component={Social} />
+        <Route path="/ide/agent-board" component={AgentBoardPage} />
+        <Route path="/ide/history" component={lazy(() => import("./app/routes/session-history"))} />
+        <Route path="/ide/spaces/:spaceId/worktree/:memberId" component={SpaceWorktreePage} />
+        <Route path="/ide/spaces/:spaceId" component={SpaceDetailPage} />
+        <Route path="/ide/runs/:runId/review" component={lazy(() => import("./app/routes/run-review"))} />
+        <Route path="/ide/runs/:runId" component={lazy(() => import("./app/routes/run-detail"))} />
         <Route path="/ide" component={IDE} />
       </Suspense>
     </Router>

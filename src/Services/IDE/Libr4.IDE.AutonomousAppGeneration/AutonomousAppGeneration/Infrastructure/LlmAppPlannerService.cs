@@ -2,6 +2,7 @@ using System.Text.Json;
 using Libr4.AI.Application.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services.PlatformUtilization;
 using Libr4.IDE.AutonomousAppGeneration.AutonomousAppGeneration.Recovery;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
@@ -168,7 +169,11 @@ After the optional <thinking> block, output one JSON object (no markdown fences)
         try
         {
             _logger.LogInformation("Calling LLM planner with request: {Request}", userRequest);
-            var budgetedPrompt = PromptPipelinePolicy.ApplyInputBudget("planning", userRequest);
+            var budgetedPrompt = PromptPipelinePolicy.ApplyInputBudget(
+                "planning",
+                PlatformCapabilityBriefingScope.AppendToPrompt(
+                    userRequest,
+                    PlatformCapabilityBriefingStage.Planning));
 
 #if INTERNAL
             // Try recovery cascade if available
@@ -255,7 +260,8 @@ After the optional <thinking> block, output one JSON object (no markdown fences)
             var plan = BuildPlan(doc.RootElement, userRequest);
             _logger.LogInformation("LLM planner successfully generated plan: {AppName}", plan.ApplicationName);
             plan = ReconcilePlanWithUserRequest(plan, userRequest);
-            return AlignRuntimeAndCommandsWithTechStack(plan);
+            plan = AlignRuntimeAndCommandsWithTechStack(plan);
+            return StrictStackContractEnforcer.Enforce(plan, userRequest);
         }
         catch (Exception ex) when (ex is not AutonomousGenerationFailedException)
         {
@@ -465,10 +471,11 @@ After the optional <thinking> block, output one JSON object (no markdown fences)
         var wantsPython = Has(s, "python") || Has(s, "flask") || Has(s, "django")
                           || Has(s, "fastapi") || Has(s, "uvicorn") || Has(s, "gunicorn");
 
-        var wantsNode = Has(s, "node.js") || Has(s, "nodejs") || Has(s, "express")
-                        || Has(s, "nestjs") || Has(s, "next.js") || Has(s, "nextjs")
-                        || (Has(s, "typescript") && Has(s, "api"))
-                        || (Has(s, "javascript") && Has(s, "api"));
+        var wantsNode = (Has(s, "node.js") || Has(s, "nodejs") || Has(s, "express")
+                         || Has(s, "nestjs") || Has(s, "next.js") || Has(s, "nextjs")
+                         || (Has(s, "typescript") && Has(s, "api") && !Has(s, "django"))
+                         || (Has(s, "javascript") && Has(s, "api") && !Has(s, "django")))
+                        && !Has(s, "django");
 
         // If user explicitly names Python or Node, prioritize that over .NET
         // This handles cases where the LLM falls back to .NET default but user requested Python/Node
@@ -482,14 +489,27 @@ After the optional <thinking> block, output one JSON object (no markdown fences)
     private static TechStack BuildPythonTechStackFromUserRequest(string userRequest, TechStack? preserve = null)
     {
         var s = userRequest.ToLowerInvariant();
+        var languages = new List<string> { "Python" };
+        if (s.Contains("typescript", StringComparison.OrdinalIgnoreCase))
+            languages.Add("TypeScript");
+
         List<string> frameworks;
         if (s.Contains("fastapi", StringComparison.OrdinalIgnoreCase)) frameworks = new List<string> { "FastAPI" };
         else if (s.Contains("django", StringComparison.OrdinalIgnoreCase)) frameworks = new List<string> { "Django" };
         else if (s.Contains("flask", StringComparison.OrdinalIgnoreCase)) frameworks = new List<string> { "Flask" };
         else frameworks = new List<string> { "Flask" };
 
+        if (s.Contains("django rest", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("drf", StringComparison.OrdinalIgnoreCase)
+            || s.Contains("rest framework", StringComparison.OrdinalIgnoreCase))
+            frameworks.Add("Django REST Framework");
+        if (s.Contains("solidjs", StringComparison.OrdinalIgnoreCase) || s.Contains("solid js", StringComparison.OrdinalIgnoreCase))
+            frameworks.Add("SolidJS");
+        if (s.Contains("vite", StringComparison.OrdinalIgnoreCase))
+            frameworks.Add("Vite");
+
         return new TechStack(
-            languages: new List<string> { "Python" },
+            languages: languages,
             frameworks: frameworks,
             databases: preserve is not null && preserve.Databases.Count > 0
                 ? preserve.Databases.ToList()
@@ -664,13 +684,14 @@ After the optional <thinking> block, output one JSON object (no markdown fences)
     }
 
     private static bool IsNodePrimary(TechStack ts) =>
-        (ts.Languages.Any(l =>
-             l.Contains("javascript", StringComparison.OrdinalIgnoreCase) ||
-             l.Contains("typescript", StringComparison.OrdinalIgnoreCase) ||
-             l.Equals("node", StringComparison.OrdinalIgnoreCase))
-         || ts.Frameworks.Any(f =>
-             f.Contains("express", StringComparison.OrdinalIgnoreCase) ||
-             f.Contains("next", StringComparison.OrdinalIgnoreCase)))
+        !IsPythonPrimary(ts)
+        && (ts.Languages.Any(l =>
+                l.Contains("javascript", StringComparison.OrdinalIgnoreCase) ||
+                l.Contains("typescript", StringComparison.OrdinalIgnoreCase) ||
+                l.Equals("node", StringComparison.OrdinalIgnoreCase))
+            || ts.Frameworks.Any(f =>
+                f.Contains("express", StringComparison.OrdinalIgnoreCase) ||
+                f.Contains("next", StringComparison.OrdinalIgnoreCase)))
         && !ts.Languages.Any(l => l.Contains("c#", StringComparison.OrdinalIgnoreCase) || l.Contains("csharp", StringComparison.OrdinalIgnoreCase));
 
     private static GenerationPlan FallbackPlan(string userRequest)

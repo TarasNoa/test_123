@@ -27,6 +27,9 @@ public interface IVectorMemoryStore
 
     /// <summary>Deletes all records belonging to <paramref name="collectionId"/>.</summary>
     Task DeleteCollectionAsync(string collectionId, CancellationToken ct = default);
+
+    /// <summary>Deletes a single record by id within <paramref name="collectionId"/>.</summary>
+    Task DeleteAsync(string id, string collectionId, CancellationToken ct = default);
 }
 
 /// <summary>

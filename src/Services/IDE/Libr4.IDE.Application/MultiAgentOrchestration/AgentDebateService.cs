@@ -862,11 +862,6 @@ public interface IAgentOrchestrator
     Task RegisterToolAsync(ToolRegistration tool, CancellationToken ct);
 }
 
-public interface IObscuraBrowserTool
-{
-    Task<WebResearchResult> ResearchAsync(string query, string[] sources, WebResearchOptions? options, CancellationToken ct);
-}
-
 public class SpawnAgentRequest
 {
     public string ParentAgentId { get; set; } = string.Empty;

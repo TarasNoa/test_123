@@ -1,0 +1,58 @@
+name: calorie-django-solidjs
+version: 1
+description: Django + SolidJS calorie vision stack
+nodes:
+  - id: plan
+    type: stage
+    stage: planning
+  - id: generate-backend
+    type: stage
+    stage: generating
+    phase: Backend
+  - id: backend-gate
+    type: gate
+    preconditions:
+      - kind: files_exist
+        paths:
+          - backend/manage.py
+          - backend/requirements.txt
+  - id: generate-frontend
+    type: stage
+    stage: generating
+    phase: Frontend
+  - id: test
+    type: stage
+    stage: testing
+  - id: verify
+    type: stage
+    stage: verify
+edges:
+  - from: plan
+    to: generate-backend
+    on: success
+  - from: generate-backend
+    to: backend-gate
+    on: success
+  - from: backend-gate
+    to: generate-frontend
+    on: success
+  - from: backend-gate
+    to: generate-backend
+    on: failure
+    action: retry
+    maxRetries: 2
+  - from: generate-frontend
+    to: test
+    on: success
+  - from: test
+    to: verify
+    on: success
+  - from: test
+    to: generate-frontend
+    on: failure
+    action: retry
+    maxRetries: 1
+  - from: verify
+    to: verify
+    on: failure
+    action: abort

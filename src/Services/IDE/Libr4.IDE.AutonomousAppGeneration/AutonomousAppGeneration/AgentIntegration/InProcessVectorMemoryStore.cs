@@ -52,6 +52,17 @@ public sealed class InProcessVectorMemoryStore : IVectorMemoryStore
         return Task.CompletedTask;
     }
 
+    public Task DeleteAsync(string id, string collectionId, CancellationToken ct = default)
+    {
+        if (_store.TryGetValue(id, out var record)
+            && string.Equals(record.CollectionId, collectionId, StringComparison.Ordinal))
+        {
+            _store.TryRemove(id, out _);
+        }
+
+        return Task.CompletedTask;
+    }
+
     /// <summary>
     /// Computes cosine similarity between two float vectors.
     /// Returns 0 if either vector is zero-length or dimension-mismatched.

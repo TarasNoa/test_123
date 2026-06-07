@@ -14,8 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- <Compile Include="ErrorClassifier.fs" /> TODO: Uncomment when type errors are fixed -->
-    <!-- <Compile Include="IDEAlgorithms.fs" /> TODO: Uncomment when file is created -->
+    <Compile Include="ErrorClassifier.fs" />
   </ItemGroup>
 
 </Project>

@@ -46,6 +46,7 @@ public sealed class LlmSecurityReviewGateServiceTests
 
         var service = new LlmSecurityReviewGateService(
             ai.Object,
+            CreateTestMatrix(),
             Options.Create(new SecurityReviewGateOptions { MinScore = 7, Mode = "llm" }),
             NullLogger<LlmSecurityReviewGateService>.Instance);
 
@@ -98,6 +99,7 @@ public sealed class LlmSecurityReviewGateServiceTests
 
         var service = new LlmSecurityReviewGateService(
             ai.Object,
+            CreateTestMatrix(),
             Options.Create(new SecurityReviewGateOptions { MinScore = 7, Mode = "llm" }),
             NullLogger<LlmSecurityReviewGateService>.Instance);
 
@@ -108,6 +110,19 @@ public sealed class LlmSecurityReviewGateServiceTests
 
         result.Passed.Should().BeFalse();
         result.Reasons.Should().Contain(r => r.Contains("critical", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static DefaultProviderCapabilityMatrix CreateTestMatrix()
+    {
+        var options = Options.Create(new ProviderMatrixOptions
+        {
+            DefaultProvider = "dockermodelrunner",
+            ReasoningModel = "test-reasoning",
+            CodeGenerationModel = "test-coder"
+        });
+        return new DefaultProviderCapabilityMatrix(
+            NullLogger<DefaultProviderCapabilityMatrix>.Instance,
+            options);
     }
 
     private static GenerationPlan BuildTestPlan() =>

@@ -1,0 +1,31 @@
+name: verify-calorie
+extend: verify
+instruction: |
+  You are a verify subagent for the calorie-django-solidjs flow.
+  Validate build/tests and run UI smoke on the SolidJS frontend.
+  Use browser_* tools or the calorie-smoke browser task with {{url}} from the preview endpoint.
+  End with a clear PASS or FAIL line and bullet evidence.
+browser:
+  enabled: true
+  stealthMode: false
+  defaultViewport: [1280, 720]
+  tasks:
+    - taskName: calorie-smoke
+      description: Smoke test calorie vision frontend via Obscura
+      takeScreenshots: true
+      actions:
+        - type: navigate
+          value: "{{url}}"
+        - type: wait_for_element
+          selector: "#root, [data-testid='app'], main"
+          waitMs: 8000
+        - type: screenshot
+        - type: wait
+          waitMs: 1000
+      extractionRules:
+        - fieldName: page_title
+          type: text
+          selector: title
+        - fieldName: has_root
+          type: exists
+          selector: "#root, [data-testid='app'], main"

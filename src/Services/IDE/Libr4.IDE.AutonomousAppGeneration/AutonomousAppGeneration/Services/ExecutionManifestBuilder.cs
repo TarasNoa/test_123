@@ -200,8 +200,15 @@ public sealed class ExecutionManifestBuilder : IExecutionManifestBuilder
         var qualityAssessment = _qualityAssessment.Assess(orchestrator);
         var remediationHints = BuildRunRemediationHints(orchestrator);
 
-        // Recovery trace - TODO: Populate from orchestrator when recovery events are tracked
-        var recoveryTrace = new List<RecoveryTraceDto>();
+        var recoveryTrace = orchestrator.RecoveryEfficiencyRecords
+            .Select(r => new RecoveryTraceDto(
+                StrategyName: r.Mechanism.ToString(),
+                Reason: $"{r.PrimaryErrorClass}:{r.RootCauseCategory}",
+                TimestampUtc: r.AttemptedAtUtc,
+                DurationMs: r.RepairDurationMs ?? 0,
+                Success: r.BuildSucceededAfterRepair == true,
+                ContextSnapshot: $"patches={r.PatchesApplied};sig={r.ErrorSignature ?? "n/a"}"))
+            .ToList();
 
         // Perform watchdog check to get latest status
         _watchdog.PerformWatchdogCheck();

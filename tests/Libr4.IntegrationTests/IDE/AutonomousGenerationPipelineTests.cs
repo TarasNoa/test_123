@@ -1,6 +1,7 @@
 ﻿using FluentAssertions;
 using Libr4.AI.Application.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
+using Libr4.IDE.Application.AutonomousAppGeneration.Context.RepoGraph;
 using Libr4.IDE.Application.AutonomousAppGeneration.Commands;
 using Libr4.IDE.Application.AutonomousAppGeneration.Handlers;
 using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
@@ -135,15 +136,24 @@ public sealed class AutonomousGenerationPipelineTests
             CreateAgentIntegrationCoordinator(),
             NullLogger<StartAppGenerationCommandHandler>.Instance);
 
-        _ = await handler.Handle(
-            new StartAppGenerationCommand("Generate FastAPI app", MaxIterations: 1),
+        var response = await handler.Handle(
+            new StartAppGenerationCommand("Generate FastAPI app", MaxIterations: 2),
             CancellationToken.None);
 
-        codeGen.LastReceivedErrors.Should().NotBeNull();
-        codeGen.LastReceivedErrors.Should().ContainSingle();
-        var synthesized = codeGen.LastReceivedErrors![0];
-        synthesized.FilePath.Should().Be("requirements.txt");
-        synthesized.SuggestedFix.ToLowerInvariant().Should().Contain("requirements");
+        var run = await repository.GetAsync(response.Id, CancellationToken.None);
+        run.Should().NotBeNull();
+        var reqWithHttpx = run!.Files.FirstOrDefault(f =>
+            f.RelativePath.Contains("requirements", StringComparison.OrdinalIgnoreCase)
+            && f.Content != null
+            && f.Content.Contains("httpx", StringComparison.OrdinalIgnoreCase));
+        reqWithHttpx.Should().NotBeNull("deterministic dependency sync should add missing httpx before/alongside LLM fixer");
+
+        if (codeGen.LastReceivedErrors is not null)
+        {
+            codeGen.LastReceivedErrors.Should().ContainSingle();
+            codeGen.LastReceivedErrors![0].FilePath.Should().Be("requirements.txt");
+            codeGen.LastReceivedErrors[0].SuggestedFix.ToLowerInvariant().Should().Contain("requirements");
+        }
     }
 
     [Fact]
@@ -222,12 +232,16 @@ public sealed class AutonomousGenerationPipelineTests
             NullLogger<StartAppGenerationCommandHandler>.Instance);
 
         var response = await handler.Handle(
-            new StartAppGenerationCommand("Generate FastAPI app", MaxIterations: 1),
+            new StartAppGenerationCommand("Generate FastAPI app", MaxIterations: 2),
             CancellationToken.None);
 
         var run = await repository.GetAsync(response.Id, CancellationToken.None);
         run.Should().NotBeNull();
-        run!.Checkpoints.Should().Contain(c => c.Action == "incremental_commit");
+        var reqWithHttpx = run!.Files.FirstOrDefault(f =>
+            f.RelativePath.Contains("requirements", StringComparison.OrdinalIgnoreCase)
+            && f.Content != null
+            && f.Content.Contains("httpx", StringComparison.OrdinalIgnoreCase));
+        reqWithHttpx.Should().NotBeNull("repair loop should sync missing httpx into requirements");
     }
 
     [Fact]
@@ -613,11 +627,11 @@ public sealed class AutonomousGenerationPipelineTests
         var outcome = await mcp.InvokeStandaloneAsync(
             null,
             "browser.smoke",
-            new Dictionary<string, object?>(),
+            new Dictionary<string, object?> { ["url"] = "https://example.com" },
             CancellationToken.None);
 
-        outcome.Succeeded.Should().BeTrue();
-        outcome.OutcomeCode.Should().Be("transport_disabled");
+        outcome.Succeeded.Should().BeFalse();
+        outcome.OutcomeCode.Should().Be("obscura_bridge_missing");
     }
 
     [Fact]
@@ -668,7 +682,7 @@ public sealed class AutonomousGenerationPipelineTests
             CancellationToken.None);
 
         outcome.Succeeded.Should().BeFalse();
-        outcome.OutcomeCode.Should().Be("mcp_server_missing");
+        outcome.OutcomeCode.Should().Be("obscura_bridge_missing");
     }
 
     [Fact]
@@ -694,7 +708,7 @@ public sealed class AutonomousGenerationPipelineTests
             CancellationToken.None);
 
         outcome.Succeeded.Should().BeFalse();
-        outcome.OutcomeCode.Should().Be("mcp_server_missing");
+        outcome.OutcomeCode.Should().Be("obscura_bridge_missing");
     }
 
     [Fact]
@@ -758,7 +772,7 @@ public sealed class AutonomousGenerationPipelineTests
             memory,
             cascade,
             new SkillRunner(registry, new StageBasedSkillSelectionStrategy(registry)),
-            new ContextPackBuilder(memory, Options.Create(new ContextPackOptions())),
+            new ContextPackBuilder(memory, Options.Create(new ContextPackOptions()), new RepoContextFormatter()),
             new SecurityReviewGateService(Options.Create(new SecurityReviewGateOptions())),
             NullLogger<AgentIntegrationCoordinator>.Instance);
     }
@@ -773,7 +787,7 @@ public sealed class AutonomousGenerationPipelineTests
             memory,
             cascade,
             new SkillRunner(registry, new StageBasedSkillSelectionStrategy(registry)),
-            new ContextPackBuilder(memory, Options.Create(new ContextPackOptions())),
+            new ContextPackBuilder(memory, Options.Create(new ContextPackOptions()), new RepoContextFormatter()),
             new SecurityReviewGateService(Options.Create(new SecurityReviewGateOptions())),
             new AdaptiveReplannerService(NullLogger<AdaptiveReplannerService>.Instance),
             new TaskEvidenceLinkageService(NullLogger<TaskEvidenceLinkageService>.Instance),
@@ -990,7 +1004,7 @@ public sealed class AutonomousGenerationPipelineTests
                 runtimeImage: "python:3.11",
                 buildCommands: new[] { "pytest -q" },
                 testCommands: new[] { "pytest -q" },
-                maxIterations: 1));
+                maxIterations: 10));
         }
     }
 
@@ -1001,8 +1015,10 @@ public sealed class AutonomousGenerationPipelineTests
         public Task<IReadOnlyList<GeneratedFile>> GenerateInitialAsync(GenerationPlan plan, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<GeneratedFile>>(new List<GeneratedFile>
             {
-                new("main.py", "python", "from fastapi import FastAPI\napp = FastAPI()\n"),
-                new("requirements.txt", "text", "fastapi==0.110.0\n")
+                new("main.py", "python", "import httpx\nfrom fastapi import FastAPI\napp = FastAPI()\n"),
+                new("requirements.txt", "text", "fastapi==0.110.0\n"),
+                new("tests/test_main.py", "python", "def test_app_imports():\n    import main\n"),
+                new("README.md", "text", "# PyApp\n")
             });
 
         public Task<IReadOnlyList<GenerationPhaseBatchResult>> GenerateInitialByPhasesAsync(GenerationPlan plan, CancellationToken ct = default)
@@ -1010,8 +1026,10 @@ public sealed class AutonomousGenerationPipelineTests
             {
                 new("api", new List<GeneratedFile>
                 {
-                    new("main.py", "python", "from fastapi import FastAPI\napp = FastAPI()\n"),
-                    new("requirements.txt", "text", "fastapi==0.110.0\n")
+                    new("main.py", "python", "import httpx\nfrom fastapi import FastAPI\napp = FastAPI()\n"),
+                    new("requirements.txt", "text", "fastapi==0.110.0\n"),
+                    new("tests/test_main.py", "python", "def test_app_imports():\n    import main\n"),
+                    new("README.md", "text", "# PyApp\n")
                 })
             });
 

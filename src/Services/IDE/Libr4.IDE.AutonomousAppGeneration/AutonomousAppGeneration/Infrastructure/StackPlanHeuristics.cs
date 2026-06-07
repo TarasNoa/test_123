@@ -89,6 +89,8 @@ public static class StackPlanHeuristics
     public static bool IsNode(GenerationPlan plan)
     {
         if (plan is null) return false;
+        if (IsPython(plan) || IsJava(plan) || IsGo(plan) || IsRust(plan) || IsPhp(plan) || IsRuby(plan))
+            return false;
         var langHit = plan.TechStack.Languages.Any(l =>
             l.Equals("javascript", StringComparison.OrdinalIgnoreCase) ||
             l.Equals("typescript", StringComparison.OrdinalIgnoreCase) ||
@@ -129,12 +131,50 @@ public static class StackPlanHeuristics
         return react && ts;
     }
 
+    public static bool IsGo(GenerationPlan plan)
+    {
+        if (plan is null) return false;
+        return plan.TechStack.Languages.Any(l => ContainsWholeWord(l, "go") || ContainsWholeWord(l, "golang"))
+               || plan.TechStack.Frameworks.Any(f => f.Contains("gin", StringComparison.OrdinalIgnoreCase) || f.Contains("echo", StringComparison.OrdinalIgnoreCase) || f.Contains("fiber", StringComparison.OrdinalIgnoreCase))
+               || (!string.IsNullOrEmpty(plan.RuntimeImage) && plan.RuntimeImage.Contains("golang", StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsRust(GenerationPlan plan)
+    {
+        if (plan is null) return false;
+        return plan.TechStack.Languages.Any(l => l.Contains("rust", StringComparison.OrdinalIgnoreCase))
+               || plan.TechStack.Frameworks.Any(f => f.Contains("axum", StringComparison.OrdinalIgnoreCase) || f.Contains("actix", StringComparison.OrdinalIgnoreCase))
+               || (!string.IsNullOrEmpty(plan.RuntimeImage) && plan.RuntimeImage.Contains("rust", StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsPhp(GenerationPlan plan)
+    {
+        if (plan is null) return false;
+        return plan.TechStack.Languages.Any(l => l.Contains("php", StringComparison.OrdinalIgnoreCase))
+               || plan.TechStack.Frameworks.Any(f => f.Contains("laravel", StringComparison.OrdinalIgnoreCase) || f.Contains("symfony", StringComparison.OrdinalIgnoreCase))
+               || (!string.IsNullOrEmpty(plan.RuntimeImage) && plan.RuntimeImage.Contains("php", StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static bool IsRuby(GenerationPlan plan)
+    {
+        if (plan is null) return false;
+        return plan.TechStack.Languages.Any(l => l.Contains("ruby", StringComparison.OrdinalIgnoreCase))
+               || plan.TechStack.Frameworks.Any(f => f.Contains("rails", StringComparison.OrdinalIgnoreCase))
+               || (!string.IsNullOrEmpty(plan.RuntimeImage) && plan.RuntimeImage.Contains("ruby", StringComparison.OrdinalIgnoreCase));
+    }
+
     public static StackKind Classify(GenerationPlan plan)
     {
         if (plan is null) return StackKind.Unknown;
         if (IsPython(plan)) return StackKind.Python;
         if (IsJava(plan) && IsReactTypeScriptFrontend(plan)) return StackKind.JavaReactFullStack;
         if (IsJava(plan)) return StackKind.Java;
+        if (IsGo(plan) && IsReactTypeScriptFrontend(plan)) return StackKind.GoReactFullStack;
+        if (IsGo(plan)) return StackKind.Go;
+        if (IsRust(plan)) return StackKind.Rust;
+        if (IsPhp(plan) && plan.TechStack.Frameworks.Any(f => f.Contains("vue", StringComparison.OrdinalIgnoreCase))) return StackKind.PhpVueFullStack;
+        if (IsPhp(plan)) return StackKind.Php;
+        if (IsRuby(plan)) return StackKind.Ruby;
         if (IsNode(plan)) return StackKind.Node;
         if (IsAspNetCore(plan)) return StackKind.DotNet;
         return StackKind.Unknown;
@@ -149,7 +189,7 @@ public static class StackPlanHeuristics
             return false;
 
         var s = userRequest.ToLowerInvariant();
-        var wantsJava = Regex.IsMatch(s, @"\bjava\b")
+        var wantsJava = Regex.IsMatch(s, @"\bjava\b", RegexOptions.IgnoreCase)
                         || s.Contains("spring boot", StringComparison.Ordinal)
                         || s.Contains("spring ", StringComparison.Ordinal);
         var wantsReact = s.Contains("react", StringComparison.Ordinal)
@@ -196,24 +236,25 @@ public static class StackPlanHeuristics
 
     public static GenerationPlan AlignJavaReactFullStackPlan(GenerationPlan plan, string? userRequest)
     {
+        if (StrictStackContractEnforcer.HasActiveContract(plan, userRequest)
+            || StrictStackContractEnforcer.Parse(userRequest) is { } contract
+               && (contract.Frameworks.Any(f => f.Contains("django", StringComparison.OrdinalIgnoreCase))
+                   || contract.Frameworks.Any(f => f.Contains("solidjs", StringComparison.OrdinalIgnoreCase))))
+            return plan;
+
         if (!RequestsJavaBackendWithReactTypeScriptFrontend(userRequest)
             && !(IsJava(plan) && IsReactTypeScriptFrontend(plan)))
             return plan;
 
         var techStack = CreateJavaReactFullStackTechStack(plan.TechStack);
-        // eclipse-temurin JDK image has Java but not Maven/npm — bootstrap tools once per workspace.
-        const string bootstrapTools =
-            "export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && apt-get install -y -qq maven npm > /dev/null";
         var build = new List<string>
         {
-            bootstrapTools,
-            "cd backend && mvn -q -DskipTests package",
+            "cd backend && mvn -B -ntp -DskipTests package",
             "cd frontend && npm ci && npm run build"
         };
         var test = new List<string>
         {
-            bootstrapTools,
-            "cd backend && mvn -q test",
+            "cd backend && mvn -B -ntp test",
             "cd frontend && npm test -- --watch=false"
         };
 
@@ -355,6 +396,26 @@ public static class StackPlanHeuristics
             test,
             plan.MaxIterations);
     }
+
+    private static bool ContainsWholeWord(string text, string word)
+    {
+        if (string.IsNullOrEmpty(word) || string.IsNullOrEmpty(text))
+            return false;
+
+        for (var i = 0; i <= text.Length - word.Length; i++)
+        {
+            if (string.Compare(text, i, word, 0, word.Length, StringComparison.OrdinalIgnoreCase) != 0)
+                continue;
+
+            var leftOk = i == 0 || !char.IsLetterOrDigit(text[i - 1]);
+            var end = i + word.Length;
+            var rightOk = end >= text.Length || !char.IsLetterOrDigit(text[end]);
+            if (leftOk && rightOk)
+                return true;
+        }
+
+        return false;
+    }
 }
 
 public enum StackKind
@@ -365,4 +426,10 @@ public enum StackKind
     Node = 3,
     Java = 4,
     JavaReactFullStack = 5,
+    Go = 6,
+    Rust = 7,
+    Php = 8,
+    Ruby = 9,
+    GoReactFullStack = 10,
+    PhpVueFullStack = 11,
 }

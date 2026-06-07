@@ -8,4 +8,9 @@
   <ItemGroup>
     <PackageReference Include="Yarp.ReverseProxy" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <Libr4RustNativeScope>gateway</Libr4RustNativeScope>
+  </PropertyGroup>
+  <Import Project="..\..\..\build\Libr4.RustNative.targets" />
 </Project>

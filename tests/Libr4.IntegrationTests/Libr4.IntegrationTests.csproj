@@ -33,10 +33,18 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Services\Auth\Libr4.Auth.Api\Libr4.Auth.Api.csproj" />
     <ProjectReference Include="..\..\src\Services\Tasks\Libr4.Tasks.Api\Libr4.Tasks.Api.csproj" />
+    <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.Application\Libr4.IDE.Application.csproj" />
     <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.AutonomousAppGeneration\Libr4.IDE.AutonomousAppGeneration.csproj" />
+    <ProjectReference Include="..\..\src\Gateway\Libr4.Gateway\Libr4.Gateway.csproj" />
     <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.AutonomousAppGeneration.Host\Libr4.IDE.AutonomousAppGeneration.Host.csproj" />
     <ProjectReference Include="..\..\src\Services\IDE\Libr4.IDE.AutonomousAppGeneration.Persistence\Libr4.IDE.AutonomousAppGeneration.Persistence.csproj" />
     <ProjectReference Include="..\..\src\Services\AI\Libr4.AI.Application\Libr4.AI.Application.csproj" />
   </ItemGroup>
+
+  <PropertyGroup>
+    <Libr4RustNativeScope>all</Libr4RustNativeScope>
+  </PropertyGroup>
+  <Import Project="..\..\build\Libr4.RustNative.targets" />
+  <Import Project="..\..\build\Libr4.CppNative.targets" />
 
 </Project>

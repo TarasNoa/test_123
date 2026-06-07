@@ -19,6 +19,7 @@ public sealed class AutonomousAppGenerationHostWebApplicationFactory
             {
                 ["AutonomousAppGeneration:AllowProcessFallback"] = "true",
                 ["AutonomousAppGeneration:RuntimeProvider"] = "process",
+                ["AutonomousAppGeneration:BenchmarkMode:EnableBenchmarkMode"] = "false",
                 ["OpenRouter:ApiKey"] = "test-key",
                 ["OpenRouter:Endpoint"] = "https://openrouter.ai/api/v1",
             });

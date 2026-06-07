@@ -1,0 +1,10 @@
+<Project>
+  <PropertyGroup>
+    <Libr4RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</Libr4RepoRoot>
+    <Libr4CppNativeDir>$(Libr4RepoRoot)native\cpp</Libr4CppNativeDir>
+    <Libr4CppNativeBuildDir>$(Libr4CppNativeDir)\build</Libr4CppNativeBuildDir>
+    <Libr4CppNativeReleaseDir>$(Libr4CppNativeBuildDir)</Libr4CppNativeReleaseDir>
+    <BuildLibr4CppNative Condition="'$(BuildLibr4CppNative)' == ''">false</BuildLibr4CppNative>
+    <CopyLibr4CppNativeLibraries Condition="'$(CopyLibr4CppNativeLibraries)' == ''">true</CopyLibr4CppNativeLibraries>
+  </PropertyGroup>
+</Project>

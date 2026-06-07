@@ -153,6 +153,7 @@ public sealed class AgentSkillRegistry
         // TypeScript Ecosystem
         paths["typescript-backend"] = "ts-nestjs/SKILL.md";
         paths["typescript-frontend"] = "ts-react/SKILL.md";
+        paths["solidjs-frontend"] = "ts-solidjs/SKILL.md";
 
         // Python Ecosystem
         paths["python-backend"] = "python-django/SKILL.md";

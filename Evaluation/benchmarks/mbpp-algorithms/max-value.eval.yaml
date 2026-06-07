@@ -1,0 +1,27 @@
+id: mbpp-max-value
+stack: mbpp-algorithms
+style: mbpp
+language: python
+prompt: |
+  Implement max_value(nums) returning the maximum integer, or None for empty input.
+solution: |
+  def max_value(nums):
+      if not nums:
+          return None
+      current = nums[0]
+      for value in nums[1:]:
+          if value > current:
+              current = value
+      return current
+tests:
+  - name: defines_function
+    requiredPatterns:
+      - "def max_value"
+      - "return"
+  - name: handles_empty
+    requiredPatterns:
+      - "None"
+  - name: compares_values
+    anyOf:
+      - "max("
+      - ">"

@@ -1,0 +1,51 @@
+name: price-monitor
+maxTurns: 8
+permissions: read-only
+toolset:
+  - browser_launch
+  - browser_navigate
+  - browser_wait
+  - browser_screenshot
+  - browser_get_content
+  - browser_close
+instruction: |
+  You are a price monitoring subagent. Scrape product pages using configured selectors
+  or the check-price browser task. Report price, currency, and availability.
+browser:
+  enabled: true
+  stealthMode: true
+  defaultViewport: [1920, 1080]
+  dataSelectors:
+    - name: product_name
+      selector: "h1.product-title"
+      type: css
+    - name: current_price
+      selector: ".price-current .amount"
+      type: css
+    - name: old_price
+      selector: ".price-old .amount"
+      type: css
+    - name: availability
+      selector: ".stock-status"
+      type: css
+  tasks:
+    - name: check-price
+      description: Check product price on specific URL
+      actions:
+        - type: navigate
+          value: "{{url}}"
+        - type: wait_for_element
+          selector: ".product-details"
+          waitMs: 5000
+        - type: screenshot
+        - type: get_content
+      extractionRules:
+        - fieldName: price
+          type: text
+          selector: ".price-current .amount"
+          required: true
+        - fieldName: currency
+          type: attribute
+          selector: ".price-current"
+          attribute: data-currency
+          defaultValue: USD

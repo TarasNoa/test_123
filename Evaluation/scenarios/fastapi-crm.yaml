@@ -1,0 +1,16 @@
+id: fastapi-crm
+displayName: FastAPI CRM
+runs: 10
+maxIterations: 10
+expectedRecipeId: python-fastapi
+tags:
+  - python
+  - fastapi
+  - crm
+userRequest: |
+  Build a minimal FastAPI CRM backend with:
+  - Customer model (id, name, email) and CRUD REST endpoints under /api/customers
+  - SQLite via SQLAlchemy
+  - pytest tests for list and create customer
+  - src/app layout with main.py exposing the app
+  Keep scope small: no frontend, no auth.

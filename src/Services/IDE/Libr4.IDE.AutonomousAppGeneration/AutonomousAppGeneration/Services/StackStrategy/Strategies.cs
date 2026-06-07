@@ -26,9 +26,9 @@ public sealed class PythonStackStrategy : IStackStrategy
     public bool Matches(GenerationPlan plan) => StackPlanHeuristics.IsPython(plan);
     public string PreferredRuntimeImage => "python:3.12-slim";
     public IReadOnlyList<string> DefaultBuildCommands { get; } =
-        new[] { "pip install -r requirements.txt" };
+        new[] { "python -m pip install -r requirements.txt" };
     public IReadOnlyList<string> DefaultTestCommands { get; } =
-        new[] { "pytest" };
+        new[] { "python -m pytest -q" };
 
     public bool IsTestPath(string relativePath) =>
         Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure.GenerationPathHeuristics

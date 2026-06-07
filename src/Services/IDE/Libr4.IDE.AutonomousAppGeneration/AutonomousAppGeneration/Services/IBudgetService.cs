@@ -21,12 +21,36 @@ public interface IBudgetService
         decimal estimatedCostUsd,
         CancellationToken ct = default);
 
+    /// <summary>Overload with optional backend kind for per-backend cost rollup (7.6.4).</summary>
+    Task<BudgetReservation> TryConsumeAsync(
+        Guid runId,
+        string stage,
+        long estimatedTokens,
+        decimal estimatedCostUsd,
+        string? backendKind,
+        CancellationToken ct = default);
+
     /// <summary>Snapshot of current usage for a run.</summary>
     BudgetUsage GetUsage(Guid runId);
+
+    /// <summary>Per-stage usage snapshot for a run.</summary>
+    IReadOnlyDictionary<string, StageBudgetUsage> GetStageUsage(Guid runId);
+
+    /// <summary>Per-agent-backend usage snapshot for a run (7.6.4).</summary>
+    IReadOnlyDictionary<string, BackendBudgetUsage> GetBackendUsage(Guid runId);
+
+    /// <summary>Assigns already-consumed run usage to a backend without changing run totals.</summary>
+    void AttributeUsageToBackend(Guid runId, string backendKind, long tokens, decimal costUsd);
 
     /// <summary>Resets usage on terminal state. Idempotent.</summary>
     void Release(Guid runId);
 }
+
+public sealed record BackendBudgetUsage(
+    string BackendKind,
+    long TokensUsed,
+    decimal CostUsdUsed,
+    int RequestsIssued);
 
 public sealed record BudgetReservation(
     bool Granted,
@@ -42,8 +66,23 @@ public sealed record BudgetUsage(
     decimal CostUsdUsed,
     int RequestsIssued);
 
+public sealed record StageBudgetUsage(
+    string Stage,
+    long TokensUsed,
+    decimal CostUsdUsed,
+    int RequestsIssued);
+
+public sealed class StageBudgetCapOptions
+{
+    public long TokenCap { get; set; }
+
+    public decimal CostUsdCap { get; set; }
+}
+
 public sealed class BudgetOptions
 {
+    public const string SectionName = "AutonomousAppGeneration:Budget";
+
     /// <summary>Per-run token cap. Zero / negative disables enforcement.</summary>
     public long PerRunTokenCap { get; set; } = 1_000_000;
 
@@ -66,6 +105,10 @@ public sealed class BudgetOptions
 
     /// <summary>Per-tenant USD cap per day. Zero / negative disables.</summary>
     public decimal PerTenantDayCostUsdCap { get; set; } = 20.00m;
+
+    /// <summary>Per-stage caps keyed by stage name (planning, generation, fixing, ...).</summary>
+    public Dictionary<string, StageBudgetCapOptions> StageCaps { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -96,24 +139,48 @@ public sealed class InMemoryBudgetService : IBudgetService
         long estimatedTokens,
         decimal estimatedCostUsd,
         CancellationToken ct = default)
-        => TryConsumeAsync(runId, stage, estimatedTokens, estimatedCostUsd, tenantId: null, ct);
+        => TryConsumeAsync(runId, stage, estimatedTokens, estimatedCostUsd, tenantId: null, backendKind: null, ct);
 
-    /// <summary>Overload that accepts an optional <paramref name="tenantId"/> for per-tenant cap enforcement.</summary>
     public Task<BudgetReservation> TryConsumeAsync(
+        Guid runId,
+        string stage,
+        long estimatedTokens,
+        decimal estimatedCostUsd,
+        string? backendKind,
+        CancellationToken ct = default)
+        => TryConsumeAsync(runId, stage, estimatedTokens, estimatedCostUsd, tenantId: null, backendKind, ct);
+
+    /// <summary>Tenant-scoped consumption (implementation helper; not on <see cref="IBudgetService"/>).</summary>
+    public Task<BudgetReservation> TryConsumeForTenantAsync(
         Guid runId,
         string stage,
         long estimatedTokens,
         decimal estimatedCostUsd,
         string? tenantId,
         CancellationToken ct = default)
+        => TryConsumeAsync(runId, stage, estimatedTokens, estimatedCostUsd, tenantId, backendKind: null, ct);
+
+    private Task<BudgetReservation> TryConsumeAsync(
+        Guid runId,
+        string stage,
+        long estimatedTokens,
+        decimal estimatedCostUsd,
+        string? tenantId,
+        string? backendKind,
+        CancellationToken ct = default)
     {
         if (estimatedTokens < 0) estimatedTokens = 0;
         if (estimatedCostUsd < 0) estimatedCostUsd = 0;
 
+        var normalizedStage = string.IsNullOrWhiteSpace(stage) ? "unknown" : stage.Trim().ToLowerInvariant();
         var quota = _quotas.GetOrAdd(runId, _ => new RunQuota());
 
         lock (quota.Sync)
         {
+            var stageDenied = CheckStageCap(quota, normalizedStage, estimatedTokens, estimatedCostUsd);
+            if (stageDenied is not null)
+                return Task.FromResult(stageDenied);
+
             // Per-run token cap.
             if (_options.PerRunTokenCap > 0 && quota.Tokens + estimatedTokens > _options.PerRunTokenCap)
                 return Task.FromResult(Denied(
@@ -142,6 +209,8 @@ public sealed class InMemoryBudgetService : IBudgetService
             quota.Tokens += estimatedTokens;
             quota.Cost += estimatedCostUsd;
             quota.Requests += 1;
+            RecordStageUsage(quota, normalizedStage, estimatedTokens, estimatedCostUsd);
+            RecordBackendUsage(quota, backendKind, estimatedTokens, estimatedCostUsd);
 
             return Task.FromResult(new BudgetReservation(
                 Granted: true,
@@ -160,6 +229,49 @@ public sealed class InMemoryBudgetService : IBudgetService
             return new BudgetUsage(runId, quota.Tokens, quota.Cost, quota.Requests);
     }
 
+    public IReadOnlyDictionary<string, StageBudgetUsage> GetStageUsage(Guid runId)
+    {
+        if (!_quotas.TryGetValue(runId, out var quota))
+            return new Dictionary<string, StageBudgetUsage>();
+
+        lock (quota.Sync)
+        {
+            return quota.Stages.ToDictionary(
+                kv => kv.Key,
+                kv => new StageBudgetUsage(kv.Key, kv.Value.Tokens, kv.Value.Cost, kv.Value.Requests),
+                StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    public IReadOnlyDictionary<string, BackendBudgetUsage> GetBackendUsage(Guid runId)
+    {
+        if (!_quotas.TryGetValue(runId, out var quota))
+            return new Dictionary<string, BackendBudgetUsage>();
+
+        lock (quota.Sync)
+        {
+            return quota.Backends.ToDictionary(
+                kv => kv.Key,
+                kv => new BackendBudgetUsage(kv.Key, kv.Value.Tokens, kv.Value.Cost, kv.Value.Requests),
+                StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    public void AttributeUsageToBackend(Guid runId, string backendKind, long tokens, decimal costUsd)
+    {
+        if (string.IsNullOrWhiteSpace(backendKind))
+            return;
+
+        if (tokens < 0) tokens = 0;
+        if (costUsd < 0) costUsd = 0;
+        if (tokens == 0 && costUsd == 0)
+            return;
+
+        var quota = _quotas.GetOrAdd(runId, _ => new RunQuota());
+        lock (quota.Sync)
+            RecordBackendUsage(quota, backendKind, tokens, costUsd);
+    }
+
     public void Release(Guid runId) => _quotas.TryRemove(runId, out _);
 
     // ── Helpers ──────────────────────────────────────────────────────────────
@@ -167,6 +279,61 @@ public sealed class InMemoryBudgetService : IBudgetService
     private static BudgetReservation Denied(string reason, long remTokens, decimal remCost) =>
         new(Granted: false, ReservedTokens: 0, ReservedCostUsd: 0,
             RemainingTokens: remTokens, RemainingCostUsd: remCost, DenialReason: reason);
+
+    private BudgetReservation? CheckStageCap(RunQuota quota, string stage, long tokens, decimal cost)
+    {
+        if (!_options.StageCaps.TryGetValue(stage, out var cap))
+            return null;
+
+        if (!quota.Stages.TryGetValue(stage, out var stageQuota))
+        {
+            stageQuota = new StageQuota();
+            quota.Stages[stage] = stageQuota;
+        }
+
+        if (cap.TokenCap > 0 && stageQuota.Tokens + tokens > cap.TokenCap)
+            return Denied(
+                $"per_stage_token_cap_exceeded:{stage}:{cap.TokenCap}",
+                Math.Max(0, cap.TokenCap - stageQuota.Tokens),
+                Math.Max(0m, cap.CostUsdCap - stageQuota.Cost));
+
+        if (cap.CostUsdCap > 0 && stageQuota.Cost + cost > cap.CostUsdCap)
+            return Denied(
+                $"per_stage_cost_cap_exceeded:{stage}:{cap.CostUsdCap:F2}",
+                Math.Max(0, cap.TokenCap - stageQuota.Tokens),
+                Math.Max(0m, cap.CostUsdCap - stageQuota.Cost));
+
+        return null;
+    }
+
+    private static void RecordBackendUsage(RunQuota quota, string? backendKind, long tokens, decimal cost)
+    {
+        if (string.IsNullOrWhiteSpace(backendKind))
+            return;
+
+        var key = backendKind.Trim();
+        if (!quota.Backends.TryGetValue(key, out var backendQuota))
+        {
+            backendQuota = new StageQuota();
+            quota.Backends[key] = backendQuota;
+        }
+
+        backendQuota.Tokens += tokens;
+        backendQuota.Cost += cost;
+        backendQuota.Requests += 1;
+    }
+
+    private static void RecordStageUsage(RunQuota quota, string stage, long tokens, decimal cost)
+    {
+        if (!quota.Stages.TryGetValue(stage, out var stageQuota))
+        {
+            stageQuota = new StageQuota();
+            quota.Stages[stage] = stageQuota;
+        }
+        stageQuota.Tokens += tokens;
+        stageQuota.Cost += cost;
+        stageQuota.Requests += 1;
+    }
 
     private BudgetReservation? CheckAndUpdateDayCap(long tokens, decimal cost)
     {
@@ -234,6 +401,15 @@ public sealed class InMemoryBudgetService : IBudgetService
     private sealed class RunQuota
     {
         public readonly object Sync = new();
+        public long Tokens;
+        public decimal Cost;
+        public int Requests;
+        public Dictionary<string, StageQuota> Stages { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, StageQuota> Backends { get; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class StageQuota
+    {
         public long Tokens;
         public decimal Cost;
         public int Requests;

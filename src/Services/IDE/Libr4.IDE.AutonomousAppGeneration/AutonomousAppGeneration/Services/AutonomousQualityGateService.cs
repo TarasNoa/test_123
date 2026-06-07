@@ -285,15 +285,18 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
 
     private static bool IntentSuggestsTaskDomain(string blob)
     {
-        if (!blob.Contains("task", StringComparison.OrdinalIgnoreCase))
+        if (ContainsWholeWord(blob, "kanban") || ContainsWholeWord(blob, "todo"))
+            return true;
+
+        if (!ContainsWholeWord(blob, "task") && !ContainsWholeWord(blob, "tasks"))
             return false;
 
-        return blob.Contains("assign", StringComparison.OrdinalIgnoreCase)
-               || blob.Contains("project", StringComparison.OrdinalIgnoreCase)
-               || blob.Contains("user", StringComparison.OrdinalIgnoreCase)
-               || blob.Contains("todo", StringComparison.OrdinalIgnoreCase)
-               || blob.Contains("workflow", StringComparison.OrdinalIgnoreCase)
-               || blob.Contains("ticket", StringComparison.OrdinalIgnoreCase);
+        return blob.Contains("task management", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("project management", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("task board", StringComparison.OrdinalIgnoreCase)
+               || blob.Contains("kanban board", StringComparison.OrdinalIgnoreCase)
+               || (ContainsWholeWord(blob, "assign") && ContainsWholeWord(blob, "board"))
+               || (ContainsWholeWord(blob, "ticket") && ContainsWholeWord(blob, "workflow"));
     }
 
     private static bool IntentSuggestsKanban(string blob)
@@ -445,6 +448,9 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
         ref int score)
     {
         if (!IsPythonPlan(plan))
+            return;
+
+        if (StackLayoutHeuristics.UsesDjango(plan))
             return;
 
         var intentBlob = BuildIntentBlob(plan);
@@ -664,13 +670,31 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
                 || testContent.Contains("accounts", StringComparison.OrdinalIgnoreCase)
                 || testContent.Contains("MockMvc", StringComparison.Ordinal));
 
+        var hasPythonApiTests =
+            (testContent.Contains("APITestCase", StringComparison.OrdinalIgnoreCase)
+             || testContent.Contains("APIClient", StringComparison.OrdinalIgnoreCase)
+             || testContent.Contains("pytest", StringComparison.OrdinalIgnoreCase)
+             || testContent.Contains("TestCase", StringComparison.OrdinalIgnoreCase))
+            && (testContent.Contains("/api/", StringComparison.OrdinalIgnoreCase)
+                || testContent.Contains("client.post", StringComparison.OrdinalIgnoreCase)
+                || testContent.Contains("client.get", StringComparison.OrdinalIgnoreCase));
+
+        var hasDomainBusinessTests =
+            testContent.Contains("meal", StringComparison.OrdinalIgnoreCase)
+            || testContent.Contains("calorie", StringComparison.OrdinalIgnoreCase)
+            || testContent.Contains("analyze", StringComparison.OrdinalIgnoreCase)
+            || testContent.Contains("upload", StringComparison.OrdinalIgnoreCase)
+            || testContent.Contains("transfer", StringComparison.OrdinalIgnoreCase)
+            || testContent.Contains("payment", StringComparison.OrdinalIgnoreCase);
+
         return hasHttpIntegrationTests
                || hasBankingBusinessTests
+               || hasPythonApiTests
+               || hasDomainBusinessTests
                || testContent.Contains("auth", StringComparison.OrdinalIgnoreCase)
                || testContent.Contains("token", StringComparison.OrdinalIgnoreCase)
                || testContent.Contains("kanban", StringComparison.OrdinalIgnoreCase)
-               || testContent.Contains("task", StringComparison.OrdinalIgnoreCase)
-               || testContent.Contains("board", StringComparison.OrdinalIgnoreCase);
+               || (ContainsWholeWord(testContent, "task") && testContent.Contains("board", StringComparison.OrdinalIgnoreCase));
     }
 
     private static bool HasValidationSignalsForPythonApi(string content)
@@ -716,7 +740,7 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
             return;
 
         if (IntentSuggestsRepoBootstrap(intentBlob)
-            && !BankingPlanSanitizer.ShouldApply(plan, intentBlob)
+            && !QualityGateShouldSkipBootstrapKanbanChecks(plan, intentBlob)
             && !HasRepoBootstrapAdaptationSignals(files, combined))
         {
             score -= 4;
@@ -730,7 +754,7 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
         }
 
         if (IntentSuggestsKanban(intentBlob)
-            && !BankingPlanSanitizer.ShouldApply(plan, intentBlob)
+            && !QualityGateShouldSkipBootstrapKanbanChecks(plan, intentBlob)
             && !HasKanbanSignals(combined, files))
         {
             score -= 3;
@@ -752,6 +776,10 @@ public sealed class AutonomousQualityGateService : IAutonomousQualityGateService
             reasons.Add("business_tests_missing_or_superficial");
         }
     }
+
+    private static bool QualityGateShouldSkipBootstrapKanbanChecks(GenerationPlan plan, string intentBlob) =>
+        JavaReactPlanSanitizer.ShouldApply(plan, intentBlob)
+        || GoldenStackPlanAligner.ShouldApply(plan, intentBlob);
 
     // P1-9 of audit roadmap: delegate to StackPlanHeuristics single source of truth.
     // IsDotNet is the broad classification (matches legacy semantics: C# language OR

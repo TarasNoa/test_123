@@ -1,0 +1,22 @@
+id: dotnet-ping-controller
+stack: dotnet-controllers
+style: humaneval
+prompt: |
+  Write an ASP.NET Core controller PingController with [HttpGet("ping")] returning Ok(new { status = "ok" }).
+solution: |
+  using Microsoft.AspNetCore.Mvc;
+
+  [ApiController]
+  [Route("api/[controller]")]
+  public class PingController : ControllerBase
+  {
+      [HttpGet("ping")]
+      public IActionResult Ping() => Ok(new { status = "ok" });
+  }
+requiredPatterns:
+  - "class PingController"
+  - "HttpGet"
+  - "Ok("
+  - "status"
+forbiddenPatterns:
+  - "Process.Start"

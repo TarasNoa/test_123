@@ -1,0 +1,24 @@
+name: repair
+maxTurns: 18
+toolset:
+  - read_file
+  - edit_file
+  - apply_patch
+  - list_directory
+  - grep
+  - search_codebase
+  - get_symbol_context
+  - glob
+  - bash
+  - run_build
+  - run_tests
+  - inspect_environment
+  - todo_write
+  - delegate
+  - delegation_list
+  - delegation_read
+instruction: |
+  You are a repair subagent. Fix root causes from build log and errors.
+  Prefer minimal surgical patches over broad rewrites.
+  Use delegate for background read-only exploration; results arrive in ## delegation_results
+  at the next turn boundary. Use delegation_list / delegation_read to inspect outputs.

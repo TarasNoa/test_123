@@ -111,6 +111,26 @@ public class ObscuraLaunchOptions
     /// Initial URL to navigate
     /// </summary>
     public string? InitialUrl { get; set; }
+
+    /// <summary>
+    /// Pipeline run id — when set, session manager reuses lease across tool calls.
+    /// </summary>
+    public string? RunId { get; set; }
+
+    /// <summary>
+    /// Tenant/user scope for multi-tenant session isolation (O4).
+    /// </summary>
+    public string? UserId { get; set; }
+
+    /// <summary>
+    /// Named proxy profile from Obscura:ProxyProfiles.
+    /// </summary>
+    public string? ProxyProfileName { get; set; }
+
+    /// <summary>
+    /// Lease purpose label (verify, research, scrape, etc.)
+    /// </summary>
+    public string Purpose { get; set; } = "general";
 }
 
 /// <summary>

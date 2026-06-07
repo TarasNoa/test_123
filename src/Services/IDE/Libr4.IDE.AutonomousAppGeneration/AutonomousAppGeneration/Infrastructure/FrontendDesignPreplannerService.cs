@@ -4,6 +4,7 @@ using System.Text.Json;
 using Libr4.AI.Application.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services.PlatformUtilization;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 
@@ -57,7 +58,12 @@ public sealed class FrontendDesignPreplannerService : IFrontendDesignPreplannerS
 
         try
         {
-            var raw = await _ai.GenerateCompletionAsync(prompt, FrontendDesignSystemPrompt, routing.ModelId);
+            var raw = await _ai.GenerateCompletionAsync(
+                PlatformCapabilityBriefingScope.AppendToPrompt(
+                    prompt,
+                    PlatformCapabilityBriefingStage.Planning),
+                FrontendDesignSystemPrompt,
+                routing.ModelId);
             if (string.IsNullOrWhiteSpace(raw))
                 return null;
 

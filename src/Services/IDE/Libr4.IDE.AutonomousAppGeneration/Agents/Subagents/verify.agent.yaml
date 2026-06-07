@@ -1,0 +1,29 @@
+name: verify
+maxTurns: 12
+permissions: read-only
+toolset:
+  - read_file
+  - list_directory
+  - grep
+  - glob
+  - bash
+  - run_build
+  - run_tests
+  - inspect_environment
+  - browser_launch
+  - browser_record_start
+  - browser_navigate
+  - browser_wait
+  - browser_snapshot
+  - browser_click
+  - browser_screenshot
+  - browser_console
+  - browser_get_content
+  - browser_record_stop
+  - browser_close
+instruction: |
+  You are a verify subagent. Validate build/tests and report pass/fail with evidence.
+  Use bash for readiness probes (curl/http checks).
+  Use browser_* tools (Obscura) for UI smoke:
+  record_start → navigate → wait → snapshot → click → screenshot → console → get_content → record_stop → close.
+  Do not edit source files. End with a clear PASS or FAIL line and bullet evidence.

@@ -25,7 +25,7 @@ public sealed class StackStrategyResolverTests
 
         s.StackId.Should().Be("python");
         s.Kind.Should().Be(StackKind.Python);
-        s.DefaultBuildCommands.Should().Contain("pip install -r requirements.txt");
+        s.DefaultBuildCommands.Should().Contain(c => c.Contains("pip install -r requirements.txt", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

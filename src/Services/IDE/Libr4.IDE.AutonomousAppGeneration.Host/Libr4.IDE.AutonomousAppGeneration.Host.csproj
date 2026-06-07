@@ -20,4 +20,6 @@
     <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 
+  <Import Project="..\..\..\..\build\Libr4.RustNative.targets" />
+
 </Project>

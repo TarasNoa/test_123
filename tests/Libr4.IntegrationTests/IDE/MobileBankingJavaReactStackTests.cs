@@ -79,7 +79,7 @@ public sealed class MobileBankingJavaReactStackTests
             new[] { "npm test" },
             4);
 
-        var clean = BankingPlanSanitizer.Sanitize(
+        var clean = StackPlanSanitizer.Sanitize(
             StackPlanHeuristics.AlignJavaReactFullStackPlan(polluted, MobileBankingJavaReactPromptRu),
             MobileBankingJavaReactPromptRu);
 

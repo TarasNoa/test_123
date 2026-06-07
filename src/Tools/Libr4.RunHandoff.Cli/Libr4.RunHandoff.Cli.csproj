@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>libr4-run</AssemblyName>
+    <RootNamespace>Libr4.RunHandoff.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Services\IDE\Libr4.IDE.AutonomousAppGeneration\Libr4.IDE.AutonomousAppGeneration.csproj" />
+  </ItemGroup>
+
+</Project>

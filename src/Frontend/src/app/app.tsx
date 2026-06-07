@@ -4,6 +4,8 @@ import { lazy } from "solid-js";
 import { useI18n, detectLocale } from "../lib/i18n";
 import "./app.css";
 
+const AgentBoardStub = () => <div data-testid="agent-board">Hello Board</div>;
+
 const Home = lazy(() => import("./routes/home"));
 const Auth = lazy(() => import("./routes/auth"));
 const AuthCallback = lazy(() => import("./routes/auth-callback"));
@@ -32,6 +34,9 @@ const App: Component = () => {
         <Route path="/verification" component={Verification} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/social" component={Social} />
+        <Route path="/agent-board" component={AgentBoardStub} />
+        <Route path="/ide/runs/:runId/review" component={lazy(() => import("./routes/run-review"))} />
+        <Route path="/ide/runs/:runId" component={lazy(() => import("./routes/run-detail"))} />
         <Route path="/ide" component={IDE} />
       </Suspense>
     </Router>

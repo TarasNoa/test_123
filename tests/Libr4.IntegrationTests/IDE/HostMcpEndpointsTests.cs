@@ -1,8 +1,10 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using FluentAssertions;
+using Libr4.IDE.Application.Obscura;
 using Libr4.IntegrationTests.Fixtures;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Libr4.IntegrationTests.IDE;
@@ -15,6 +17,14 @@ public sealed class HostMcpEndpointsTests
     public HostMcpEndpointsTests(AutonomousAppGenerationHostWebApplicationFactory factory)
     {
         _factory = factory;
+    }
+
+    [Fact]
+    public void Host_ShouldRegister_ObscuraBrowserPlane()
+    {
+        using var scope = _factory.Services.CreateScope();
+        scope.ServiceProvider.GetService<IObscuraSessionManager>().Should().NotBeNull();
+        scope.ServiceProvider.GetService<IObscuraBrowserService>().Should().NotBeNull();
     }
 
     [Fact]

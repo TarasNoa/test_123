@@ -16,6 +16,12 @@ public class SubagentOrchestrator
     private readonly int _maxConcurrency;
     private readonly int _maxSubtaskDepth;
 
+    /// <summary>Refresh task context from workspace immediately before LLM calls.</summary>
+    public Action<AgentTask>? OnTaskStarting { get; set; }
+
+    /// <summary>Persist incremental artifacts after each task completes.</summary>
+    public Func<AgentTask, TaskResult, CancellationToken, Task>? OnTaskCompletedAsync { get; set; }
+
     public SubagentOrchestrator(
         IAgent implementerAgent,
         IAgent specReviewerAgent,
@@ -89,6 +95,7 @@ public class SubagentOrchestrator
         try
         {
             _logger.LogInformation("Executing task: {TaskId} - {TaskDescription}", task.Id, task.Description);
+            OnTaskStarting?.Invoke(task);
 
             var nestedResults = await ExecuteNestedSubtasksAsync(task, cancellationToken, depth);
             ClearSubtasksAfterNestedDelegation(task);
@@ -120,23 +127,16 @@ public class SubagentOrchestrator
                     "Task {TaskId} accepted via {Reason} in {ElapsedMs}ms ({ReviewCount} reviews)",
                     task.Id, acceptReason, taskStopwatch.ElapsedMilliseconds, reviewCount);
 
-                return new TaskResult
-                {
-                    TaskId = task.Id,
-                    ParentTaskId = task.ParentTaskId,
-                    IsSuccess = true,
-                    Result = implementResult,
-                    ReviewCount = reviewCount,
-                    NestedResults = nestedResults,
-                    Duration = taskStopwatch.Elapsed
-                };
+                var fastPath = BuildSuccess(task, implementResult, reviewCount, nestedResults, taskStopwatch);
+                await NotifyTaskCompletedAsync(task, fastPath, cancellationToken).ConfigureAwait(false);
+                return fastPath;
             }
 
             if (_options.MaxLlmReviewRounds <= 0)
             {
                 taskStopwatch.Stop();
                 var ok = implementResult.IsSuccess && !string.IsNullOrWhiteSpace(implementResult.Content);
-                return new TaskResult
+                var noReview = new TaskResult
                 {
                     TaskId = task.Id,
                     ParentTaskId = task.ParentTaskId,
@@ -147,6 +147,9 @@ public class SubagentOrchestrator
                     NestedResults = nestedResults,
                     Duration = taskStopwatch.Elapsed
                 };
+                if (ok)
+                    await NotifyTaskCompletedAsync(task, noReview, cancellationToken).ConfigureAwait(false);
+                return noReview;
             }
 
             var specReview = await _specReviewerAgent.ExecuteAsync(new AgentContext(task, implementResult));
@@ -158,7 +161,9 @@ public class SubagentOrchestrator
                 reviewCount++;
                 if (TryAcceptImplementerOutput(implementResult, out _))
                 {
-                    return BuildSuccess(task, implementResult, reviewCount, nestedResults, taskStopwatch);
+                    var fixedSuccess = BuildSuccess(task, implementResult, reviewCount, nestedResults, taskStopwatch);
+                    await NotifyTaskCompletedAsync(task, fixedSuccess, cancellationToken).ConfigureAwait(false);
+                    return fixedSuccess;
                 }
 
                 specReview = await _specReviewerAgent.ExecuteAsync(new AgentContext(task, implementResult));
@@ -186,7 +191,9 @@ public class SubagentOrchestrator
                 }
             }
 
-            return BuildSuccess(task, implementResult, reviewCount, nestedResults, taskStopwatch);
+            var success = BuildSuccess(task, implementResult, reviewCount, nestedResults, taskStopwatch);
+            await NotifyTaskCompletedAsync(task, success, cancellationToken).ConfigureAwait(false);
+            return success;
         }
         catch (Exception ex)
         {
@@ -250,7 +257,7 @@ public class SubagentOrchestrator
         int depth)
     {
         var nested = new List<TaskResult>();
-        if (depth > _maxSubtaskDepth)
+        if (depth > _maxSubtaskDepth || parentTask.Context.ScopedOutputOnly)
             return nested;
 
         var candidateSubtasks = new List<AgentTask>();
@@ -305,8 +312,8 @@ public class SubagentOrchestrator
         int depth)
     {
         sub.ParentTaskId ??= parentTask.Id;
-        if (sub.Context.Task is null)
-            sub.Context.Task = sub;
+        sub.Context.Task = sub;
+        sub.Subtasks.Clear();
         sub.Context.ApplicationName = string.IsNullOrWhiteSpace(sub.Context.ApplicationName)
             ? parentTask.Context.ApplicationName
             : sub.Context.ApplicationName;
@@ -379,6 +386,21 @@ public class SubagentOrchestrator
         };
     }
 
+    private async Task NotifyTaskCompletedAsync(AgentTask task, TaskResult result, CancellationToken cancellationToken)
+    {
+        if (OnTaskCompletedAsync is null || !result.IsSuccess)
+            return;
+
+        try
+        {
+            await OnTaskCompletedAsync(task, result, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "OnTaskCompletedAsync failed for task {TaskId}", task.Id);
+        }
+    }
+
     private static TaskResult BuildFailure(
         AgentTask task,
         string error,
@@ -398,6 +420,9 @@ public class SubagentOrchestrator
             Duration = sw.Elapsed
         };
     }
+
+    public Task<TaskResult> ExecuteSingleTaskAsync(AgentTask task, CancellationToken cancellationToken = default) =>
+        ExecuteTaskWithReviewAsync(task, cancellationToken, depth: 0);
 
     public async Task<OrchestrationResult> ExecuteSequentialAsync(
         List<AgentTask> tasks,

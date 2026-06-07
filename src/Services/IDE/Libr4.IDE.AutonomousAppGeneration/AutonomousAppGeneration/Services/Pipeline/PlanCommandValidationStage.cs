@@ -1,5 +1,6 @@
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Libr4.IDE.Application.AutonomousAppGeneration.Services.Pipeline;
 
@@ -12,13 +13,16 @@ namespace Libr4.IDE.Application.AutonomousAppGeneration.Services.Pipeline;
 public sealed class PlanCommandValidationStage : IGenerationStage
 {
     private readonly IPlanCommandValidator _validator;
+    private readonly AutonomousBenchmarkModeOptions _benchmarkModeOptions;
     private readonly ILogger<PlanCommandValidationStage> _logger;
 
     public PlanCommandValidationStage(
         IPlanCommandValidator validator,
+        IOptions<AutonomousBenchmarkModeOptions> benchmarkModeOptions,
         ILogger<PlanCommandValidationStage> logger)
     {
         _validator = validator;
+        _benchmarkModeOptions = benchmarkModeOptions.Value;
         _logger = logger;
     }
 
@@ -30,12 +34,38 @@ public sealed class PlanCommandValidationStage : IGenerationStage
         if (context.Plan is null)
             return Task.FromResult(StageOutcome.Continue);
 
-        context.Plan = _validator.EnsureValidOrThrow(context.Plan);
+        context.Orchestrator.RecordPipelineStageReached(AutonomousPipelineStages.Planning);
+
+        var useSafeDefaults = _benchmarkModeOptions.EnableBenchmarkMode
+                              && _benchmarkModeOptions.UseSafeDefaultsOnPlanValidationFailure;
+        var before = context.Plan;
+        var rawValidation = _validator.Validate(before);
+        context.Plan = _validator.EnsureValidOrThrow(before, useSafeDefaults);
+        var validation = _validator.Validate(context.Plan);
+
+        var reasons = validation.IsValid
+            ? rawValidation.IsValid
+                ? new[] { "normalized_or_valid" }
+                : new[] { "normalized_from_planner_commands", $"planner_issues={string.Join(",", rawValidation.Issues)}" }
+            : new[]
+            {
+                "benchmark_safe_defaults_applied",
+                $"issues={string.Join(",", validation.Issues)}"
+            };
+
+        if (!rawValidation.IsValid)
+        {
+            _logger.LogWarning(
+                "[AutoGen {Id}] Planner build/test commands adjusted ({Issues}); using normalized plan commands.",
+                context.Orchestrator.Id,
+                string.Join(", ", rawValidation.Issues));
+        }
+
         context.Orchestrator.RecordQualityGate(
             "plan_command_validation",
             10,
             true,
-            new[] { "normalized_or_valid" });
+            reasons);
 
         return Task.FromResult(StageOutcome.Continue);
     }

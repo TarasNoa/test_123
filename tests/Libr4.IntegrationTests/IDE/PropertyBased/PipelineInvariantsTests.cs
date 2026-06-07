@@ -110,7 +110,19 @@ public sealed class PipelineInvariantsTests
         {
             var plan = PlanGenerator.Random(rng);
             var kind = StackPlanHeuristics.Classify(plan);
-            kind.Should().BeOneOf(StackKind.Unknown, StackKind.DotNet, StackKind.Python, StackKind.Node);
+            kind.Should().BeOneOf(
+                StackKind.Unknown,
+                StackKind.DotNet,
+                StackKind.Python,
+                StackKind.Node,
+                StackKind.Java,
+                StackKind.JavaReactFullStack,
+                StackKind.Go,
+                StackKind.Rust,
+                StackKind.Php,
+                StackKind.Ruby,
+                StackKind.GoReactFullStack,
+                StackKind.PhpVueFullStack);
 
             // Internal consistency: classify should match the boolean predicates.
             var dotnet = StackPlanHeuristics.IsAspNetCore(plan);

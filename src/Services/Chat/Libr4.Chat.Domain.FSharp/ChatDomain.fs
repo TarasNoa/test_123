@@ -160,7 +160,8 @@ module ChatOperations =
         |> List.filter (fun m -> match m.Status with | Read _ -> false | _ -> true)
     
     let formatMessagePreview (message: ChatMessage) maxLength =
-        let text = match message.Type with
+        let text =
+            match message.Type with
             | Text -> message.Content
             | Image _ -> "[Image]"
             | File (name, _) -> sprintf "[File: %s]" name

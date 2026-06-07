@@ -1,0 +1,51 @@
+<Project>
+  <Import Project="Libr4.RustNative.props" Condition="'$(Libr4RepoRoot)' == ''" />
+
+  <Target Name="BuildLibr4RustNativeLibraries"
+          BeforeTargets="Build"
+          Condition="'$(BuildLibr4RustNative)' == 'true'">
+    <Message Importance="high" Text="Building Libr4 Rust cdylibs (release)..." />
+    <Exec Command="cargo build --release"
+          WorkingDirectory="$(Libr4RustWorkspaceDir)" />
+    <Exec Command="cargo build --release"
+          WorkingDirectory="$(Libr4SandboxExecutorDir)" />
+  </Target>
+
+  <Target Name="CopyLibr4RustNativeLibrariesToOutput"
+          AfterTargets="Build"
+          Condition="'$(CopyLibr4RustNativeLibraries)' == 'true'">
+    <PropertyGroup>
+      <_RustNativePrefix Condition="$([MSBuild]::IsOsPlatform('Windows'))"></_RustNativePrefix>
+      <_RustNativePrefix Condition="$([MSBuild]::IsOsPlatform('Linux'))">lib</_RustNativePrefix>
+      <_RustNativePrefix Condition="$([MSBuild]::IsOsPlatform('OSX'))">lib</_RustNativePrefix>
+      <_RustNativeExt Condition="$([MSBuild]::IsOsPlatform('Windows'))">.dll</_RustNativeExt>
+      <_RustNativeExt Condition="$([MSBuild]::IsOsPlatform('Linux'))">.so</_RustNativeExt>
+      <_RustNativeExt Condition="$([MSBuild]::IsOsPlatform('OSX'))">.dylib</_RustNativeExt>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(Libr4RustNativeScope)' == 'ide' Or '$(Libr4RustNativeScope)' == 'all'">
+      <_Libr4RustLibSource Include="$(Libr4RustReleaseDir)\$(_RustNativePrefix)libr4_fast_context$(_RustNativeExt)"
+                           Condition="Exists('$(Libr4RustReleaseDir)\$(_RustNativePrefix)libr4_fast_context$(_RustNativeExt)')" />
+      <_Libr4RustLibSource Include="$(Libr4RustReleaseDir)\$(_RustNativePrefix)libr4_rollout_writer$(_RustNativeExt)"
+                           Condition="Exists('$(Libr4RustReleaseDir)\$(_RustNativePrefix)libr4_rollout_writer$(_RustNativeExt)')" />
+      <_Libr4RustLibSource Include="$(Libr4RustReleaseDir)\$(_RustNativePrefix)libr4_delegation_worker$(_RustNativeExt)"
+                           Condition="Exists('$(Libr4RustReleaseDir)\$(_RustNativePrefix)libr4_delegation_worker$(_RustNativeExt)')" />
+      <_Libr4RustLibSource Include="$(Libr4SandboxReleaseDir)\$(_RustNativePrefix)libr4_sandbox_executor$(_RustNativeExt)"
+                           Condition="Exists('$(Libr4SandboxReleaseDir)\$(_RustNativePrefix)libr4_sandbox_executor$(_RustNativeExt)')" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(Libr4RustNativeScope)' == 'gateway' Or '$(Libr4RustNativeScope)' == 'all'">
+      <_Libr4RustLibSource Include="$(Libr4RustReleaseDir)\$(_RustNativePrefix)libr4_gateway_core$(_RustNativeExt)"
+                           Condition="Exists('$(Libr4RustReleaseDir)\$(_RustNativePrefix)libr4_gateway_core$(_RustNativeExt)')" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_Libr4RustLibSource)"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="'@(_Libr4RustLibSource)' != ''" />
+
+    <Message Importance="low"
+             Text="Copied @(_Libr4RustLibSource->'%(Filename)%(Extension)', ', ') to $(OutputPath)"
+             Condition="'@(_Libr4RustLibSource)' != ''" />
+  </Target>
+</Project>

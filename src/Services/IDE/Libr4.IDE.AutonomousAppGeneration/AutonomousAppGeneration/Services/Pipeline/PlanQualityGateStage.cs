@@ -1,4 +1,7 @@
+using Libr4.IDE.Application.AutonomousAppGeneration.Services;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services.PlatformUtilization;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Libr4.IDE.Application.AutonomousAppGeneration.Services.Pipeline;
 
@@ -12,13 +15,19 @@ namespace Libr4.IDE.Application.AutonomousAppGeneration.Services.Pipeline;
 public sealed class PlanQualityGateStage : IGenerationStage
 {
     private readonly IAutonomousQualityGateService _qualityGates;
+    private readonly AutonomousBenchmarkModeOptions _benchmarkModeOptions;
+    private readonly AutonomousPlatformUtilizationOptions _platformOptions;
     private readonly ILogger<PlanQualityGateStage> _logger;
 
     public PlanQualityGateStage(
         IAutonomousQualityGateService qualityGates,
+        IOptions<AutonomousBenchmarkModeOptions> benchmarkModeOptions,
+        IOptions<AutonomousPlatformUtilizationOptions> platformOptions,
         ILogger<PlanQualityGateStage> logger)
     {
         _qualityGates = qualityGates;
+        _benchmarkModeOptions = benchmarkModeOptions.Value;
+        _platformOptions = platformOptions.Value;
         _logger = logger;
     }
 
@@ -35,6 +44,19 @@ public sealed class PlanQualityGateStage : IGenerationStage
 
         if (gate.Passed)
             return Task.FromResult(StageOutcome.Continue);
+
+        if (BenchmarkExecutionPathPolicy.ShouldDeferFailedGate(
+                _benchmarkModeOptions,
+                BenchmarkExecutionPathPolicy.Stages.PlanQualityGate,
+                _platformOptions))
+        {
+            context.Orchestrator.RecordQualityGate(
+                "plan_quality_gate_deferred_benchmark",
+                gate.Score,
+                true,
+                gate.Reasons.Concat(new[] { "benchmark_execution_path:plan_quality_deferred" }).ToArray());
+            return Task.FromResult(StageOutcome.Continue);
+        }
 
         var reason =
             $"quality_gate_plan_failed: score={gate.Score}; reasons={string.Join(",", gate.Reasons)}";

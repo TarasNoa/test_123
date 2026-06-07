@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -44,10 +45,11 @@ public sealed class DefaultMcpLaneWatchdog : IMcpLaneWatchdog
             if (!checkedProfiles.Add(tool.ServerProfileKey))
                 continue;
 
-            var preflightResult = _preflight.CheckServerAvailability(tool.ServerProfileKey);
+            var profileKey = ResolveWatchdogProfileKey(tool, opt);
+            var preflightResult = _preflight.CheckServerAvailability(profileKey);
             var snapshot = new McpLaneWatchdogSnapshot
             {
-                ProfileKey = tool.ServerProfileKey,
+                ProfileKey = profileKey,
                 Lane = tool.Lane.ToString(),
                 LastCheckTimeUtc = DateTime.UtcNow,
                 Status = preflightResult.IsAvailable ? "available" : "degraded",
@@ -65,7 +67,7 @@ public sealed class DefaultMcpLaneWatchdog : IMcpLaneWatchdog
                 BlockerCode = snapshot.BlockerCode
             };
 
-            var profileHistory = _history.GetOrAdd(tool.ServerProfileKey, _ => new ConcurrentQueue<McpLaneWatchdogHistoryEntry>());
+            var profileHistory = _history.GetOrAdd(profileKey, _ => new ConcurrentQueue<McpLaneWatchdogHistoryEntry>());
             profileHistory.Enqueue(historyEntry);
 
             // Enforce history depth limit
@@ -100,4 +102,16 @@ public sealed class DefaultMcpLaneWatchdog : IMcpLaneWatchdog
         _history.TryGetValue(profileKey, out var history)
             ? history.ToList()
             : Array.Empty<McpLaneWatchdogHistoryEntry>();
+
+    private static string ResolveWatchdogProfileKey(McpToolMetadata tool, McpExecutionOptions opt)
+    {
+        if (opt.BrowserLane.UsesObscuraProvider() &&
+            tool.Lane == McpExecutionLaneKind.Browser &&
+            tool.ServerProfileKey.Equals("obscura-browser-lane", StringComparison.OrdinalIgnoreCase))
+        {
+            return "obscura-browser-lane";
+        }
+
+        return tool.ServerProfileKey;
+    }
 }

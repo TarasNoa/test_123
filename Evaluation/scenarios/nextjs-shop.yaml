@@ -1,0 +1,16 @@
+id: nextjs-shop
+displayName: Next.js Shop
+runs: 10
+maxIterations: 10
+expectedRecipeId: nextjs
+tags:
+  - node
+  - nextjs
+  - ecommerce
+userRequest: |
+  Build a minimal Next.js 14 shop app:
+  - Product list page and product detail page
+  - API route GET /api/products returning JSON array
+  - Tailwind CSS for basic styling
+  - Jest or vitest smoke test for products API route
+  Keep to App Router and TypeScript. Small scope, no checkout flow.

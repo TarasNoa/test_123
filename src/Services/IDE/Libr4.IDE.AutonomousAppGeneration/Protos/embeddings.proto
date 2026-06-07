@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+option csharp_namespace = "Libr4.IDE.Application.AutonomousAppGeneration.Memory.Qdrant.Grpc";
+
+package embeddings;
+
+service EmbeddingService {
+  rpc Embed(EmbedRequest) returns (EmbedResponse);
+  rpc EmbedBatch(EmbedBatchRequest) returns (EmbedBatchResponse);
+  rpc EmbedStream(stream EmbedRequest) returns (stream EmbedResponse);
+  rpc Similarity(SimilarityRequest) returns (SimilarityResponse);
+}
+
+enum EmbeddingModel {
+  MINILM_L6_V2 = 0;
+  MULTILINGUAL_E5_SMALL = 1;
+  BGE_M3 = 2;
+}
+
+message EmbedRequest {
+  string text = 1;
+  EmbeddingModel model = 2;
+  bool normalize = 3;
+}
+
+message EmbedResponse {
+  repeated float embedding = 1;
+  int32 dimensions = 2;
+  EmbeddingModel model = 3;
+  float inference_ms = 4;
+}
+
+message EmbedBatchRequest {
+  repeated string texts = 1;
+  EmbeddingModel model = 2;
+  bool normalize = 3;
+  int32 batch_size = 4;
+}
+
+message EmbedBatchResponse {
+  repeated EmbedResponse embeddings = 1;
+  float total_ms = 2;
+}
+
+message SimilarityRequest {
+  repeated float vector_a = 1;
+  repeated float vector_b = 2;
+}
+
+message SimilarityResponse {
+  float cosine_similarity = 1;
+  float dot_product = 2;
+}

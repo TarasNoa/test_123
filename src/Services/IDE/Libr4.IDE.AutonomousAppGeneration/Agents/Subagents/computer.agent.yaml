@@ -1,0 +1,84 @@
+name: computer
+maxTurns: 14
+permissions: read-only
+toolset:
+  - read_file
+  - bash
+  - browser_launch
+  - browser_navigate
+  - browser_wait
+  - browser_snapshot
+  - browser_click
+  - browser_type
+  - browser_screenshot
+  - browser_console
+  - browser_get_content
+  - browser_record_start
+  - browser_record_stop
+  - browser_close
+instruction: |
+  You are a computer-use subagent for UI automation and evidence capture.
+  Use browser_* tools for login flows, form fill, and visual design checks.
+  Use read_file and bash only to gather evidence (logs, env probes) — never mutate source.
+  End with structured evidence: screenshots taken, selectors matched, PASS/FAIL per step.
+browser:
+  enabled: true
+  stealthMode: false
+  defaultViewport: [1280, 720]
+  tasks:
+    - taskName: login-flow
+      description: Login flow with username/password
+      takeScreenshots: true
+      actions:
+        - type: navigate
+          value: "{{url}}"
+        - type: wait_for_element
+          selector: "input[type='password'], input[name='password'], #password"
+          waitMs: 8000
+        - type: type
+          selector: "{{username_selector}}"
+          value: "{{username}}"
+        - type: type
+          selector: "{{password_selector}}"
+          value: "{{password}}"
+        - type: click
+          selector: "{{submit_selector}}"
+        - type: wait
+          waitMs: 1500
+        - type: screenshot
+        - type: get_content
+      extractionRules:
+        - fieldName: logged_in
+          type: exists
+          selector: "{{success_selector}}"
+    - taskName: form-fill
+      description: Fill a form and capture result
+      actions:
+        - type: navigate
+          value: "{{url}}"
+        - type: wait_for_element
+          selector: "{{form_selector}}"
+          waitMs: 8000
+        - type: type
+          selector: "{{field_selector}}"
+          value: "{{field_value}}"
+        - type: click
+          selector: "{{submit_selector}}"
+        - type: screenshot
+    - taskName: visual-design-check
+      description: Visual smoke — layout root, title, screenshot
+      actions:
+        - type: navigate
+          value: "{{url}}"
+        - type: wait_for_element
+          selector: "#root, main, [data-testid='app'], body"
+          waitMs: 8000
+        - type: screenshot
+        - type: get_content
+      extractionRules:
+        - fieldName: page_title
+          type: text
+          selector: title
+        - fieldName: has_layout_root
+          type: exists
+          selector: "#root, main, [data-testid='app']"

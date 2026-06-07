@@ -1,0 +1,16 @@
+id: django-health-view
+stack: django-views
+style: humaneval
+prompt: |
+  Write a Django view function `health(request)` that returns JsonResponse({"status": "ok"}).
+solution: |
+  from django.http import JsonResponse
+
+  def health(request):
+      return JsonResponse({"status": "ok"})
+requiredPatterns:
+  - "def health"
+  - "JsonResponse"
+  - "status"
+forbiddenPatterns:
+  - "eval("

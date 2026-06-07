@@ -1,0 +1,21 @@
+id: dotnet-hello-controller
+stack: dotnet-controllers
+style: humaneval
+prompt: |
+  Write HelloController with GET hello endpoint returning Ok("hello").
+solution: |
+  using Microsoft.AspNetCore.Mvc;
+
+  [ApiController]
+  [Route("api/[controller]")]
+  public class HelloController : ControllerBase
+  {
+      [HttpGet("hello")]
+      public IActionResult Hello() => Ok("hello");
+  }
+requiredPatterns:
+  - "class HelloController"
+  - "HttpGet"
+  - "Ok("
+forbiddenPatterns:
+  - "Assembly.Load"

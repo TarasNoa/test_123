@@ -20,6 +20,12 @@ public class AgentContext
     public string Description { get; set; } = string.Empty;
     public string TechStack { get; set; } = string.Empty;
     public GeneratedFile[]? GeneratedFiles { get; set; }
+    /// <summary>When set, the model must return only these repo-relative paths (incremental generation).</summary>
+    public string[] TargetRelativePaths { get; set; } = Array.Empty<string>();
+    /// <summary>Restrict output to <see cref="TargetRelativePaths"/>; do not delegate nested subagents.</summary>
+    public bool ScopedOutputOnly { get; set; }
+    /// <summary>All planned paths in the current phase (navigation only — do not emit these unless assigned as target).</summary>
+    public string[] PlannedPhasePaths { get; set; } = Array.Empty<string>();
     public string? Feedback { get; set; }
     public AgentTask? Task { get; set; }
 
@@ -48,6 +54,8 @@ public class AgentTask
     public string Description { get; set; } = string.Empty;
     public AgentContext Context { get; set; } = new();
     public List<AgentTask> Subtasks { get; set; } = new();
+    /// <summary>When set via @subagent directive, routes task to YAML agent spec.</summary>
+    public string? SubagentSpecName { get; set; }
 }
 
 /// <summary>

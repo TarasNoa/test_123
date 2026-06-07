@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Libr4.AI.Application.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services.PlatformUtilization;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -38,28 +40,68 @@ Rules:
     private readonly IServiceScopeFactory? _scopeFactory;
     private readonly ILogger<AutonomousCascadePlanner>? _logger;
     private readonly CascadePlannerOptions _options;
+    private readonly AutonomousBenchmarkModeOptions _benchmarkModeOptions;
+    private readonly AutonomousPlatformUtilizationOptions _platformUtilizationOptions;
 
     public AutonomousCascadePlanner()
     {
         _options = new CascadePlannerOptions();
+        _benchmarkModeOptions = new AutonomousBenchmarkModeOptions();
+        _platformUtilizationOptions = new AutonomousPlatformUtilizationOptions();
     }
 
     public AutonomousCascadePlanner(
         IServiceScopeFactory scopeFactory,
         ILogger<AutonomousCascadePlanner> logger,
-        IOptions<CascadePlannerOptions>? options = null)
+        IOptions<CascadePlannerOptions>? options = null,
+        IOptions<AutonomousBenchmarkModeOptions>? benchmarkModeOptions = null,
+        IOptions<AutonomousPlatformUtilizationOptions>? platformUtilizationOptions = null)
     {
         _scopeFactory = scopeFactory;
         _logger = logger;
         _options = options?.Value ?? new CascadePlannerOptions();
+        _benchmarkModeOptions = benchmarkModeOptions?.Value ?? new AutonomousBenchmarkModeOptions();
+        _platformUtilizationOptions = platformUtilizationOptions?.Value ?? new AutonomousPlatformUtilizationOptions();
     }
 
     public CascadeExecutionPlan Build(GenerationPlan plan, string userRequest)
     {
-        if (_options.EnableLlmAssistedPass)
-            return BuildLlmAssistedOrThrow(plan, userRequest);
+        if (BenchmarkExecutionPathPolicy.UseDeterministicCascadeOnly(
+                _benchmarkModeOptions,
+                _platformUtilizationOptions))
+        {
+            _logger?.LogInformation(
+                "Benchmark execution path: cascade planning uses deterministic planner (LLM skipped).");
+            return BuildDeterministic(plan, userRequest);
+        }
 
-        return BuildDeterministic(plan, userRequest);
+        if (!_options.EnableLlmAssistedPass || _scopeFactory is null)
+            return BuildDeterministic(plan, userRequest);
+
+        try
+        {
+            return BuildLlmAssistedOrThrow(plan, userRequest);
+        }
+        catch (AutonomousGenerationFailedException ex)
+        {
+            _logger?.LogWarning(
+                ex,
+                "Cascade LLM failed ({Stage}); falling back to deterministic cascade.",
+                ex.Stage);
+            return BuildDeterministic(plan, userRequest);
+        }
+        catch (Exception ex) when (BenchmarkExecutionPathPolicy.ShouldFallbackOnLlmInfrastructureFailure(
+            _benchmarkModeOptions,
+            BenchmarkExecutionPathPolicy.Stages.CascadePlanning,
+            ex,
+            _platformUtilizationOptions))
+        {
+            _logger?.LogWarning(
+                ex,
+                "Cascade LLM failed ({Message}); benchmark optional stage — falling back to deterministic cascade.",
+                ex.Message);
+            return BuildDeterministic(plan, userRequest);
+        }
     }
 
     private CascadeExecutionPlan BuildLlmAssistedOrThrow(GenerationPlan plan, string userRequest)
@@ -81,7 +123,9 @@ Rules:
         {
             var (routingProfile, modelHint) = ResolveModelRoute();
             var webPrefetch = TryBuildWebPrefetchContext(scope, userRequest);
-            var prompt = BuildLlmOrchestratorPrompt(plan, userRequest, webPrefetch);
+            var prompt = PlatformCapabilityBriefingScope.AppendToPrompt(
+                BuildLlmOrchestratorPrompt(plan, userRequest, webPrefetch),
+                PlatformCapabilityBriefingStage.CascadePlanning);
             var raw = ai.GenerateCompletionAsync(prompt, CascadeSystemPrompt, modelHint).GetAwaiter().GetResult();
             using var doc = LlmJsonHelpers.ExtractJson(raw ?? string.Empty);
             if (doc is null)
@@ -328,11 +372,66 @@ Rules:
 
     private string? TryBuildWebPrefetchContext(IServiceScope scope, string userRequest)
     {
-        if (!_options.EnableWebPrefetchContext)
+        if (!_platformUtilizationOptions.EnableCascadePrefetch)
+            return null;
+
+        if (!_options.EnableWebPrefetchContext && !_options.EnableCodebasePrefetchContext)
             return null;
 
         try
         {
+            var max = Math.Clamp(_options.MaxPrefetchContextChars, 120, 4000);
+            var sections = new List<string>();
+
+            if (_options.EnableWebPrefetchContext)
+            {
+                var web = TryBuildBrowserPrefetchContext(scope, userRequest, max);
+                if (!string.IsNullOrWhiteSpace(web))
+                    sections.Add(web);
+            }
+
+            if (_options.EnableCodebasePrefetchContext)
+            {
+                var codebase = scope.ServiceProvider.GetService<ICascadeCodebasePrefetchService>();
+                if (codebase is not null)
+                {
+                    var codebaseContext = codebase.BuildPrefetchContextAsync(userRequest, max, CancellationToken.None)
+                        .GetAwaiter()
+                        .GetResult();
+                    if (!string.IsNullOrWhiteSpace(codebaseContext))
+                        sections.Add(codebaseContext);
+                }
+            }
+
+            if (sections.Count == 0)
+                return null;
+
+            return Truncate(string.Join("\n\n", sections), max);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Cascade prefetch unavailable; continuing without it.");
+            return null;
+        }
+    }
+
+    private string? TryBuildBrowserPrefetchContext(IServiceScope scope, string userRequest, int max)
+    {
+        try
+        {
+            if (string.Equals(_options.PrefetchToolName, "browser_research", StringComparison.OrdinalIgnoreCase))
+            {
+                var native = scope.ServiceProvider.GetService<ICascadeWebPrefetchService>();
+                if (native is not null)
+                {
+                    var nativeContext = native.BuildPrefetchContextAsync(userRequest, max, CancellationToken.None)
+                        .GetAwaiter()
+                        .GetResult();
+                    if (!string.IsNullOrWhiteSpace(nativeContext))
+                        return nativeContext;
+                }
+            }
+
             var mcp = scope.ServiceProvider.GetService<IMcpToolInvocationService>();
             if (mcp is null)
                 return null;
@@ -351,12 +450,11 @@ Rules:
             if (!outcome.Succeeded || string.IsNullOrWhiteSpace(outcome.ResultSummary))
                 return null;
 
-            var max = Math.Clamp(_options.MaxPrefetchContextChars, 120, 4000);
             return Truncate(outcome.ResultSummary, max);
         }
         catch (Exception ex)
         {
-            _logger?.LogDebug(ex, "Cascade web-prefetch unavailable; continuing without it.");
+            _logger?.LogDebug(ex, "Cascade browser-prefetch unavailable; continuing without it.");
             return null;
         }
     }
@@ -375,7 +473,7 @@ Rules:
             sb.AppendLine($"- {phase.Name}: {phase.Description}");
         if (!string.IsNullOrWhiteSpace(webPrefetchContext))
         {
-            sb.AppendLine("Optional web-prefetch context (safe lane):");
+            sb.AppendLine("Optional cascade prefetch context (browser_research + search_codebase):");
             sb.AppendLine(webPrefetchContext);
         }
         if (RequiresRepoBootstrap(plan, userRequest))
@@ -521,7 +619,7 @@ Rules:
         return mode switch
         {
             "local" => ("local", NormalizeModel(_options.LocalModel)),
-            "api" => ("api", NormalizeModel(_options.ApiModel)),
+            "api" or "openrouter" or "alibabacloud" => ("api", NormalizeModel(_options.ApiModel)),
             _ => ResolveAutoModelRoute()
         };
     }
@@ -529,10 +627,15 @@ Rules:
     private (string RoutingProfile, string? ModelHint) ResolveAutoModelRoute()
     {
         var api = NormalizeModel(_options.ApiModel);
-        if (!string.IsNullOrWhiteSpace(api))
+        if (!string.IsNullOrWhiteSpace(api) && !LooksLikeLocalRunnerModel(api))
             return ("auto->api", api);
         return ("auto->local", NormalizeModel(_options.LocalModel));
     }
+
+    private static bool LooksLikeLocalRunnerModel(string model) =>
+        model.Contains("huggingface.co/", StringComparison.OrdinalIgnoreCase)
+        || model.Contains(":Q4_K_M", StringComparison.OrdinalIgnoreCase)
+        || model.Contains(":Q8_", StringComparison.OrdinalIgnoreCase);
 
     private static string? NormalizeModel(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();

@@ -2,6 +2,10 @@
 members = [
     "libr4-crawler",
     "libr4-embeddings",
+    "libr4-fast-context",
+    "libr4-rollout-writer",
+    "libr4-delegation-worker",
+    "libr4-gateway-core",
     "shared",
 ]
 resolver = "2"

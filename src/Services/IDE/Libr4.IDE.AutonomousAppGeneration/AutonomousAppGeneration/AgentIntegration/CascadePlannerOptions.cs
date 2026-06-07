@@ -4,7 +4,8 @@ public sealed class CascadePlannerOptions
 {
     public bool EnableLlmAssistedPass { get; set; } = true;
     public bool EnableWebPrefetchContext { get; set; } = false;
-    public string PrefetchToolName { get; set; } = "browser.smoke";
+    public bool EnableCodebasePrefetchContext { get; set; } = true;
+    public string PrefetchToolName { get; set; } = "browser_research";
     public int MaxPrefetchContextChars { get; set; } = 600;
     // local | api | auto
     public string ModelRoutingProfile { get; set; } = "auto";

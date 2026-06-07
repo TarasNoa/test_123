@@ -1,7 +1,12 @@
 using System.Collections.Concurrent;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentRuntime.Abstractions;
+using Libr4.IDE.Application.AutonomousAppGeneration.FastContext;
+using Libr4.IDE.Application.Obscura;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentRuntime.Models;
 using Libr4.IDE.Application.AutonomousAppGeneration.Runtime;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
+using Libr4.IDE.Application.GitAutomation;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 
@@ -14,12 +19,16 @@ namespace Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
 /// orchestrator no longer cares whether the generated app is .NET, Python,
 /// Node, Rust, Go or anything else.
 /// </summary>
-public sealed class IsolatedShadowExecutionService : IShadowExecutionService
+public sealed class IsolatedShadowExecutionService : IShadowExecutionService, IShadowWorkspaceAccessor
 {
     private readonly IWorkspacePool _pool;
     private readonly IWorkspaceSyncService _sync;
     private readonly IRuntimeCommandPolicy _runtimeCommandPolicy;
+    private readonly IShadowToolchainWarmCache _warmCache;
     private readonly IAgentEventEmitter _eventEmitter;
+    private readonly IObscuraNetworkRouter? _networkRouter;
+    private readonly IShadowGitCheckpointService? _gitCheckpoint;
+    private readonly IFastContextPrefetcher? _fastContext;
     private readonly ILogger<IsolatedShadowExecutionService> _logger;
     private readonly Dictionary<Guid, int> _workspacePorts = new();
     private static readonly object _portLock = new();
@@ -31,13 +40,21 @@ public sealed class IsolatedShadowExecutionService : IShadowExecutionService
         IWorkspacePool pool,
         IWorkspaceSyncService sync,
         IRuntimeCommandPolicy runtimeCommandPolicy,
+        IShadowToolchainWarmCache warmCache,
         IAgentEventEmitter eventEmitter,
-        ILogger<IsolatedShadowExecutionService> logger)
+        ILogger<IsolatedShadowExecutionService> logger,
+        IObscuraNetworkRouter? networkRouter = null,
+        IShadowGitCheckpointService? gitCheckpoint = null,
+        IFastContextPrefetcher? fastContext = null)
     {
         _pool = pool;
         _sync = sync;
         _runtimeCommandPolicy = runtimeCommandPolicy;
+        _warmCache = warmCache;
         _eventEmitter = eventEmitter;
+        _networkRouter = networkRouter;
+        _gitCheckpoint = gitCheckpoint;
+        _fastContext = fastContext;
         _logger = logger;
     }
 
@@ -61,9 +78,28 @@ public sealed class IsolatedShadowExecutionService : IShadowExecutionService
             if (_nextPort > 4999) _nextPort = 4001; // Reset if we exceed range
         }
         _workspacePorts[handle.WorkspaceId] = port;
+        _networkRouter?.RegisterWorkspace(handle.WorkspaceId, port);
         _logger.LogInformation("[{Ws}] Allocated port {Port}", handle.WorkspaceId, port);
 
         await WriteFilesAsync(handle.HostPath, files, ct);
+        if (_gitCheckpoint is not null)
+            await _gitCheckpoint.EnsureInitializedAsync(handle.HostPath, ct).ConfigureAwait(false);
+        await _warmCache.PrepareWorkspaceAsync(handle.HostPath, ct).ConfigureAwait(false);
+        if (_fastContext is not null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _fastContext.WarmIndexAsync(handle.HostPath, ct: CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "[{Ws}] Fast context warm index failed (non-fatal)", handle.WorkspaceId);
+                }
+            }, CancellationToken.None);
+        }
+
         return handle.WorkspaceId;
     }
 
@@ -96,7 +132,7 @@ public sealed class IsolatedShadowExecutionService : IShadowExecutionService
         var subdir = Path.GetFileName(handle.HostPath);
 
         // 1. Build
-        foreach (var cmd in BuildOrDefault(plan))
+        foreach (var cmd in ResolveBuildCommands(plan, handle.Runtime))
         {
             _runtimeCommandPolicy.EnsureCommandAllowed(cmd);
             _logger.LogInformation("[{Ws}] BUILD: {Cmd}", workspaceId, cmd);
@@ -136,7 +172,7 @@ public sealed class IsolatedShadowExecutionService : IShadowExecutionService
         }
 
         // 2. Test
-        foreach (var cmd in TestOrDefault(plan))
+        foreach (var cmd in ResolveTestCommands(plan, handle.Runtime))
         {
             _runtimeCommandPolicy.EnsureCommandAllowed(cmd);
             _logger.LogInformation("[{Ws}] TEST: {Cmd}", workspaceId, cmd);
@@ -186,9 +222,98 @@ public sealed class IsolatedShadowExecutionService : IShadowExecutionService
     public async Task DisposeWorkspaceAsync(Guid workspaceId, CancellationToken ct = default)
     {
         _plans.TryRemove(workspaceId, out _);
+        _workspacePorts.Remove(workspaceId);
+        _networkRouter?.UnregisterWorkspace(workspaceId);
         if (!_handles.TryRemove(workspaceId, out var handle)) return;
         _sync.StopWatching(workspaceId);
         await _pool.ReleaseAsync(handle, ct);
+    }
+
+    public bool TryGetWorkspace(Guid workspaceId, out ShadowWorkspaceContext context)
+    {
+        if (!_handles.TryGetValue(workspaceId, out var handle))
+        {
+            context = default!;
+            return false;
+        }
+
+        context = new ShadowWorkspaceContext(
+            handle.WorkspaceId,
+            handle.HostPath,
+            Path.GetFileName(handle.HostPath),
+            handle.Runtime);
+        return true;
+    }
+
+    public async Task<ExecResult> ExecAsync(Guid workspaceId, string command, CancellationToken ct = default)
+    {
+        if (!_handles.TryGetValue(workspaceId, out var handle))
+            throw new InvalidOperationException($"Workspace {workspaceId} not prepared");
+
+        _runtimeCommandPolicy.EnsureCommandAllowed(command);
+        var subdir = Path.GetFileName(handle.HostPath);
+        var env = _workspacePorts.TryGetValue(workspaceId, out var port)
+            ? new Dictionary<string, string> { ["PORT"] = port.ToString() }
+            : null;
+        var timeout = _runtimeCommandPolicy.GetCommandTimeout(command);
+        return await handle.Runtime.ExecAsync(command, subdir, env, timeout, ct).ConfigureAwait(false);
+    }
+
+    public async Task<string> ReadFileAsync(Guid workspaceId, string relativePath, CancellationToken ct = default)
+    {
+        if (!_handles.TryGetValue(workspaceId, out var handle))
+            throw new InvalidOperationException($"Workspace {workspaceId} not prepared");
+
+        var safe = relativePath.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+        if (safe.Contains("..", StringComparison.Ordinal))
+            throw new InvalidOperationException("Path traversal denied");
+
+        var abs = Path.Combine(handle.HostPath, safe);
+        if (!File.Exists(abs))
+            throw new FileNotFoundException($"File not found: {relativePath}", abs);
+
+        return await File.ReadAllTextAsync(abs, ct).ConfigureAwait(false);
+    }
+
+    public async Task WriteFileAsync(Guid workspaceId, string relativePath, string content, CancellationToken ct = default)
+    {
+        if (!_handles.TryGetValue(workspaceId, out var handle))
+            throw new InvalidOperationException($"Workspace {workspaceId} not prepared");
+
+        var safe = relativePath.Replace('/', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+        if (safe.Contains("..", StringComparison.Ordinal))
+            throw new InvalidOperationException("Path traversal denied");
+
+        var abs = Path.Combine(handle.HostPath, safe);
+        var dir = Path.GetDirectoryName(abs);
+        if (!string.IsNullOrEmpty(dir))
+            Directory.CreateDirectory(dir);
+
+        await File.WriteAllTextAsync(abs, content, ct).ConfigureAwait(false);
+    }
+
+    public IReadOnlyList<string> GlobFiles(Guid workspaceId, string globPattern)
+    {
+        if (!_handles.TryGetValue(workspaceId, out var handle))
+            return Array.Empty<string>();
+
+        var pattern = globPattern.Replace('\\', '/').TrimStart('/');
+        if (pattern.Contains("..", StringComparison.Ordinal))
+            return Array.Empty<string>();
+
+        var dirPart = Path.GetDirectoryName(pattern.Replace('/', Path.DirectorySeparatorChar)) ?? string.Empty;
+        var filePart = Path.GetFileName(pattern);
+        var searchRoot = string.IsNullOrEmpty(dirPart)
+            ? handle.HostPath
+            : Path.Combine(handle.HostPath, dirPart);
+
+        if (!Directory.Exists(searchRoot))
+            return Array.Empty<string>();
+
+        return Directory.EnumerateFiles(searchRoot, filePart, SearchOption.AllDirectories)
+            .Select(f => f[(handle.HostPath.Length + 1)..].Replace('\\', '/'))
+            .OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     // --- helpers -----------------------------------------------------------
@@ -217,6 +342,87 @@ public sealed class IsolatedShadowExecutionService : IShadowExecutionService
         _sync.StartWatching(migrated);
         return migrated;
     }
+
+    private IEnumerable<string> ResolveBuildCommands(GenerationPlan plan, IRuntimeSession runtime)
+    {
+        var cmds = BuildOrDefault(plan).ToList();
+        ApplyJavaReactToolchain(cmds, runtime, plan, prependBootstrap: true);
+        return cmds;
+    }
+
+    private IEnumerable<string> ResolveTestCommands(GenerationPlan plan, IRuntimeSession runtime)
+    {
+        var cmds = TestOrDefault(plan).ToList();
+        ApplyJavaReactToolchain(cmds, runtime, plan, prependBootstrap: false);
+        return cmds;
+    }
+
+    private void ApplyJavaReactToolchain(
+        IList<string> cmds,
+        IRuntimeSession runtime,
+        GenerationPlan plan,
+        bool prependBootstrap)
+    {
+        if (JavaReactWindowsToolchainBootstrap.ShouldPrepend(runtime.ProviderName, plan))
+        {
+            var needsMaven = cmds.Any(c => c.Contains("mvn", StringComparison.OrdinalIgnoreCase));
+            var warmMavenReady = _warmCache.IsEnabled && _warmCache.IsMavenReady;
+            if ((prependBootstrap || needsMaven) && !warmMavenReady)
+                cmds.Insert(0, JavaReactWindowsToolchainBootstrap.Command);
+
+            var mavenExports = _warmCache.IsEnabled
+                ? _warmCache.BuildMavenEnvironmentExports()
+                : JavaReactWindowsToolchainBootstrap.MavenPathExports;
+            var npmExports = _warmCache.IsEnabled ? _warmCache.BuildNpmCacheExports() : string.Empty;
+
+            for (var i = 0; i < cmds.Count; i++)
+            {
+                if (JavaReactWindowsToolchainBootstrap.IsMavenInvocation(cmds[i]))
+                {
+                    cmds[i] = _warmCache.EnrichMavenInvocation(cmds[i]);
+                    cmds[i] = QualifyMavenCommand(cmds[i], warmMavenReady);
+                    cmds[i] = $"{mavenExports} && {cmds[i]}";
+                }
+                else if (IsNpmInvocation(cmds[i]) && !string.IsNullOrEmpty(npmExports))
+                {
+                    cmds[i] = $"{npmExports} && {cmds[i]}";
+                }
+            }
+        }
+        else if (JavaReactWslToolchainBootstrap.ShouldPrepend(runtime.ProviderName, plan))
+        {
+            if (prependBootstrap)
+                cmds.Insert(0, JavaReactWslToolchainBootstrap.Command);
+
+            for (var i = 0; i < cmds.Count; i++)
+            {
+                if (cmds[i].Contains("mvn", StringComparison.OrdinalIgnoreCase)
+                    || cmds[i].Contains("npm", StringComparison.OrdinalIgnoreCase))
+                {
+                    cmds[i] = $"{JavaReactWslToolchainBootstrap.JavaHomeExports} && {cmds[i]}";
+                }
+            }
+        }
+    }
+
+    private string QualifyMavenCommand(string command, bool warmMavenReady)
+    {
+        if (warmMavenReady)
+        {
+            var mvnPath = _warmCache.ResolveMavenExecutablePath().Replace("/", "\\");
+            return System.Text.RegularExpressions.Regex.Replace(
+                command,
+                @"\bmvn\b",
+                $"\"{mvnPath}\"",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        }
+
+        return JavaReactWindowsToolchainBootstrap.QualifyMavenExecutable(command);
+    }
+
+    private static bool IsNpmInvocation(string command) =>
+        !string.IsNullOrWhiteSpace(command)
+        && System.Text.RegularExpressions.Regex.IsMatch(command, @"\bnpm\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
     private static IEnumerable<string> BuildOrDefault(GenerationPlan plan)
     {

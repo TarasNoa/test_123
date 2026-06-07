@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "overall": 1.0,
+  "stacks": {
+    "django-views": 1.0,
+    "react-components": 1.0,
+    "dotnet-controllers": 1.0,
+    "mbpp-algorithms": 1.0
+  }
+}

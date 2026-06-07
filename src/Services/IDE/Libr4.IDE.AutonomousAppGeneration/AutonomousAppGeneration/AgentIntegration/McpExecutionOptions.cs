@@ -41,6 +41,9 @@ public sealed class McpExecutionOptions
     /// <summary>Kill-switch for generic workflow lane (reserved tools).</summary>
     public bool KillSwitchWorkflowLane { get; set; }
 
+    /// <summary>Browser lane provider and deprecation settings.</summary>
+    public BrowserLaneOptions BrowserLane { get; set; } = new();
+
     /// <summary>Browser lane profile configuration.</summary>
     public Dictionary<string, BrowserLaneProfile> BrowserProfiles { get; set; } = new();
 

@@ -1,0 +1,17 @@
+id: django-list-items
+stack: django-views
+style: humaneval
+prompt: |
+  Write a Django view `list_items(request)` returning JsonResponse with key "items" as a list.
+solution: |
+  from django.http import JsonResponse
+
+  def list_items(request):
+      items = ["alpha", "beta"]
+      return JsonResponse({"items": items})
+requiredPatterns:
+  - "def list_items"
+  - "JsonResponse"
+  - "items"
+forbiddenPatterns:
+  - "exec("

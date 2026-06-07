@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 
@@ -103,11 +103,11 @@ public sealed class ProcessIsolatedRuntime : IIsolatedRuntime
                 return new ExecResult(-1, DateTime.UtcNow - start, logs);
             }
 
-            var stdout = StreamAsync(process.StandardOutput, "stdout", logs, ct);
-            var stderr = StreamAsync(process.StandardError, "stderr", logs, ct);
-
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeout ?? TimeSpan.FromMinutes(5));
+
+            var stdout = ProcessOutputPump.PumpAsync(process.StandardOutput, "stdout", logs, cts.Token);
+            var stderr = ProcessOutputPump.PumpAsync(process.StandardError, "stderr", logs, cts.Token);
 
             try { await process.WaitForExitAsync(cts.Token); }
             catch (OperationCanceledException) when (cts.IsCancellationRequested && !ct.IsCancellationRequested)
@@ -127,15 +127,5 @@ public sealed class ProcessIsolatedRuntime : IIsolatedRuntime
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
-
-        private static async Task StreamAsync(
-            StreamReader reader, string stream, List<ConsoleLogEntry> logs, CancellationToken ct)
-        {
-            string? line;
-            while ((line = await reader.ReadLineAsync(ct)) != null)
-            {
-                lock (logs) { logs.Add(new ConsoleLogEntry(DateTime.UtcNow, stream, line)); }
-            }
-        }
     }
 }

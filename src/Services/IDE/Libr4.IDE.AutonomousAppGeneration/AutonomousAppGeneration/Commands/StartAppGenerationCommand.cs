@@ -13,8 +13,12 @@ public sealed record StartAppGenerationCommand(
     string UserRequest,
     int MaxIterations = 20,
     Guid? ResumeFromRunId = null,
+    /// <summary>Path to JSON exported from GET /api/ide/app-generation/{id} (fix-only resume after host restart).</summary>
+    string? ResumeSeedPath = null,
     string? TriggerSource = null,
     string? TriggerActor = null,
     string? TriggerPayloadJson = null,
     /// <summary>P2-3: optional tenant identifier. Null = single-tenant / default.</summary>
-    string? TenantId = null) : IRequest<AppGenerationResponse>;
+    string? TenantId = null,
+    /// <summary>Optional on-disk project root for workspace trust hashing (IDE workspace path).</summary>
+    string? ProjectWorkspacePath = null) : IRequest<AppGenerationResponse>;

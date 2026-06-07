@@ -16,4 +16,7 @@ public interface IAgentEventEmitter
     Task EmitBrowserScreenshotAsync(Guid runId, string sessionId);
     Task EmitBrowserExecuteJavaScriptAsync(Guid runId, string sessionId, string script);
     Task EmitBrowserCloseAsync(Guid runId, string sessionId);
+    Task EmitBrowserToolAsync(Guid runId, string toolName, string sessionId, bool success, string? detail = null);
+    Task EmitRuntimeNdjsonAsync(Guid runId, string eventType, string payloadJson);
+    event Func<AgentEvent, Task>? EventPublished;
 }

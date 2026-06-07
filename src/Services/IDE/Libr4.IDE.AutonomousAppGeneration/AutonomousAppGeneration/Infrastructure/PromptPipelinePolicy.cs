@@ -10,7 +10,7 @@ public static class PromptPipelinePolicy
         {
             "planning" => 48_000,
             "generation" => 64_000,
-            "fixing" => 72_000,
+            "fixing" => 96_000,
             "error_analysis" => 56_000,
             "security_review" => 120_000,
             _ => 48_000
@@ -38,7 +38,8 @@ public static class PromptPipelinePolicy
         return stage.ToLowerInvariant() switch
         {
             "planning" => ValidatePlanning(root, out reason),
-            "generation" or "fixing" => ValidateFilesEnvelope(root, out reason),
+            "generation" => ValidateFilesEnvelope(root, out reason, lenient: false),
+            "fixing" => ValidateFilesEnvelope(root, out reason, lenient: true),
             "error_analysis" => ValidateErrorEnvelope(root, out reason),
             "security_review" => ValidateSecurityReviewEnvelope(root, out reason),
             _ => true
@@ -75,7 +76,7 @@ public static class PromptPipelinePolicy
         return true;
     }
 
-    private static bool ValidateFilesEnvelope(JsonElement root, out string reason)
+    private static bool ValidateFilesEnvelope(JsonElement root, out string reason, bool lenient = false)
     {
         reason = string.Empty;
         if (!root.TryGetProperty("files", out var files) || files.ValueKind != JsonValueKind.Array)
@@ -84,23 +85,53 @@ public static class PromptPipelinePolicy
             return false;
         }
 
+        var validEntries = 0;
         foreach (var item in files.EnumerateArray())
         {
-            if (!item.TryGetProperty("relativePath", out var p) || p.ValueKind != JsonValueKind.String)
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+
+            var hasPath = HasStringProperty(item, "relativePath")
+                          || HasStringProperty(item, "path")
+                          || HasStringProperty(item, "filePath")
+                          || HasStringProperty(item, "file");
+            if (!hasPath)
             {
-                reason = "missing_file_relativePath";
-                return false;
+                if (!lenient)
+                {
+                    reason = "missing_file_relativePath";
+                    return false;
+                }
+
+                continue;
             }
 
-            if (!item.TryGetProperty("content", out var c) || c.ValueKind != JsonValueKind.String)
+            var hasContent = HasStringProperty(item, "content")
+                             || HasStringProperty(item, "body")
+                             || HasStringProperty(item, "code")
+                             || HasStringProperty(item, "source");
+            if (!hasContent)
             {
-                reason = "missing_file_content";
-                return false;
+                if (!lenient)
+                {
+                    reason = "missing_file_content";
+                    return false;
+                }
+
+                continue;
             }
+
+            validEntries++;
         }
 
-        return true;
+        if (lenient)
+            return validEntries > 0 || files.GetArrayLength() == 0;
+
+        return files.GetArrayLength() > 0;
     }
+
+    private static bool HasStringProperty(JsonElement item, string name) =>
+        item.TryGetProperty(name, out var prop) && prop.ValueKind == JsonValueKind.String;
 
     private static bool ValidateErrorEnvelope(JsonElement root, out string reason)
     {

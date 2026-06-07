@@ -1,5 +1,6 @@
 import { onCleanup, createEffect, Show, type Component } from 'solid-js';
 import { store, setStore, setTabDirty, markFileDirty } from '../IDEStore';
+import { fetchInlineCompletion } from '../services/inlineCompletion';
 
 // @ts-ignore
 import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker';
@@ -54,9 +55,56 @@ export const MonacoEditor: Component = () => {
   let monacoInstance: any;
   let currentModel: any;
   let isInit = false;
+  let inlineProvidersRegistered = false;
 
   const activeTab = () => store.openTabs.find((t) => t.id === store.activeTabId);
   const isDiffMode = () => store.diffTabId === store.activeTabId && !!activeTab()?.originalContent && !!activeTab()?.proposedContent;
+  const agentRunning = () =>
+    store.isAIStreaming
+    || !!store.activeGenerationRunId
+    || Object.values(store.activeAgents).some((a) => a.status === 'running');
+
+  const registerInlineCompletionProviders = (monaco: typeof import('monaco-editor')) => {
+    if (inlineProvidersRegistered) return;
+    inlineProvidersRegistered = true;
+
+    const languages = [...new Set(Object.values(langMap))];
+    for (const lang of languages) {
+      monaco.languages.registerInlineCompletionsProvider(lang, {
+        provideInlineCompletions: async (model, position, _context, token) => {
+          const tab = activeTab();
+          if (!tab || tab.isAgentEditing || isDiffMode()) return { items: [] };
+
+          const result = await fetchInlineCompletion({
+            filePath: tab.path,
+            language: tab.language,
+            fileContent: model.getValue(),
+            line: position.lineNumber,
+            column: position.column,
+            suppressWhileAgentRunning: agentRunning() || tab.isAgentEditing,
+            signal: token,
+          });
+
+          if (token.isCancellationRequested || !result?.text || result.suppressed) {
+            return { items: [] };
+          }
+
+          return {
+            items: [{
+              insertText: result.text,
+              range: new monaco.Range(
+                position.lineNumber,
+                position.column,
+                position.lineNumber,
+                position.column,
+              ),
+            }],
+          };
+        },
+        freeInlineCompletions: () => {},
+      });
+    }
+  };
 
   const initEditor = () => {
     if (isInit || !containerRef) return;
@@ -81,6 +129,7 @@ export const MonacoEditor: Component = () => {
           },
         });
 
+        registerInlineCompletionProviders(monaco);
         syncEditor();
       })
       .catch((err) => {

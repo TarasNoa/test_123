@@ -3,6 +3,7 @@ using Libr4.IDE.Domain.AutonomousAppGeneration;
 
 namespace Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 
+[Obsolete("Legacy in-memory store for unit tests only. Production uses SqliteHermesMemoryStore via IMemoryStore.")]
 public sealed class InMemoryMemoryStore : IMemoryStore
 {
     private readonly ConcurrentDictionary<string, List<MemoryRecord>> _recordsByFingerprint = new(StringComparer.Ordinal);

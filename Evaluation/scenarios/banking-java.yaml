@@ -1,0 +1,13 @@
+id: banking-java
+displayName: Banking Java
+runs: 10
+maxIterations: 10
+expectedRecipeId: banking
+tags:
+  - java
+  - spring
+  - banking
+userRequest: |
+  Build a Banking app: Spring Boot backend with accounts and transfers API and React frontend dashboard.
+  Maven multi-module layout if needed. Include integration tests for account creation and transfer.
+  Match enterprise banking monorepo layout when appropriate. Keep scope bounded.

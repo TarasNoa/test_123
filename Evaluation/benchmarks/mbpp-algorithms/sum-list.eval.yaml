@@ -1,0 +1,24 @@
+id: mbpp-sum-list
+stack: mbpp-algorithms
+style: mbpp
+language: python
+prompt: |
+  Implement sum_list(nums) returning the sum of integers in nums.
+solution: |
+  def sum_list(nums):
+      total = 0
+      for value in nums:
+          total += value
+      return total
+tests:
+  - name: uses_iteration_or_builtin
+    requiredPatterns:
+      - "def sum_list"
+      - "return"
+    anyOf:
+      - "for "
+      - "sum("
+  - name: handles_accumulator
+    requiredPatterns:
+      - "total"
+      - "+="

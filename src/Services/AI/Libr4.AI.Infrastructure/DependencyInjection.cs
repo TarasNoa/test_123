@@ -97,8 +97,12 @@ public static class DependencyInjection
         services.AddSingleton<ILLMProviderFactory, LLMProviderFactory>();
 
         // AI Service Architecture (OpenRouter + multiple providers)
-        services.AddHttpClient<AI.Providers.OpenRouterProvider>();
+        services.AddHttpClient<AI.Providers.OpenRouterProvider>()
+            .ConfigurePrimaryHttpMessageHandler(AI.Providers.OpenRouterHttpClientHandlerFactory.Create)
+            .ConfigureHttpClient(client => client.Timeout = TimeSpan.FromMinutes(15));
         services.AddHttpClient<AI.Providers.AlibabaCloudProvider>();
+        services.Configure<AI.GpuThrottleOptions>(configuration.GetSection(AI.GpuThrottleOptions.SectionName));
+        services.AddSingleton<AI.IGpuResourceGuard, AI.NvidiaGpuResourceGuard>();
         services.AddHttpClient<AI.Providers.DockerModelRunnerProvider>();
         services.AddHttpClient<AI.Providers.OllamaProvider>();
         services.AddHttpClient<AI.Providers.GoogleProvider>();

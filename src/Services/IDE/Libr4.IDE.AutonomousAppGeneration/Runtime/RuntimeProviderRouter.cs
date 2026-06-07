@@ -1,4 +1,4 @@
-using Libr4.IDE.Application.AutonomousAppGeneration.Runtime.Docker;
+﻿using Libr4.IDE.Application.AutonomousAppGeneration.Runtime.Docker;
 using Microsoft.Extensions.Logging;
 
 namespace Libr4.IDE.Application.AutonomousAppGeneration.Runtime;
@@ -23,7 +23,7 @@ public sealed class RuntimeProviderRouter : IIsolatedRuntime
         DockerIsolatedRuntime docker,
         WslIsolatedRuntime wsl,
         HyperVRuntime hyperV,
-        ProcessIsolatedRuntime process,
+        IIsolatedRuntime process,
         IRuntimeDiagnostics diagnostics,
         ILogger<RuntimeProviderRouter> logger)
     {

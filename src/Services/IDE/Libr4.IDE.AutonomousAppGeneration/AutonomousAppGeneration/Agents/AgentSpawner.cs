@@ -1,4 +1,5 @@
 using Libr4.AI.Application.Abstractions;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 using Microsoft.Extensions.Logging;
 
 namespace Libr4.IDE.AutonomousAppGeneration.Agents;
@@ -11,6 +12,7 @@ public sealed class AgentSpawner : IAgentSpawner
 {
     private readonly AgentSkillRegistry _registry;
     private readonly IAIService _aiService;
+    private readonly IProviderCapabilityMatrix _providerMatrix;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<AgentSpawner> _logger;
 
@@ -20,11 +22,13 @@ public sealed class AgentSpawner : IAgentSpawner
     public AgentSpawner(
         AgentSkillRegistry registry,
         IAIService aiService,
+        IProviderCapabilityMatrix providerMatrix,
         ILoggerFactory loggerFactory,
         ILogger<AgentSpawner> logger)
     {
         _registry = registry;
         _aiService = aiService;
+        _providerMatrix = providerMatrix;
         _loggerFactory = loggerFactory;
         _logger = logger;
 
@@ -94,7 +98,7 @@ public sealed class AgentSpawner : IAgentSpawner
         var skillPath = _registry.GetSkillPath(stackId, AgentPhase.Generic);
         var logger = _loggerFactory.CreateLogger($"Subagent.{role}");
 
-        return new GenericImplementerAgent(skillPath, _aiService, logger);
+        return new GenericImplementerAgent(skillPath, _aiService, logger, spawner: this, _providerMatrix);
     }
 
     public IAgent SpawnByStack(string stackId, AgentPhase phase)
@@ -104,7 +108,7 @@ public sealed class AgentSpawner : IAgentSpawner
         var skillPath = _registry.GetSkillPath(stackId, phase);
         var logger = _loggerFactory.CreateLogger($"Subagent.{stackId}.{phase}");
 
-        return new GenericImplementerAgent(skillPath, _aiService, logger);
+        return new GenericImplementerAgent(skillPath, _aiService, logger, spawner: this, _providerMatrix);
     }
 
     public async Task<AgentResult> SpawnAndExecuteAsync(string role, AgentContext context, CancellationToken ct = default)

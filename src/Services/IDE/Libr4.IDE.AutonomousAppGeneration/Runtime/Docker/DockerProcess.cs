@@ -38,11 +38,11 @@ internal static class DockerProcess
             return (-1, logs);
         }
 
-        var stdout = StreamAsync(process.StandardOutput, "stdout", logs, ct);
-        var stderr = StreamAsync(process.StandardError, "stderr", logs, ct);
-
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(timeout);
+
+        var stdout = ProcessOutputPump.PumpAsync(process.StandardOutput, "stdout", logs, cts.Token);
+        var stderr = ProcessOutputPump.PumpAsync(process.StandardError, "stderr", logs, cts.Token);
 
         try
         {
@@ -63,15 +63,5 @@ internal static class DockerProcess
 
         await Task.WhenAll(stdout, stderr);
         return (process.ExitCode, logs);
-    }
-
-    private static async Task StreamAsync(
-        StreamReader reader, string stream, List<ConsoleLogEntry> logs, CancellationToken ct)
-    {
-        string? line;
-        while ((line = await reader.ReadLineAsync(ct)) != null)
-        {
-            lock (logs) { logs.Add(new ConsoleLogEntry(DateTime.UtcNow, stream, line)); }
-        }
     }
 }

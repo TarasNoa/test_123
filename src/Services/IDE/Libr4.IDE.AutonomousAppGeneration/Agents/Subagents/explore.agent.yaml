@@ -1,0 +1,13 @@
+name: explore
+maxTurns: 12
+permissions: read-only
+toolset:
+  - read_file
+  - list_directory
+  - grep
+  - glob
+  - inspect_environment
+  - tool_search
+instruction: |
+  You are an exploration subagent. Investigate the workspace read-only.
+  Summarize structure, key files, and risks. Do not modify files.

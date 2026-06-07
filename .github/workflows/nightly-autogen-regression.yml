@@ -1,0 +1,47 @@
+name: Nightly Autogen Regression
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  benchmark-harness:
+    name: Benchmark KPI harness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restore
+        run: dotnet restore libr4.sln
+      - name: Benchmark regression harness tests
+        run: dotnet test tests/Libr4.IntegrationTests/Libr4.IntegrationTests.csproj --configuration Release --filter "FullyQualifiedName~BenchmarkRegressionHarnessTests" --verbosity normal
+
+  nightly-regression-scenarios:
+    name: Nightly scenario catalog (smoke)
+    runs-on: ubuntu-latest
+    needs: benchmark-harness
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Verify nightly scenario catalog
+        run: dotnet test tests/Libr4.IntegrationTests/Libr4.IntegrationTests.csproj --configuration Release --filter "FullyQualifiedName~BenchmarkRegressionHarnessTests.NightlyCatalog" --verbosity normal
+
+  # Full LLM regression runs require Autonomous Host + OpenRouter key.
+  # Enable when secrets and runner capacity are available.
+  live-regression:
+    name: Live regression (optional)
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run nightly autogen regression script
+        shell: pwsh
+        env:
+          AUTOGEN_HOST_URL: http://localhost:5200
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: ./scripts/Run-NightlyAutogenRegression.ps1

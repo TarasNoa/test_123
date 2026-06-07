@@ -72,11 +72,14 @@ builder.Services.AddCors(options => {
 
 // Add services
 builder.Services.AddScoped<TerminalWebSocketHandler>();
-builder.Services.AddScoped<AgentEventWebSocketHandler>();
+builder.Services.AddSingleton<AgentEventWebSocketHandler>();
+builder.Services.AddSingleton<RunSyncWebSocketHandler>();
+builder.Services.AddHostedService<AgentRuntimeWebSocketBridge>();
 builder.Services.AddScoped<IDockerService, ProcessDockerService>();
 builder.Services.AddScoped<ITranslationService, OpenAITranslationService>();
 builder.Services.AddScoped<ITerminalService, DockerTerminalService>();
 builder.Services.AddScoped<IAgentEventEmitter, AgentEventEmitter>();
+builder.Services.AddSingleton<IAgentOrchestrationBroadcaster, AgentOrchestrationWebSocketBroadcaster>();
 builder.Services.AddScoped<IAgentOrchestrationTracker, AgentOrchestrationTracker>();
 builder.Services.AddScoped<ICodeSessionRepository, InMemoryCodeSessionRepository>();
 builder.Services.AddSingleton<IAgentStreamEmitter, AgentStreamEmitter>();
@@ -93,12 +96,9 @@ builder.Services.AddSingleton<Libr4.IDE.Application.ShadowWorkspace.IContainerLi
 builder.Services.AddHostedService<Libr4.IDE.Infrastructure.Containers.ContainerPoolWarmupService>();
 
 // Obscura Browser Automation - Golden Stack: Rust chromiumoxide via gRPC
-builder.Services.AddSingleton<IBrowserAutomationService, BrowserAutomationGrpcClient>();
-builder.Services.AddSingleton<IAgentObscuraTool, AgentObscuraTool>(); // Will use Rust service internally
-builder.Services.AddSingleton<IDomToMarkdownConverter, DomToMarkdownConverter>();
-builder.Services.AddSingleton<ISubagentObscuraIntegration, SubagentObscuraIntegration>();
+builder.Services.AddObscuraBrowserPlane(builder.Configuration);
+builder.Services.AddObscuraSessionHostedServices();
 builder.Services.AddSingleton<IAgentOrchestrator, Libr4.IDE.Application.MultiAgentOrchestration.MultiAgentOrchestrator>();
-builder.Services.AddSingleton<IObscuraBrowserTool, Libr4.IDE.Application.Obscura.ObscuraBrowserTool>();
 
 // AI Infrastructure (required by UnifiedChatEndpoints)
 builder.Services.AddAIInfrastructure(builder.Configuration);
@@ -202,7 +202,6 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.HackerAgent.Commands.RunHackerAgentCommand).Assembly));
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Libr4.IDE.Application.AIWorkflowAutomation.Commands.DistillWorkflowCommand).Assembly));
 builder.Services.AddSingleton<IQualityGateService, QualityGateService>();
-builder.Services.AddSingleton<IObscuraBrowserService, ObscuraBrowserServiceAdapter>();
 builder.Services.AddScoped<IAIConversationRepository, Libr4.IDE.Infrastructure.Persistence.EfAIConversationRepository>();
 builder.Services.AddScoped<ICodeSessionRepository, InMemoryCodeSessionRepository>();
 builder.Services.AddSingleton<Libr4.IDE.Infrastructure.Sandbox.ISandboxClient, Libr4.IDE.Infrastructure.Sandbox.RustSandboxExecutor>();
@@ -328,6 +327,10 @@ app.MapAgentStateEndpoints();
 // Unified Chat — Q&A or autonomous app generation (same path users type in IDE)
 app.MapUnifiedChatEndpoints();
 app.MapAutonomousAppGenerationEndpoints("/api/v1/ide/app-generation");
+app.MapAgentFleetEndpoints("/api/v1/ide/agent-fleet");
+app.MapGitHubCiWebhookEndpoints("/api/v1/ide/webhooks/github");
+app.MapAgentSpaceEndpoints("/api/v1/ide/spaces");
+Libr4.IDE.Application.AutonomousAppGeneration.Api.SessionSearchEndpoints.MapSessionSearchEndpoints(app, "/api/v1/ide/memory");
 
 // SignalR Hub for real-time agent updates
 app.MapHub<Libr4.IDE.Api.Hubs.AgentHub>("/hubs/agents");
@@ -503,6 +506,17 @@ app.MapGet("/ws/terminal/{sessionId}", async (string sessionId, TerminalWebSocke
 app.MapGet("/ws/events/{runId}", async (string runId, AgentEventWebSocketHandler handler, HttpContext context) =>
 {
     await handler.HandleWebSocketAsync(context, runId);
+});
+
+// WebSocket for run handoff live workspace sync (Phase 7.5.3)
+app.MapGet("/ws/run-sync/{runId:guid}", async (
+    Guid runId,
+    RunSyncWebSocketHandler handler,
+    HttpContext context,
+    string role,
+    string workspaceRoot) =>
+{
+    await handler.HandleWebSocketAsync(context, runId, role, workspaceRoot);
 });
 
 app.MapHub<ShadowWorkspaceHub>("/hubs/shadow-workspace");

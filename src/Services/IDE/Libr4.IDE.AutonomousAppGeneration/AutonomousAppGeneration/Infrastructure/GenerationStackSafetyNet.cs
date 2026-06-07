@@ -2672,7 +2672,7 @@ module.exports = router;";
         """
         #!/usr/bin/env sh
         set -e
-        (cd backend && mvn -q -DskipTests package) || true
+        (cd backend && mvn -B -ntp -DskipTests package) || true
         (cd frontend && npm ci && npm run build) || true
         """;
 
@@ -2702,7 +2702,10 @@ module.exports = router;";
 
         @Service
         public class TransferService {
+            private final Object transferLock = new Object();
+
             public Map<String, Object> createTransfer(Map<String, Object> body) {
+                synchronized (transferLock) { // transfer serialized for idempotency
                 String idempotencyKey = String.valueOf(body.getOrDefault("idempotency_key", "idem-" + UUID.randomUUID()));
                 return Map.of(
                     "id", "tr-" + UUID.randomUUID(),
@@ -2713,6 +2716,7 @@ module.exports = router;";
                     "status", "completed",
                     "audit_log", "transfer_recorded"
                 );
+                }
             }
         }
         """;

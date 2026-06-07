@@ -38,7 +38,9 @@ public sealed class AppGenerationRunStarter : IAppGenerationRunStarter
         StartAppGenerationCommand command,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(command.UserRequest) && command.ResumeFromRunId is null)
+        if (string.IsNullOrWhiteSpace(command.UserRequest)
+            && command.ResumeFromRunId is null
+            && string.IsNullOrWhiteSpace(command.ResumeSeedPath))
             return new AppGenerationRunStartResult(null, "invalid", "userRequest is required");
 
         var fingerprint = AppGenerationRequestFingerprint.Build(

@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Libr4.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
@@ -17,14 +21,33 @@
     <ProjectReference Include="..\..\AI\Libr4.AI.Infrastructure\Libr4.AI.Infrastructure.csproj" />
     <!-- P2-7: F# rules engine companion -->
     <ProjectReference Include="..\Libr4.IDE.AutonomousAppGeneration.Rules.FSharp\Libr4.IDE.AutonomousAppGeneration.Rules.FSharp.fsproj" />
+    <!-- Wave 1: F# algorithms (RepoGraph, Patching, Fusion, Playbook) -->
+    <ProjectReference Include="..\Libr4.IDE.AutonomousAppGeneration.Algorithms.FSharp\Libr4.IDE.AutonomousAppGeneration.Algorithms.FSharp.fsproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="FSharp.Core" />
+    <PackageReference Include="Grpc.Net.Client" />
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="Protos\embeddings.proto" GrpcServices="Client" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Include="Agents\Skills\**\SKILL.md">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Agents\Subagents\*.agent.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Flows\*.flow.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\..\..\..\Evaluation\**\*">
+      <Link>Evaluation\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
@@ -40,6 +63,23 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <!-- P1-8 of audit roadmap: parameterised templates for deterministic fallback artefacts. -->
     <PackageReference Include="Scriban.Signed" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="MassTransit" />
+    <PackageReference Include="MassTransit.RabbitMQ" />
+    <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="AgentRuntime\Config\execpolicy.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="AgentRuntime\Config\obscura-exec-policy.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <Import Project="..\..\..\..\build\Libr4.RustNative.targets" />
+  <Import Project="..\..\..\..\build\Libr4.CppNative.targets" />
 
 </Project>

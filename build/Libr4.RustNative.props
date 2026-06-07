@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <Libr4RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\'))</Libr4RepoRoot>
+    <Libr4RustWorkspaceDir>$(Libr4RepoRoot)rust</Libr4RustWorkspaceDir>
+    <Libr4SandboxExecutorDir>$(Libr4RepoRoot)src\Services\AI\Rust\libr4-sandbox-executor</Libr4SandboxExecutorDir>
+    <Libr4RustReleaseDir>$(Libr4RustWorkspaceDir)\target\release</Libr4RustReleaseDir>
+    <Libr4SandboxReleaseDir>$(Libr4SandboxExecutorDir)\target\release</Libr4SandboxReleaseDir>
+    <!-- Set BuildLibr4RustNative=true to compile cdylibs before dotnet build -->
+    <BuildLibr4RustNative Condition="'$(BuildLibr4RustNative)' == ''">false</BuildLibr4RustNative>
+    <!-- ide | gateway | all -->
+    <Libr4RustNativeScope Condition="'$(Libr4RustNativeScope)' == ''">ide</Libr4RustNativeScope>
+    <CopyLibr4RustNativeLibraries Condition="'$(CopyLibr4RustNativeLibraries)' == ''">true</CopyLibr4RustNativeLibraries>
+  </PropertyGroup>
+</Project>

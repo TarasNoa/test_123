@@ -39,7 +39,8 @@ public class AITest
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
         services.AddSingleton(loggerFactory);
-        services.AddHttpClient<OpenRouterProvider>();
+        services.AddHttpClient<OpenRouterProvider>()
+            .ConfigurePrimaryHttpMessageHandler(OpenRouterHttpClientHandlerFactory.Create);
         services.AddSingleton<AIProviderFactory>();
         services.AddScoped<IAIService, AIService>();
 

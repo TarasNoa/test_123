@@ -35,6 +35,14 @@ public static class StackArtifactCompleteness
         @"^[a-zA-Z0-9][a-zA-Z0-9_./\-]*\.[a-zA-Z0-9]{1,12}$|^[a-zA-Z0-9][a-zA-Z0-9_./\-]+/$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
+    /// <summary>
+    /// Merges live workspace files with phase batch outputs (workspace wins on tie by longer content).
+    /// </summary>
+    public static List<GeneratedFile> MergeWorkspaceAndPhaseBatches(
+        IReadOnlyList<GeneratedFile> workspaceFiles,
+        IEnumerable<GeneratedFile> phaseBatchFiles) =>
+        NormalizeAndDeduplicate(workspaceFiles.Concat(phaseBatchFiles).ToList()).ToList();
+
     public static IReadOnlyList<GeneratedFile> NormalizeAndDeduplicate(IReadOnlyList<GeneratedFile> files)
     {
         var dict = new Dictionary<string, GeneratedFile>(StringComparer.OrdinalIgnoreCase);

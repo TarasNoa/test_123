@@ -49,6 +49,11 @@ public sealed class AppGenerationOrchestrator : AggregateRoot<Guid>
     public IReadOnlyList<CascadePlanAuditEntry> CascadePlans => _cascadePlans.AsReadOnly();
     public IReadOnlyList<CheckpointAuditEntry> Checkpoints => _checkpoints.AsReadOnly();
     public IReadOnlyList<TriggerIngestionAuditEntry> Triggers => _triggers.AsReadOnly();
+    public IReadOnlyList<RecoveryEfficiencyRecord> RecoveryEfficiencyRecords => _recoveryEfficiency.AsReadOnly();
+    public RunFirstFailureSnapshot? FirstFailure => _firstFailure;
+
+    /// <summary>Furthest pipeline milestone reached (Generation → Security → … → Completed).</summary>
+    public string? PipelineStageReached => _pipelineStageReached;
 
     private readonly List<IterationCycle> _iterations = new();
     private readonly List<GeneratedFile> _files = new();
@@ -62,6 +67,9 @@ public sealed class AppGenerationOrchestrator : AggregateRoot<Guid>
     private readonly List<CascadePlanAuditEntry> _cascadePlans = new();
     private readonly List<CheckpointAuditEntry> _checkpoints = new();
     private readonly List<TriggerIngestionAuditEntry> _triggers = new();
+    private readonly List<RecoveryEfficiencyRecord> _recoveryEfficiency = new();
+    private RunFirstFailureSnapshot? _firstFailure;
+    private string? _pipelineStageReached;
 
     private AppGenerationOrchestrator() { }
 
@@ -82,6 +90,19 @@ public sealed class AppGenerationOrchestrator : AggregateRoot<Guid>
             throw new ArgumentException("Request fingerprint must be provided", nameof(requestFingerprint));
 
         return new AppGenerationOrchestrator(Guid.NewGuid(), userRequest, requestFingerprint);
+    }
+
+    /// <summary>Reconstructs orchestrator identity for offline export/import CLI against on-disk run artifacts.</summary>
+    public static AppGenerationOrchestrator CreateFromRun(Guid runId, string userRequest, string requestFingerprint)
+    {
+        if (runId == Guid.Empty)
+            throw new ArgumentException("Run id must be provided", nameof(runId));
+        if (string.IsNullOrWhiteSpace(userRequest))
+            throw new ArgumentException("User request must be provided", nameof(userRequest));
+        if (string.IsNullOrWhiteSpace(requestFingerprint))
+            throw new ArgumentException("Request fingerprint must be provided", nameof(requestFingerprint));
+
+        return new AppGenerationOrchestrator(runId, userRequest, requestFingerprint);
     }
 
     /// <summary>P2-3: assigns a tenant to this run; can only be set once before generation starts.</summary>
@@ -185,6 +206,7 @@ public sealed class AppGenerationOrchestrator : AggregateRoot<Guid>
 
     public void MarkCompleted()
     {
+        RecordPipelineStageReached(AutonomousPipelineStages.Completed);
         Status = GenerationStatus.Completed;
         CompletedAt = DateTime.UtcNow;
         UpdatedAt = DateTime.UtcNow;
@@ -194,6 +216,7 @@ public sealed class AppGenerationOrchestrator : AggregateRoot<Guid>
 
     public void MarkFailed(string reason)
     {
+        FinalizeLastRecoveryOutcome(buildSucceeded: false);
         Status = GenerationStatus.Failed;
         FailureReason = reason ?? "unknown";
         CompletedAt = DateTime.UtcNow;
@@ -278,6 +301,79 @@ public sealed class AppGenerationOrchestrator : AggregateRoot<Guid>
     {
         _triggers.Add(entry);
         UpdatedAt = DateTime.UtcNow;
+    }
+
+    public void RecordRecoveryEfficiency(RecoveryEfficiencyRecord record)
+    {
+        if (record is null)
+            throw new ArgumentNullException(nameof(record));
+        _recoveryEfficiency.Add(record);
+        RecordPipelineFirstFailure(
+            record.PrimaryErrorClass,
+            record.RootCauseCategory.ToString(),
+            record.IterationNumber);
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Captures the first failure signal (repair loop or early pipeline gate).</summary>
+    public void RecordPipelineFirstFailure(string errorClass, string rootCauseCategory, int iterationNumber = 0)
+    {
+        if (string.IsNullOrWhiteSpace(errorClass))
+            return;
+        _firstFailure ??= new RunFirstFailureSnapshot(
+            errorClass,
+            rootCauseCategory,
+            iterationNumber,
+            null);
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Records the furthest pipeline stage reached; never downgrades a prior milestone.</summary>
+    public void RecordPipelineStageReached(string stage)
+    {
+        if (string.IsNullOrWhiteSpace(stage))
+            return;
+
+        var newOrder = AutonomousPipelineStages.GetOrder(stage);
+        if (newOrder < 0)
+            return;
+
+        if (_pipelineStageReached is not null)
+        {
+            var currentOrder = AutonomousPipelineStages.GetOrder(_pipelineStageReached);
+            if (currentOrder >= newOrder)
+                return;
+        }
+
+        _pipelineStageReached = stage;
+        UpdatedAt = DateTime.UtcNow;
+    }
+
+    /// <summary>Marks the latest pending repair attempt outcome after the next build pass.</summary>
+    public void FinalizeLastRecoveryOutcome(bool buildSucceeded)
+    {
+        for (var i = _recoveryEfficiency.Count - 1; i >= 0; i--)
+        {
+            if (_recoveryEfficiency[i].BuildSucceededAfterRepair is not null)
+                continue;
+
+            var r = _recoveryEfficiency[i];
+            var durationMs = (long)(DateTime.UtcNow - r.AttemptedAtUtc).TotalMilliseconds;
+            _recoveryEfficiency[i] = r with
+            {
+                BuildSucceededAfterRepair = buildSucceeded,
+                RepairDurationMs = durationMs
+            };
+            if (_firstFailure is not null
+                && _firstFailure.IterationNumber == r.IterationNumber
+                && _firstFailure.RecoveredAfterRepair is null)
+            {
+                _firstFailure = _firstFailure with { RecoveredAfterRepair = buildSucceeded };
+            }
+
+            UpdatedAt = DateTime.UtcNow;
+            return;
+        }
     }
 
     public bool CanIterateMore() =>

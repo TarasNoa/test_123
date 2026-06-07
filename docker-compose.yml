@@ -103,6 +103,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      obscura:
+        condition: service_started
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
@@ -354,6 +356,7 @@ services:
 
   # Ollama for local LLM inference (Qwen3-Coder-Next, Qwen3-8B, etc.)
   ollama:
+    profiles: [agent]
     image: ollama/ollama:latest
     container_name: libr4-ollama
     restart: unless-stopped
@@ -397,13 +400,12 @@ services:
 
   # Rust Shadow Sync Service - High-performance file sync for Shadow Workspace
   shadow-sync:
+    profiles: [agent]
     build:
       context: ./obscura
       dockerfile: crates/shadow-sync/Dockerfile
     container_name: libr4-shadow-sync
     restart: unless-stopped
-    depends_on:
-      - ide-api
     environment:
       SHADOW_SYNC_SOURCE: /workspace/source
       SHADOW_SYNC_TARGET: /workspace/target
@@ -414,10 +416,17 @@ services:
     volumes:
       - workspace_source:/workspace/source
       - workspace_target:/workspace/target
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
 
   # Rust Sandbox Controller - Resource monitoring and kill switch
   sandbox-controller:
+    profiles: [agent]
     build:
       context: ./obscura
       dockerfile: crates/sandbox-controller/Dockerfile
@@ -425,17 +434,25 @@ services:
     restart: unless-stopped
     privileged: true  # Required for container monitoring
     depends_on:
-      - docker-socket
+      docker-socket:
+        condition: service_started
     environment:
       DOCKER_SOCKET: /var/run/docker.sock
     ports:
       - "9090:9090"  # API port
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
 
   # Docker socket proxy for security (optional, for production)
   docker-socket:
+    profiles: [agent]
     image: tecnativa/docker-socket-proxy:latest
     container_name: libr4-docker-socket
     restart: unless-stopped
@@ -449,20 +466,26 @@ services:
 
   # Rust Security Scanner - Autonomous offensive security
   security-scanner:
+    profiles: [agent]
     build:
       context: ./obscura
       dockerfile: crates/security-scanner/Dockerfile
     container_name: libr4-security-scanner
     restart: unless-stopped
     depends_on:
-      - ide-api
-      - sandbox-controller
+      sandbox-controller:
+        condition: service_started
     environment:
       RUST_LOG: info
       SCAN_TIMEOUT_SECS: 30
     ports:
       - "7070:7070"  # API port
-
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7070/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
 
   # Rust Binary Archeology - Legacy code migration
   binary-archeology:
@@ -478,8 +501,79 @@ services:
     volumes:
       - binary_uploads:/uploads
 
+  autonomous-app-generation-host:
+    build:
+      context: .
+      dockerfile: src/Services/IDE/Libr4.IDE.AutonomousAppGeneration.Host/Dockerfile
+    container_name: libr4-autonomous-app-generation-host
+    profiles:
+      - agent
+    depends_on:
+      obscura:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      shadow-sync:
+        condition: service_healthy
+      sandbox-controller:
+        condition: service_healthy
+      security-scanner:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+      rust-embeddings:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      PORT: "8080"
+      Obscura__GrpcEndpoint: http://obscura:50052
+      Obscura__CdpFallback: http://obscura:9222
+      Obscura__RequireHealthyAtStartup: "true"
+      Obscura__EnablePostVerifySecurityScan: "true"
+      Obscura__SecurityScannerBaseUrl: http://security-scanner:7070
+      Obscura__EvidenceRoot: /artifacts/runs
+      BROWSER_AUTOMATION_ADDR: http://obscura:50052
+      AutonomousAppGeneration__RuntimeProvider: docker
+      AutonomousAppGeneration__AgentRuntime__RunsRoot: /artifacts/runs
+      AutonomousAppGeneration__AgentIntegration__Verify__EvidenceRoot: /artifacts/runs
+      AutonomousAppGeneration__AgentStack__RequireHealthyAtStartup: "true"
+      AutonomousAppGeneration__AgentStack__RequireHealthyBeforeRun: "true"
+      AutonomousAppGeneration__AgentStack__ShadowSyncBaseUrl: http://shadow-sync:8080
+      AutonomousAppGeneration__AgentStack__SandboxControllerBaseUrl: http://sandbox-controller:9090
+      AutonomousAppGeneration__AgentStack__SecurityScannerBaseUrl: http://security-scanner:7070
+      AutonomousAppGeneration__AgentStack__QdrantBaseUrl: http://qdrant:6333
+      AutonomousAppGeneration__AgentStack__EnableQdrantGate: "true"
+      Memory__UseQdrantSync: "true"
+      Memory__Qdrant__BaseUrl: http://qdrant:6333
+      Memory__Embeddings__Provider: grpc
+      Memory__Embeddings__GrpcAddress: http://rust-embeddings:50061
+      Memory__Embeddings__BaseUrl: http://ollama:11434
+      AutonomousAppGeneration__HostProfile__ActiveProfile: OpenRouter
+      LIBR4_HOST_PROFILE: OpenRouter
+      AI__DefaultProvider: OpenRouter
+      AI__OpenRouter__ApiKey: ${OPENROUTER_API_KEY:-}
+      AI__OpenRouter__Endpoint: ${OPENROUTER_ENDPOINT:-https://openrouter.ai/api/v1}
+      AI__OpenRouter__DefaultModel: ${OPENROUTER_MODEL:-deepseek/deepseek-v4-flash}
+      ProviderCapabilityMatrix__DefaultProvider: openrouter
+      ProviderCapabilityMatrix__ApiModel: ${OPENROUTER_MODEL:-deepseek/deepseek-v4-flash}
+      ProviderCapabilityMatrix__FallbackModel: ${OPENROUTER_MODEL:-deepseek/deepseek-v4-flash}
+      ProviderCapabilityMatrix__ReasoningModel: ${OPENROUTER_MODEL:-deepseek/deepseek-v4-flash}
+      ProviderCapabilityMatrix__CodeGenerationModel: ${OPENROUTER_MODEL:-deepseek/deepseek-v4-flash}
+    ports:
+      - "5199:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - autonomous_runs:/artifacts/runs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/obscura || wget -qO- http://localhost:8080/swagger/index.html || exit 1"]
+      interval: 15s
+      timeout: 8s
+      retries: 8
+      start_period: 45s
+
   # Upstream Obscura CDP service (GitHub: h4ckf0r0day/obscura)
   obscura:
+    profiles: [agent]
     build:
       context: ./obscura
       dockerfile: Dockerfile
@@ -492,10 +586,12 @@ services:
       test: ["CMD-SHELL", "nc -z localhost 9222 || exit 1"]
       interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 8
+      start_period: 20s
 
 
   qdrant:
+    profiles: [agent]
     image: qdrant/qdrant:v1.9.0
     container_name: libr4-qdrant
     ports:
@@ -505,6 +601,12 @@ services:
       - qdrant_data:/qdrant/storage
     environment:
       QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
 
   rust-embeddings:
@@ -587,6 +689,7 @@ services:
       start_period: 20s
 
 volumes:
+  autonomous_runs:
   ollamadata:
   workspace_source:
   workspace_target:

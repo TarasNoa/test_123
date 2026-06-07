@@ -1,0 +1,53 @@
+name: banking-java-react
+version: 1
+description: Java Spring Boot + React banking stack
+nodes:
+  - id: plan
+    type: stage
+    stage: planning
+  - id: generate-backend
+    type: stage
+    stage: generating
+    phase: Backend
+  - id: backend-gate
+    type: gate
+    preconditions:
+      - kind: files_exist
+        paths:
+          - backend/pom.xml
+          - backend/src/main/java
+  - id: generate-frontend
+    type: stage
+    stage: generating
+    phase: Frontend
+  - id: test
+    type: stage
+    stage: testing
+  - id: ship
+    type: stage
+    stage: completed
+edges:
+  - from: plan
+    to: generate-backend
+    on: success
+  - from: generate-backend
+    to: backend-gate
+    on: success
+  - from: backend-gate
+    to: generate-frontend
+    on: success
+  - from: backend-gate
+    to: generate-backend
+    on: failure
+    action: escalate
+  - from: generate-frontend
+    to: test
+    on: success
+  - from: test
+    to: ship
+    on: success
+  - from: test
+    to: generate-backend
+    on: failure
+    action: retry
+    maxRetries: 2

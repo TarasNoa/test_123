@@ -40,11 +40,13 @@ type ClassifiedError = {
 /// Module for error classification logic
 module ErrorClassifier =
     
+    type private PatternHandler = Regex * (Match -> ErrorLocation -> string -> ClassifiedError option)
+
     /// Regex patterns for common errors
-    let private patterns = [
+    let private patterns : PatternHandler list = [
         // Missing semicolon (TypeScript/JavaScript/C#)
         (Regex(@";\s*$", RegexOptions.Multiline), 
-         fun m loc msg -> Some {
+         fun (_m: Match) loc msg -> Some {
              Classification = MissingSemicolon
              Location = loc
              OriginalMessage = msg
@@ -55,7 +57,7 @@ module ErrorClassifier =
         
         // Missing import (TypeScript)
         (Regex(@"Cannot find name '([^']+)'.*Did you mean to import '([^']+)'\?"),
-         fun m loc msg -> 
+         fun (m: Match) loc msg -> 
              let varName = m.Groups.[1].Value
              let moduleName = m.Groups.[2].Value
              Some {
@@ -69,7 +71,7 @@ module ErrorClassifier =
         
         // Undefined variable
         (Regex(@"(ReferenceError|CS0103):?\s*The name '([^']+)' does not exist"),
-         fun m loc msg ->
+         fun (m: Match) loc msg ->
              let varName = m.Groups.[2].Value
              Some {
                  Classification = UndefinedVariable varName
@@ -82,7 +84,7 @@ module ErrorClassifier =
         
         // Missing brace
         (Regex(@"(Unexpected end of input|CS1513):?\s*[^}]*\{|expected '}'"),
-         fun m loc msg ->
+         fun (_m: Match) loc msg ->
              Some {
                  Classification = MissingBrace "curly"
                  Location = loc
@@ -94,7 +96,7 @@ module ErrorClassifier =
         
         // Type mismatch (TypeScript)
         (Regex(@"Type '([^']+)' is not assignable to type '([^']+)'"),
-         fun m loc msg ->
+         fun (m: Match) loc msg ->
              let actual = m.Groups.[1].Value
              let expected = m.Groups.[2].Value
              Some {
@@ -108,7 +110,7 @@ module ErrorClassifier =
         
         // Import cycle
         (Regex(@"(Circular dependency|import cycle)"),
-         fun m loc msg ->
+         fun (_m: Match) loc msg ->
              Some {
                  Classification = ImportCycle []  // Would need to extract module names
                  Location = loc

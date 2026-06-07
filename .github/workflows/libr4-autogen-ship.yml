@@ -1,0 +1,46 @@
+name: Libr4 Autogen Ship
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Libr4 autonomous generation run ID
+        required: true
+        type: string
+      app_name:
+        description: Generated application name
+        required: false
+        type: string
+      head_branch:
+        description: Branch containing generated app (if PR was opened)
+        required: false
+        type: string
+      verify_summary:
+        description: Verify stage summary excerpt
+        required: false
+        type: string
+
+jobs:
+  ship-gate:
+    name: Post-verify ship gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log ship metadata
+        run: |
+          echo "Libr4 run: ${{ inputs.run_id }}"
+          echo "App: ${{ inputs.app_name }}"
+          echo "Head branch: ${{ inputs.head_branch }}"
+          echo "Verify summary:"
+          echo "${{ inputs.verify_summary }}"
+
+      - name: Checkout generated branch
+        if: inputs.head_branch != ''
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head_branch }}
+
+      - name: Validate generated app present
+        if: inputs.head_branch != ''
+        run: |
+          test -n "${{ inputs.app_name }}"
+          echo "Generated app branch checked out successfully"

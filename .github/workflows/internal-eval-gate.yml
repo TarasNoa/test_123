@@ -1,0 +1,24 @@
+name: Internal Eval Gate
+
+on:
+  pull_request:
+    paths:
+      - "Evaluation/**"
+      - "src/Services/IDE/Libr4.IDE.AutonomousAppGeneration/AutonomousAppGeneration/Evaluation/**"
+      - "tests/Libr4.IntegrationTests/IDE/InternalEvalHarnessTests.cs"
+      - ".github/workflows/internal-eval-gate.yml"
+  workflow_dispatch:
+
+jobs:
+  eval-regression-gate:
+    name: Internal eval regression gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Restore
+        run: dotnet restore libr4.sln
+      - name: Run internal eval harness tests
+        run: dotnet test tests/Libr4.IntegrationTests/Libr4.IntegrationTests.csproj --configuration Release --filter "FullyQualifiedName~InternalEvalHarnessTests" --verbosity normal

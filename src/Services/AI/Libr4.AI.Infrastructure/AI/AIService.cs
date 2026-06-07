@@ -1,3 +1,4 @@
+using Libr4.AI.Application.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Libr4.AI.Application.Abstractions;
@@ -171,6 +172,13 @@ public class AIService : IAIService
     private string ResolveCompletionModel(string? model, string context, string task)
     {
         model = SanitizeModelId(model);
+        var prefs = LlmCallPreferenceContext.CurrentPreferences;
+        if (prefs?.ModelOverride is { Length: > 0 } batchModel)
+        {
+            _logger.LogInformation("Using batch LLM model override {ModelId} for {Task}", batchModel, task);
+            return RemapModelForConfiguredProvider(batchModel);
+        }
+
         if (!string.IsNullOrEmpty(model))
             return RemapModelForConfiguredProvider(model);
 

@@ -1,3 +1,5 @@
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Profile;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Honcho;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 
@@ -14,13 +16,19 @@ namespace Libr4.IDE.Application.AutonomousAppGeneration.Services.Pipeline;
 public sealed class PlanGenerationStage : IGenerationStage
 {
     private readonly IAppPlannerService _planner;
+    private readonly IUserProfileService? _userProfiles;
+    private readonly IHonchoMemoryService? _honcho;
     private readonly ILogger<PlanGenerationStage> _logger;
 
     public PlanGenerationStage(
         IAppPlannerService planner,
-        ILogger<PlanGenerationStage> logger)
+        ILogger<PlanGenerationStage> logger,
+        IUserProfileService? userProfiles = null,
+        IHonchoMemoryService? honcho = null)
     {
         _planner = planner;
+        _userProfiles = userProfiles;
+        _honcho = honcho;
         _logger = logger;
     }
 
@@ -38,7 +46,24 @@ public sealed class PlanGenerationStage : IGenerationStage
 
         try
         {
-            var plan = await _planner.PlanAsync(context.UserRequest, ct).ConfigureAwait(false);
+            var planningRequest = context.UserRequest;
+            if (_userProfiles is not null)
+                planningRequest = await _userProfiles.AugmentPlanningRequestAsync(
+                    context.Orchestrator,
+                    planningRequest,
+                    ct).ConfigureAwait(false);
+
+            if (_honcho is not null)
+            {
+                context.Items.TryGetValue("project_workspace_path", out var workspacePathObj);
+                planningRequest = await _honcho.AugmentPlanningRequestAsync(
+                    context.Orchestrator,
+                    planningRequest,
+                    workspacePathObj as string,
+                    ct).ConfigureAwait(false);
+            }
+
+            var plan = await _planner.PlanAsync(planningRequest, ct).ConfigureAwait(false);
             context.Plan = ApplyMaxIterationsCap(plan, context.RequestedMaxIterations);
             return StageOutcome.Continue;
         }

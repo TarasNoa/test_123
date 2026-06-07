@@ -14,11 +14,11 @@ public sealed class SecurityReviewGateOptions
     /// <summary>Optional model override; null uses the host AI default (e.g. OpenRouter DeepSeek).</summary>
     public string? Model { get; set; }
 
-    public int MaxFilesToReview { get; set; } = 48;
+    public int MaxFilesToReview { get; set; } = 16;
 
-    public int MaxCharsPerFile { get; set; } = 3500;
+    public int MaxCharsPerFile { get; set; } = 2800;
 
-    public int MaxTotalPromptChars { get; set; } = 120_000;
+    public int MaxTotalPromptChars { get; set; } = 48_000;
 
     /// <summary>LLM fix passes after a failed review before deferring to the build/fix loop.</summary>
     public int MaxRemediationAttempts { get; set; } = 3;

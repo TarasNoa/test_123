@@ -130,6 +130,7 @@ public class SubagentObscuraIntegration : ISubagentObscuraIntegration
 {
     private readonly IObscuraBrowserService _browserService;
     private readonly IAgentObscuraTool _agentTool;
+    private readonly DataSelectorExecutionEngine _selectorEngine;
     private readonly ILogger<SubagentObscuraIntegration> _logger;
     private readonly Dictionary<string, SubagentBrowserConfig> _configs = new();
     private readonly object _lock = new();
@@ -137,10 +138,12 @@ public class SubagentObscuraIntegration : ISubagentObscuraIntegration
     public SubagentObscuraIntegration(
         IObscuraBrowserService browserService,
         IAgentObscuraTool agentTool,
+        DataSelectorExecutionEngine selectorEngine,
         ILogger<SubagentObscuraIntegration> logger)
     {
         _browserService = browserService;
         _agentTool = agentTool;
+        _selectorEngine = selectorEngine;
         _logger = logger;
     }
 
@@ -166,8 +169,7 @@ public class SubagentObscuraIntegration : ISubagentObscuraIntegration
             "Executing browser task {TaskName} for subagent {SubagentId} with {ParamCount} parameters",
             taskName, subagentId, parameters.Count);
 
-        // Build actions from template
-        var actions = BuildActionsFromTemplate(taskDef.Actions, parameters);
+        var actions = BrowserTaskTemplateEngine.BuildActions(taskDef.Actions, parameters);
 
         // Launch browser
         var sessionId = await _browserService.LaunchBrowserAsync(new ObscuraLaunchOptions
@@ -188,7 +190,8 @@ public class SubagentObscuraIntegration : ISubagentObscuraIntegration
             var extractedData = new Dictionary<string, object>();
             if (taskDef.ExtractionRules.Any())
             {
-                extractedData = await ExtractDataAsync(sessionId, taskDef.ExtractionRules, ct);
+                extractedData = await _selectorEngine.ExecuteExtractionRulesAsync(
+                    sessionId, taskDef.ExtractionRules, ct);
             }
 
             // Get final screenshot
@@ -268,41 +271,11 @@ public class SubagentObscuraIntegration : ISubagentObscuraIntegration
             await _browserService.NavigateAsync(sessionId, url, ct);
             await Task.Delay(2000, ct);
 
-            // Extract using selectors
-            var extractedData = new Dictionary<string, object>();
-            var extractionLogs = new List<string>();
-
-            foreach (var selector in config.DataSelectors)
-            {
-                try
-                {
-                    object? value = null;
-                    
-                    switch (selector.Type)
-                    {
-                        case SelectorType.Css:
-                            value = await ExtractWithCssSelectorAsync(sessionId, selector, ct);
-                            break;
-                            
-                        case SelectorType.XPath:
-                            value = await ExtractWithXPathAsync(sessionId, selector, ct);
-                            break;
-                            
-                        case SelectorType.JavaScript:
-                            value = await ExtractWithJavaScriptAsync(sessionId, selector, ct);
-                            break;
-                    }
-
-                    extractedData[selector.Name] = value ?? "null";
-                    extractionLogs.Add($"{selector.Name}: {value ?? "null"}");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to extract {SelectorName} for subagent {SubagentId}", 
-                        selector.Name, subagentId);
-                    extractedData[selector.Name] = $"ERROR: {ex.Message}";
-                }
-            }
+            var extractedData = await _selectorEngine.ExecuteSelectorsAsync(
+                sessionId, config.DataSelectors, ct);
+            var extractionLogs = extractedData
+                .Select(kv => $"{kv.Key}: {kv.Value}")
+                .ToList();
 
             // Screenshot
             var screenshot = await _browserService.TakeScreenshotAsync(sessionId, ct);
@@ -475,99 +448,6 @@ public class SubagentObscuraIntegration : ISubagentObscuraIntegration
             Logs = logs,
             DurationMs = (int)stopwatch.ElapsedMilliseconds
         };
-    }
-
-    private async Task<Dictionary<string, object>> ExtractDataAsync(
-        string sessionId, 
-        List<DataExtractionRule> rules, 
-        CancellationToken ct)
-    {
-        var data = new Dictionary<string, object>();
-
-        foreach (var rule in rules)
-        {
-            try
-            {
-                string script;
-                
-                if (rule.Type == DataExtractionType.JavaScript)
-                {
-                    script = rule.Selector;
-                }
-                else
-                {
-                    var attrPart = rule.Attribute != null 
-                        ? $".getAttribute('{rule.Attribute}')" 
-                        : ".textContent";
-                    
-                    script = $@"
-                        (function() {{
-                            var el = document.querySelector('{rule.Selector.Replace("'", "\\'")}');
-                            if (!el) return null;
-                            return el{attrPart};
-                        }})()
-                    ";
-                }
-
-                var result = await _browserService.ExecuteJavaScriptAsync(sessionId, script, ct);
-                data[rule.FieldName] = result ?? rule.DefaultValue ?? "null";
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to extract {FieldName}", rule.FieldName);
-                if (rule.Required)
-                {
-                    throw;
-                }
-                data[rule.FieldName] = $"ERROR: {ex.Message}";
-            }
-        }
-
-        return data;
-    }
-
-    private async Task<object?> ExtractWithCssSelectorAsync(string sessionId, DataSelector selector, CancellationToken ct)
-    {
-        var script = $@"
-            (function() {{
-                var el = document.querySelector('{selector.Selector.Replace("'", "\\'")}');
-                if (!el) return null;
-                return {GetReturnExpression(selector)};
-            }})()
-        ";
-        
-        var result = await _browserService.ExecuteJavaScriptAsync(sessionId, script, ct);
-        return result;
-    }
-
-    private async Task<object?> ExtractWithXPathAsync(string sessionId, DataSelector selector, CancellationToken ct)
-    {
-        var script = $@"
-            (function() {{
-                var result = document.evaluate('{selector.Selector.Replace("'", "\\'")}', document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
-                var el = result.singleNodeValue;
-                if (!el) return null;
-                return {GetReturnExpression(selector)};
-            }})()
-        ";
-        
-        var result = await _browserService.ExecuteJavaScriptAsync(sessionId, script, ct);
-        return result;
-    }
-
-    private async Task<object?> ExtractWithJavaScriptAsync(string sessionId, DataSelector selector, CancellationToken ct)
-    {
-        var result = await _browserService.ExecuteJavaScriptAsync(sessionId, selector.Selector, ct);
-        return result;
-    }
-
-    private string GetReturnExpression(DataSelector selector)
-    {
-        if (selector.Attribute != null)
-        {
-            return $"el.getAttribute('{selector.Attribute}')";
-        }
-        return "el.textContent?.trim()";
     }
 
     private class ActionExecutionResult

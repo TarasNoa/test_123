@@ -16,6 +16,12 @@ public sealed class WslIsolatedRuntime : IIsolatedRuntime
 {
     private readonly ILogger<WslIsolatedRuntime> _logger;
 
+    /// <summary>
+    /// When true, commands execute on the Windows host (cmd.exe) instead of the default WSL distro.
+    /// Used for docker-desktop Alpine where apt/apk toolchains are unreliable.
+    /// </summary>
+    public static bool UsesHostWindowsExecution { get; private set; }
+
     public string ProviderName => "wsl";
 
     public WslIsolatedRuntime(ILogger<WslIsolatedRuntime> logger)
@@ -44,9 +50,25 @@ public sealed class WslIsolatedRuntime : IIsolatedRuntime
             "Starting WSL runtime session. Image hint {Image} is ignored for default distro execution.",
             image);
 
+        UsesHostWindowsExecution = await DetectDockerDesktopDistroAsync(ct);
+
         var sessionId = $"wsl-{Guid.NewGuid():N}";
         var guestMount = ToWslPath(hostMountPath);
-        return new WslRuntimeSession(sessionId, image, hostMountPath, guestMount);
+        if (UsesHostWindowsExecution)
+        {
+            _logger.LogWarning(
+                "Default WSL distro is Docker Desktop; Java/React builds will execute on the Windows host.");
+        }
+
+        return new WslRuntimeSession(sessionId, image, hostMountPath, guestMount, UsesHostWindowsExecution);
+    }
+
+    private static async Task<bool> DetectDockerDesktopDistroAsync(CancellationToken ct)
+    {
+        var (exitCode, stdout, _) = await RunWslAsync(
+            "-- sh -lc \"grep -q 'Docker Desktop' /etc/os-release 2>/dev/null && echo docker-desktop\"",
+            ct);
+        return exitCode == 0 && stdout.Contains("docker-desktop", StringComparison.Ordinal);
     }
 
     private static async Task<(int ExitCode, string Stdout, string Stderr)> RunWslAsync(
@@ -90,12 +112,20 @@ public sealed class WslIsolatedRuntime : IIsolatedRuntime
         public string GuestMountPath { get; }
         public string Image { get; }
 
-        public WslRuntimeSession(string sessionId, string image, string hostMountPath, string guestMountPath)
+        private readonly bool _useHostWindowsExecution;
+
+        public WslRuntimeSession(
+            string sessionId,
+            string image,
+            string hostMountPath,
+            string guestMountPath,
+            bool useHostWindowsExecution)
         {
             SessionId = sessionId;
             HostMountPath = hostMountPath;
             GuestMountPath = guestMountPath;
             Image = image;
+            _useHostWindowsExecution = useHostWindowsExecution;
         }
 
         public async Task<ExecResult> ExecAsync(
@@ -107,6 +137,9 @@ public sealed class WslIsolatedRuntime : IIsolatedRuntime
         {
             if (string.IsNullOrWhiteSpace(command))
                 return new ExecResult(0, TimeSpan.Zero, Array.Empty<ConsoleLogEntry>());
+
+            if (_useHostWindowsExecution)
+                return await ExecOnHostWindowsAsync(command, workingSubDirectory, environmentVariables, timeout, ct);
 
             var relative = (workingSubDirectory ?? string.Empty).Trim().Replace('\\', '/').Trim('/');
             var wslWorkingDir = string.IsNullOrWhiteSpace(relative)
@@ -143,6 +176,75 @@ public sealed class WslIsolatedRuntime : IIsolatedRuntime
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        private async Task<ExecResult> ExecOnHostWindowsAsync(
+            string command,
+            string workingSubDirectory,
+            IDictionary<string, string>? environmentVariables,
+            TimeSpan? timeout,
+            CancellationToken ct)
+        {
+            var workdir = string.IsNullOrWhiteSpace(workingSubDirectory)
+                ? HostMountPath
+                : Path.Combine(
+                    HostMountPath,
+                    workingSubDirectory.Replace('/', Path.DirectorySeparatorChar));
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = "/c " + command,
+                WorkingDirectory = workdir,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            if (environmentVariables is { Count: > 0 })
+            {
+                foreach (var kv in environmentVariables)
+                    psi.Environment[kv.Key] = kv.Value;
+            }
+
+            var logs = new List<ConsoleLogEntry>();
+            var start = DateTime.UtcNow;
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeout ?? TimeSpan.FromMinutes(5));
+
+            Process process;
+            try
+            {
+                process = Process.Start(psi) ?? throw new InvalidOperationException("failed to start cmd.exe");
+            }
+            catch (Exception ex)
+            {
+                logs.Add(new ConsoleLogEntry(DateTime.UtcNow, "stderr", $"[launch error] {ex.Message}"));
+                return new ExecResult(-1, DateTime.UtcNow - start, logs);
+            }
+
+            var stdout = ProcessOutputPump.PumpAsync(process.StandardOutput, "stdout", logs, cts.Token);
+            var stderr = ProcessOutputPump.PumpAsync(process.StandardError, "stderr", logs, cts.Token);
+
+            try
+            {
+                await process.WaitForExitAsync(cts.Token);
+            }
+            catch (OperationCanceledException) when (cts.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                try { process.Kill(entireProcessTree: true); }
+                catch
+                {
+                    // ignored
+                }
+
+                logs.Add(new ConsoleLogEntry(DateTime.UtcNow, "stderr", "[timeout]"));
+                return new ExecResult(-1, DateTime.UtcNow - start, logs);
+            }
+
+            await Task.WhenAll(stdout, stderr);
+            return new ExecResult(process.ExitCode, DateTime.UtcNow - start, logs);
+        }
 
         private static IEnumerable<string> SplitLines(string text) =>
             text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);

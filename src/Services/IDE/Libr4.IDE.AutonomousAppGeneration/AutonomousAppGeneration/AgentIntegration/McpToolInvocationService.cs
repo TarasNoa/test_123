@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration.McpHost;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,6 +23,8 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
     private readonly IMcpSessionRouter _router;
     private readonly IOptions<McpExecutionOptions> _mcpOptions;
     private readonly IMcpServerPreflight _preflight;
+    private readonly IObscuraMcpBridge? _obscuraBridge;
+    private readonly IMcpRunHostManager? _mcpHost;
     private readonly ILogger<McpToolInvocationService> _logger;
     private readonly ConcurrentDictionary<Guid, RunMcpCounters> _counters = new();
     private int _standaloneInFlight;
@@ -31,13 +35,17 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
         IMcpSessionRouter router,
         IOptions<McpExecutionOptions> mcpOptions,
         IMcpServerPreflight preflight,
-        ILogger<McpToolInvocationService> logger)
+        ILogger<McpToolInvocationService> logger,
+        IObscuraMcpBridge? obscuraBridge = null,
+        IMcpRunHostManager? mcpHost = null)
     {
         _registry = registry;
         _policy = policy;
         _router = router;
         _mcpOptions = mcpOptions;
         _preflight = preflight;
+        _obscuraBridge = obscuraBridge;
+        _mcpHost = mcpHost;
         _logger = logger;
     }
 
@@ -107,6 +115,19 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
 
         var argsJson = JsonSerializer.Serialize(arguments);
         var lane = _router.ResolveLane(meta, routerCtx);
+        if (lane == McpExecutionLaneKind.Browser && opt.BrowserLane.UsesNodeProvider())
+        {
+            var deprecation = opt.BrowserLane.DeprecationNotice
+                ?? "browser-mcp-server (Node) is removed; set Mcp:BrowserLane:Provider to Obscura.";
+            if (orchestrator is not null)
+            {
+                Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,
+                    HashArgs(arguments), started, 0, "browser_lane_deprecated", deprecation);
+            }
+
+            return new McpInvocationOutcome(false, "browser_lane_deprecated", deprecation, null);
+        }
+
         if (IsLaneKillSwitchActive(lane, opt))
         {
             if (orchestrator is not null)
@@ -119,8 +140,63 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
                 $"{LaneKey(lane)} lane disabled by configuration", null);
         }
 
-        // Preflight check for MCP server availability
-        if (!string.IsNullOrEmpty(meta.ServerProfileKey))
+        if (_obscuraBridge?.CanHandle(meta.ToolName, opt) == true)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                var bridgeOutcome = await _obscuraBridge.InvokeAsync(
+                        meta.ToolName,
+                        arguments,
+                        runId,
+                        ct)
+                    .ConfigureAwait(false);
+                sw.Stop();
+                if (orchestrator is not null)
+                {
+                    Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,
+                        HashArgs(arguments), started, sw.ElapsedMilliseconds,
+                        bridgeOutcome.OutcomeCode, bridgeOutcome.Detail);
+                }
+
+                _logger.LogInformation(
+                    "Obscura MCP bridge {Tool} finished with {Outcome} in {Ms}ms",
+                    toolName,
+                    bridgeOutcome.OutcomeCode,
+                    sw.ElapsedMilliseconds);
+                return bridgeOutcome;
+            }
+            catch (Exception ex)
+            {
+                sw.Stop();
+                var msg = ex.Message.Length > 512 ? ex.Message[..512] : ex.Message;
+                if (orchestrator is not null)
+                {
+                    Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,
+                        HashArgs(arguments), started, sw.ElapsedMilliseconds, "obscura_bridge_error", msg);
+                }
+
+                return new McpInvocationOutcome(false, "obscura_bridge_error", msg, null);
+            }
+        }
+
+        if (opt.BrowserLane.UsesObscuraProvider() &&
+            lane == McpExecutionLaneKind.Browser &&
+            _obscuraBridge is null)
+        {
+            if (orchestrator is not null)
+            {
+                Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,
+                    HashArgs(arguments), started, 0, "obscura_bridge_missing", null);
+            }
+
+            return new McpInvocationOutcome(false, "obscura_bridge_missing",
+                "Obscura browser lane is configured but IObscuraMcpBridge is not registered", null);
+        }
+
+        // Preflight check for MCP server availability (Node browser-lane and other MCP servers)
+        if (!string.IsNullOrEmpty(meta.ServerProfileKey) &&
+            !ShouldSkipNodeBrowserPreflight(meta, opt))
         {
             var preflightResult = _preflight.CheckServerAvailability(meta.ServerProfileKey);
             if (!preflightResult.IsAvailable)
@@ -214,16 +290,17 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
                         : "MCP stdio transport disabled; audit row recorded on the run", null);
             }
 
-            if (!opt.ServerProfiles.TryGetValue(meta.ServerProfileKey, out var profile))
+            var serverProfileKey = ResolveServerProfileKey(meta, opt);
+            if (!opt.ServerProfiles.TryGetValue(serverProfileKey, out var profile))
             {
                 if (orchestrator is not null)
                 {
-                    Record(orchestrator, meta.ToolName, meta.ServerProfileKey, lane, meta.Risk,
-                        HashArgs(arguments), started, 0, "profile_missing", meta.ServerProfileKey);
+                    Record(orchestrator, meta.ToolName, serverProfileKey, lane, meta.Risk,
+                        HashArgs(arguments), started, 0, "profile_missing", serverProfileKey);
                 }
 
                 return new McpInvocationOutcome(false, "profile_missing",
-                    $"No ServerProfiles entry for '{meta.ServerProfileKey}'", null);
+                    $"No ServerProfiles entry for '{serverProfileKey}'", null);
             }
 
             if (!string.IsNullOrWhiteSpace(profile.WorkingDirectory) &&
@@ -244,8 +321,24 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
             try
             {
                 var timeout = TimeSpan.FromMilliseconds(Math.Clamp(opt.DefaultTimeoutMs, 1_000, 600_000));
-                var result = await McpStdioJsonRpc.CallToolAsync(profile, toolName, arguments, timeout, ct)
-                    .ConfigureAwait(false);
+                JsonElement result;
+                if (_mcpHost?.IsUnifiedHostEnabled == true)
+                {
+                    result = await _mcpHost.CallToolAsync(
+                            runId,
+                            serverProfileKey,
+                            toolName,
+                            arguments,
+                            timeout,
+                            ct)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    result = await McpStdioJsonRpc.CallToolAsync(profile, toolName, arguments, timeout, ct)
+                        .ConfigureAwait(false);
+                }
+
                 sw.Stop();
                 var summary = McpResultNormalizer.Normalize(result);
                 if (orchestrator is not null)
@@ -288,6 +381,23 @@ public sealed class McpToolInvocationService : IMcpToolInvocationService
         McpExecutionLaneKind.Workflow => "workflow",
         _ => "internal",
     };
+
+    private static bool ShouldSkipNodeBrowserPreflight(McpToolMetadata meta, McpExecutionOptions opt) =>
+        opt.BrowserLane.UsesObscuraProvider() &&
+        meta.Lane == McpExecutionLaneKind.Browser &&
+        (meta.ServerProfileKey.Equals("obscura-browser-lane", StringComparison.OrdinalIgnoreCase) ||
+         meta.ServerProfileKey.Equals("browser-lane", StringComparison.OrdinalIgnoreCase));
+
+    private static string ResolveServerProfileKey(McpToolMetadata meta, McpExecutionOptions opt)
+    {
+        if (opt.BrowserLane.UsesNodeProvider() &&
+            meta.ServerProfileKey.Equals("obscura-browser-lane", StringComparison.OrdinalIgnoreCase))
+        {
+            return "browser-lane";
+        }
+
+        return meta.ServerProfileKey;
+    }
 
     private static bool IsLaneKillSwitchActive(McpExecutionLaneKind lane, McpExecutionOptions opt) =>
         lane switch

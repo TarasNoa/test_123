@@ -14,6 +14,13 @@ public sealed class DefaultRuntimeCommandPolicy : IRuntimeCommandPolicy
     public TimeSpan GetCommandTimeout(string command)
     {
         var seconds = Math.Clamp(_options.MaxCommandTimeoutSeconds, 10, 3600);
+        if (!string.IsNullOrWhiteSpace(command)
+            && (command.Contains("mvn", StringComparison.OrdinalIgnoreCase)
+                || command.Contains("npm", StringComparison.OrdinalIgnoreCase)))
+        {
+            seconds = Math.Max(seconds, 1200);
+        }
+
         return TimeSpan.FromSeconds(seconds);
     }
 

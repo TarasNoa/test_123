@@ -1,7 +1,9 @@
+using Libr4.IDE.Application.Obscura;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services.PlatformUtilization;
 
 namespace Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
 
@@ -17,6 +19,9 @@ public sealed class AgentIntegrationCoordinator : IAgentIntegrationCoordinator
     private readonly ISecurityReviewGateService _security;
     private readonly IAdaptiveReplannerService? _adaptiveReplanner;
     private readonly ITaskEvidenceLinkageService? _taskEvidence;
+    private readonly AutonomousBenchmarkModeOptions _benchmarkModeOptions;
+    private readonly AutonomousPlatformUtilizationOptions _platformUtilizationOptions;
+    private readonly IObscuraNetworkRouter? _networkRouter;
     private readonly ILogger<AgentIntegrationCoordinator> _logger;
     private readonly ConcurrentDictionary<Guid, List<TaskEvidenceLink>> _taskEvidenceByRun = new();
 
@@ -29,7 +34,10 @@ public sealed class AgentIntegrationCoordinator : IAgentIntegrationCoordinator
         ISecurityReviewGateService security,
         IAdaptiveReplannerService? adaptiveReplanner,
         ITaskEvidenceLinkageService? taskEvidence,
-        ILogger<AgentIntegrationCoordinator> logger)
+        ILogger<AgentIntegrationCoordinator> logger,
+        Microsoft.Extensions.Options.IOptions<AutonomousBenchmarkModeOptions>? benchmarkModeOptions = null,
+        Microsoft.Extensions.Options.IOptions<AutonomousPlatformUtilizationOptions>? platformUtilizationOptions = null,
+        IObscuraNetworkRouter? networkRouter = null)
     {
         _taskGraph = taskGraph;
         _memory = memory;
@@ -39,6 +47,9 @@ public sealed class AgentIntegrationCoordinator : IAgentIntegrationCoordinator
         _security = security;
         _adaptiveReplanner = adaptiveReplanner;
         _taskEvidence = taskEvidence;
+        _benchmarkModeOptions = benchmarkModeOptions?.Value ?? new AutonomousBenchmarkModeOptions();
+        _platformUtilizationOptions = platformUtilizationOptions?.Value ?? new AutonomousPlatformUtilizationOptions();
+        _networkRouter = networkRouter;
         _logger = logger;
     }
 
@@ -50,13 +61,28 @@ public sealed class AgentIntegrationCoordinator : IAgentIntegrationCoordinator
         IContextPackBuilder context,
         ISecurityReviewGateService security,
         ILogger<AgentIntegrationCoordinator> logger)
-        : this(taskGraph, memory, cascadePlanner, skillRunner, context, security, null, null, logger)
+        : this(taskGraph, memory, cascadePlanner, skillRunner, context, security, null, null, logger, null, null)
     {
     }
 
     public async Task OnPlanAttachedAsync(AppGenerationOrchestrator orchestrator, GenerationPlan plan, CancellationToken ct)
     {
         var cascade = _cascadePlanner.Build(plan, orchestrator.UserRequest);
+        if (BenchmarkExecutionPathPolicy.IsActive(_benchmarkModeOptions, _platformUtilizationOptions)
+            && string.Equals(cascade.PlannerMode, "deterministic", StringComparison.OrdinalIgnoreCase))
+        {
+            orchestrator.RecordQualityGate(
+                "cascade_planning_skipped_benchmark",
+                10,
+                true,
+                new[]
+                {
+                    "benchmark_execution_path:deterministic_cascade",
+                    $"phases={cascade.Phases.Count}",
+                    $"routing={cascade.RoutingProfile}"
+                });
+        }
+
         orchestrator.RecordCascadePlan(new CascadePlanAuditEntry(
             RunId: orchestrator.Id,
             Rationale: cascade.Rationale,
@@ -119,6 +145,8 @@ public sealed class AgentIntegrationCoordinator : IAgentIntegrationCoordinator
     public Task OnWorkspaceAttachedAsync(AppGenerationOrchestrator orchestrator, Guid workspaceId, CancellationToken ct)
     {
         _ = ct;
+        _networkRouter?.BindRun(orchestrator.Id, workspaceId);
+
         if (orchestrator.TaskGraph.Count == 0)
             return Task.CompletedTask;
 

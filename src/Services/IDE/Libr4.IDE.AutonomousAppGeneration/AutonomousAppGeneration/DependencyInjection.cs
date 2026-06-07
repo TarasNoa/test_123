@@ -1,14 +1,40 @@
-using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
+﻿using Libr4.IDE.Application.AutonomousAppGeneration.AgentEvents;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentRuntime;
+using Libr4.IDE.Application.Obscura;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentRuntime.Abstractions;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration.McpHost;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration.LspBridge;
+using Libr4.IDE.Application.GitAutomation;
+using Libr4.IDE.Application.AutonomousAppGeneration.WorkspaceTrust;
+using Libr4.IDE.Application.AutonomousAppGeneration.BatchCi;
+using Libr4.IDE.Application.AutonomousAppGeneration.Scheduling;
+using Libr4.IDE.Application.AutonomousAppGeneration.Extensions;
+using Libr4.IDE.Application.AutonomousAppGeneration.GitHubActionsDispatch;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Honcho;
+using Libr4.IDE.Application.AutonomousAppGeneration.MetaAgent;
+using Libr4.IDE.Application.AutonomousAppGeneration.FineTuning;
+using Libr4.IDE.Application.AutonomousAppGeneration.Evaluation;
+using Libr4.IDE.Application.AutonomousAppGeneration.DiffReview;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentBackends;
+using Libr4.IDE.Application.AutonomousAppGeneration.RunHandoff;
+using Libr4.IDE.Application.AutonomousAppGeneration.FastContext;
+using Libr4.IDE.Application.AutonomousAppGeneration.HostProfiles;
+using Libr4.IDE.Application.AutonomousAppGeneration.InlineCompletion;
+using Libr4.IDE.Application.AutonomousAppGeneration.LiveSearch;
+using Libr4.IDE.Application.AutonomousAppGeneration.ModelRouting;
+using Libr4.IDE.Application.AutonomousAppGeneration.AgentStack;
 using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
 using Libr4.IDE.Application.AutonomousAppGeneration.Runtime;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Rules;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Pipeline;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services.PlatformUtilization;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Templates;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.StackStrategy;
 using Libr4.IDE.Application.AutonomousAppGeneration.Runtime.Docker;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Analysis;
+using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure.Cpp;
 using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Artifacts;
 using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Flow;
 using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Handoff;
@@ -20,6 +46,20 @@ using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Security;
 using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Skills;
 using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Teams;
 using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Subagents;
+using Libr4.IDE.Application.AutonomousAppGeneration.Context.RepoGraph;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Crystallization;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Extraction;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Hermes;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Consolidation;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Profile;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Qdrant;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Cognitive;
+using Libr4.IDE.Application.AutonomousAppGeneration.Computer;
+using Libr4.IDE.Application.AutonomousAppGeneration.Fleet;
+using Libr4.IDE.Application.AutonomousAppGeneration.Spaces;
+using Libr4.IDE.Application.AutonomousAppGeneration.Verify;
+using Libr4.IDE.Application.AutonomousAppGeneration.Memory.Search;
+using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure.Fim;
 using Libr4.IDE.Application.AutonomousAppGeneration.Tooling.Unix;
 using Libr4.IDE.AutonomousAppGeneration.Agents;
 using Libr4.IDE.AutonomousAppGeneration.AutonomousAppGeneration.Memory;
@@ -50,13 +90,16 @@ public static class AutonomousAppGenerationDependencyInjection
         this IServiceCollection services,
         string? runtimeProvider = null,
         bool allowFallbackToProcess = true,
-        IConfiguration? configuration = null)
+        IConfiguration? configuration = null,
+        bool registerObscuraMediatRHandlers = true)
     {
         // Orchestrator state + LLM-backed services.
         services.AddSingleton<IAppGenerationRepository, InMemoryAppGenerationRepository>();
         services.AddSingleton<IAppGenerationRunStarter, AppGenerationRunStarter>();
         services.AddScoped<IAppPlannerService, LlmAppPlannerService>();
         services.AddScoped<ICodeGenerationService, LlmCodeGenerationService>();
+        services.AddSingleton<IFimPromptBuilder, FimPromptBuilder>();
+        services.AddScoped<IClaudeCodeStyleRepairService, ClaudeCodeStyleRepairService>();
         services.AddScoped<IErrorAnalysisService, LlmErrorAnalysisService>();
         services.AddSingleton<ITaskGraphHydrationService, TaskGraphHydrationService>();
         services.AddSingleton<IExecutionManifestBuilder, ExecutionManifestBuilder>();
@@ -68,9 +111,14 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddSingleton<IPlanCommandValidator, DefaultPlanCommandValidator>();
         // P1-1: Roslyn-based architecture rules.
         services.AddSingleton<IArchitectureCheckRule, AuthImplementationRule_DotNet>();
-        // P2-6: Rust sidecar abstraction. Default is no-op until the real sidecar ships.
-        services.TryAddSingleton<IRustAnalysisSidecar, NullRustAnalysisSidecar>();
-        // P2-7: F# DU rules engine — cross-stack and stack-specific rules via FSharpRulesAdapter.
+        // P2-6 / Wave 6.1: analysis sidecar — C++ tree-sitter in-process when native lib present, else no-op.
+        services.TryAddSingleton<NullRustAnalysisSidecar>();
+        services.TryAddSingleton<CppTreeSitterAnalysisSidecar>();
+        services.TryAddSingleton<IRustAnalysisSidecar>(sp =>
+            CppTreeSitterBridge.IsAvailable
+                ? sp.GetRequiredService<CppTreeSitterAnalysisSidecar>()
+                : sp.GetRequiredService<NullRustAnalysisSidecar>());
+        // P2-7: F# DU rules engine вЂ” cross-stack and stack-specific rules via FSharpRulesAdapter.
         services.AddSingleton<IArchitectureCheckRule>(_ => new FSharpRulesAdapter("error_handling"));
         services.AddSingleton<IArchitectureCheckRule>(_ => new FSharpRulesAdapter("observability_baseline"));
         services.AddSingleton<IArchitectureCheckRule>(_ => new FSharpRulesAdapter("semantic_security"));
@@ -81,9 +129,18 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddScoped<IGenerationStage, PlanGenerationStage>();
         services.AddScoped<IGenerationStage, PlanCommandValidationStage>();
         services.AddScoped<IGenerationStage, PlanQualityGateStage>();
+        services.AddScoped<IGenerationStage, GenerationStage>();
+        services.AddScoped<IGenerationStage, SecurityReviewStage>();
+        services.AddScoped<IGenerationStage, ReviewGate2Stage>();
+        services.AddScoped<IGenerationStage, ConsistencyCheckStage>();
+        services.AddScoped<IGenerationStage, StartupBuildStage>();
+        services.AddScoped<IGenerationStage, RepairLoopStage>();
+        services.AddScoped<IGenerationStage, VerifyStage>();
+        services.AddScoped<IGenerationStage, ShipStage>();
         services.AddScoped<IGenerationPipelineRunner, DefaultGenerationPipelineRunner>();
-        // P1-5 of audit roadmap: per-run LLM budget enforcement.
-        services.AddSingleton<IBudgetService>(_ => new InMemoryBudgetService(new BudgetOptions()));
+        services.AddScoped<IFullGenerationPipelineRunner, FullGenerationPipelineRunner>();
+        // P1-5 of audit roadmap: per-run LLM budget enforcement + provider cost tracking (Phase 6.2).
+        services.AddProviderCapabilityMatrix(configuration);
         // P1-8 of audit roadmap: parameterised fallback artefact templates.
         services.AddSingleton<IFallbackArtefactTemplateEngine, ScribanFallbackTemplateEngine>();
         // P1-9 of audit roadmap: stack-strategy registry replacing 5 IsXxxPlan duplicates.
@@ -97,6 +154,7 @@ public static class AutonomousAppGenerationDependencyInjection
             new BoundedMemoryConsolidationQueue(new MemoryConsolidationQueueOptions { Capacity = 64 }));
         services.AddHostedService<MemoryConsolidationBackgroundService>();
         services.AddSingleton<IRunQualityAssessmentService, RunQualityAssessmentService>();
+        services.AddSingleton<IBuildDiagnosticsDashboardService, BuildDiagnosticsDashboardService>();
         services.AddSingleton<ICheckpointService, InMemoryCheckpointService>();
         services.AddSingleton<ITriggerAdapter, HttpTriggerAdapter>();
         services.AddSingleton<ITriggerAdapter, SlackTriggerAdapter>();
@@ -110,18 +168,45 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddSingleton<IMcpToolRegistry, DefaultMcpToolRegistry>();
         services.AddSingleton<IMcpExecutionPolicy, DefaultMcpExecutionPolicy>();
         services.AddSingleton<IMcpSessionRouter, DefaultMcpSessionRouter>();
+        services.AddSingleton<IObscuraMcpBridge, ObscuraMcpBridge>();
         services.AddSingleton<IMcpToolInvocationService, McpToolInvocationService>();
         services.AddSingleton<IMcpServerPreflight, DefaultMcpServerPreflight>();
         services.AddSingleton<IMcpLaneWatchdog, DefaultMcpLaneWatchdog>();
-        services.AddSingleton<IMemoryStore, InMemoryMemoryStore>();
-        services.AddSingleton<IVectorMemoryStore, InProcessVectorMemoryStore>();
+        services.AddMcpHost(configuration);
+        services.AddLspBridge(configuration);
+        services.AddShadowGitCheckpoint(configuration);
+        services.AddWorkspaceTrust(configuration);
+        services.AddBatchCi(configuration);
+        services.AddAgentScheduling(configuration);
+        services.AddHermesMemory(configuration);
+        services.AddPostRunExtraction(configuration);
+        services.AddSkillCrystallization(configuration);
+        services.AddQdrantSync(configuration);
+        services.AddSessionSearch(configuration);
+        services.AddUserProfiles(configuration);
+        services.AddHonchoMemory(configuration);
+        services.AddAgentSpecEvolution(configuration);
+        services.AddFineTuningDataPipeline(configuration);
+        services.AddInternalEvalHarness(configuration);
+        services.AddLiveSearch(configuration);
+        services.AddInlineCompletion(configuration);
+        services.AddAgentModelRouting(configuration);
+        services.AddAgentStack(configuration);
+        services.AddAutonomousHostProfiles(configuration);
+        services.AddDreamConsolidation(configuration);
+        services.AddCognitiveMemoryBridge();
+        services.AddVerifySubagent(configuration);
+        services.AddComputerSubagent(configuration);
         services.AddSingleton<ISkillRegistry, DefaultSkillRegistry>();
         services.AddSingleton<ISkillSelectionStrategy, StageBasedSkillSelectionStrategy>();
         services.AddSingleton<ISkillRunner, SkillRunner>();
         services.AddSingleton<SkillSchemaValidator>();
+        services.AddSingleton<ICascadeWebPrefetchService, CascadeWebPrefetchService>();
+        services.AddSingleton<ICascadeCodebasePrefetchService, CascadeCodebasePrefetchService>();
+        services.AddSingleton<IUpstreamCloneProvider, GitUpstreamCloneProvider>();
         services.AddSingleton<IAutonomousCascadePlanner, AutonomousCascadePlanner>();
         services.AddSingleton<IAgentTaskGraphService, AgentTaskGraphService>();
-        services.AddSingleton<ISecurityReviewGateService, LlmSecurityReviewGateService>();
+        services.AddScoped<ISecurityReviewGateService, LlmSecurityReviewGateService>();
         services.AddSingleton<IReviewGate2Service, ReviewGate2Service>();
         services.AddSingleton<IPromptContractService, PromptContractService>();
         services.AddSingleton<IFinalReportService, FinalReportService>();
@@ -130,13 +215,79 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddScoped<IFrontendDesignPreplannerService, FrontendDesignPreplannerService>();
         services.AddSingleton<IDesignArtifactService, DesignArtifactService>();
         services.AddSingleton<IDesignArtifactGenerationBindingService, DesignArtifactGenerationBindingService>();
+        services.AddSingleton<IRepoContextFormatter, RepoContextFormatter>();
         services.AddSingleton<IContextPackBuilder, ContextPackBuilder>();
-        services.AddSingleton<IAgentIntegrationCoordinator, AgentIntegrationCoordinator>();
-        services.AddSingleton<IProviderCapabilityMatrix, DefaultProviderCapabilityMatrix>();
+        services.AddSingleton<IRepoGraphBuilder, RepoGraphBuilder>();
+        if (configuration is not null)
+            services.Configure<RepoGraphOptions>(
+                configuration.GetSection("AutonomousAppGeneration:AgentIntegration:ContextPack"));
+        else
+            services.Configure<RepoGraphOptions>(_ => { });
+        services.AddScoped<IAgentIntegrationCoordinator, AgentIntegrationCoordinator>();
         services.AddSingleton<IDiagnosticsBundleService, DiagnosticsBundleService>();
         services.AddSingleton<IArtifactGenerator, ArtifactGenerator>();
         services.AddSingleton<IMcpAdapterRegistry, McpAdapterRegistry>();
         services.AddSingleton<IFlowModeOrchestrator, FlowModeOrchestrator>();
+        if (configuration is not null)
+            services.Configure<FlowEngineOptions>(configuration.GetSection("AutonomousAppGeneration:FlowEngine"));
+        else
+            services.Configure<FlowEngineOptions>(_ => { });
+        services.AddSingleton<IFlowRegistry, FlowRegistry>();
+        services.AddSingleton<IFlowProgressStore, FileFlowProgressStore>();
+        services.AddSingleton<IFlowEngine, YamlFlowEngine>();
+
+        // Phase 7.1 вЂ” Agent Fleet index
+        if (configuration is not null)
+        {
+            services.Configure<AgentFleetOptions>(configuration.GetSection(AgentFleetOptions.SectionName));
+            var fleetOpts = configuration.GetSection(AgentFleetOptions.SectionName).Get<AgentFleetOptions>();
+            if (fleetOpts is not null && !string.IsNullOrWhiteSpace(configuration["AgentRuntime:RunsRoot"]))
+                fleetOpts.RunsRoot = configuration["AgentRuntime:RunsRoot"]!;
+        }
+        else
+            services.Configure<AgentFleetOptions>(_ => { });
+        services.AddSingleton<IAgentFleetIndexStore, SqliteAgentFleetIndexStore>();
+        services.AddSingleton<IAgentFleetEventHub, AgentFleetEventHub>();
+        services.AddSingleton<IFleetShipStateStore, FleetShipStateStore>();
+        services.AddSingleton<Lazy<IAgentFleetRegistry>>(sp =>
+            new Lazy<IAgentFleetRegistry>(() => sp.GetRequiredService<IAgentFleetRegistry>()));
+        services.AddSingleton<IFleetShipSyncService, FleetShipSyncService>();
+        services.AddSingleton<IFleetSessionSearchService, SqliteFleetSessionSearchService>();
+        if (configuration is not null)
+            services.Configure<FleetSimilarRunsOptions>(configuration.GetSection(FleetSimilarRunsOptions.SectionName));
+        else
+            services.Configure<FleetSimilarRunsOptions>(_ => { });
+        services.AddSingleton<IFleetSimilarRunsService, FleetSimilarRunsService>();
+        services.AddSingleton<IAgentFleetRegistry, AgentFleetRegistry>();
+        services.AddSingleton<IRunForkService, RunForkService>();
+        services.AddSingleton<IFleetGdprEraseService, FleetGdprEraseService>();
+        services.AddSingleton<IFleetGdprExportService, FleetGdprExportService>();
+        services.AddSingleton<IFleetRetentionService, FleetRetentionService>();
+        if (configuration is not null)
+            services.Configure<FleetRetentionOptions>(configuration.GetSection(FleetRetentionOptions.SectionName));
+        else
+            services.Configure<FleetRetentionOptions>(_ => { });
+        services.AddHostedService<FleetRetentionHostedService>();
+        services.AddSingleton<ISessionTimelineService, SessionTimelineService>();
+        services.AddHostedService<AgentFleetSchemaMigrator>();
+        services.AddHostedService<AgentFleetSyncHostedService>();
+        services.AddHostedService<AgentFleetStuckRunMonitor>();
+
+        // Phase 7.2 вЂ” Agent Spaces
+        if (configuration is not null)
+            services.Configure<AgentSpaceOptions>(configuration.GetSection(AgentSpaceOptions.SectionName));
+        else
+            services.Configure<AgentSpaceOptions>(_ => { });
+        services.AddSingleton<ISpaceStore, SqliteSpaceStore>();
+        services.AddSingleton<IGitWorktreeService, GitWorktreeService>();
+        services.AddSingleton<ISpaceContextBus, FileSpaceContextBus>();
+        services.AddSingleton<ISpaceContextFanout, SpaceContextNdjsonFanout>();
+        services.AddSingleton<IAgentSpaceService, AgentSpaceService>();
+        services.AddSingleton<ISpaceConcurrencyGate, SpaceConcurrencyGate>();
+        services.AddSingleton<ISpaceOrchestrator, SpaceOrchestrator>();
+        services.AddHostedService<AgentSpaceSchemaMigrator>();
+        services.AddHostedService<SpaceWorktreeJanitorHostedService>();
+
         services.AddSingleton<IMultiRepoWorkspaceRegistry, MultiRepoWorkspaceRegistry>();
         services.AddSingleton<IManagerSurfaceService, ManagerSurfaceService>();
         services.AddSingleton<IUnixComposableTaskRunner, UnixComposableTaskRunner>();
@@ -157,22 +308,61 @@ public static class AutonomousAppGenerationDependencyInjection
         services.AddSingleton<DockerIsolatedRuntime>();
         services.AddSingleton<WslIsolatedRuntime>();
         services.AddSingleton<HyperVRuntime>();
+        if (configuration is not null)
+            services.Configure<IsolatedRuntimeOptions>(configuration.GetSection(IsolatedRuntimeOptions.SectionName));
+        else
+            services.Configure<IsolatedRuntimeOptions>(_ => { });
+
         services.AddSingleton<ProcessIsolatedRuntime>();
+        services.AddSingleton<RustBackedIsolatedRuntime>();
         services.AddSingleton<IIsolatedRuntime>(sp =>
-            new RuntimeProviderRouter(
+        {
+            var runtimeOptions = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<IsolatedRuntimeOptions>>().Value;
+            IIsolatedRuntime processRuntime = runtimeOptions.UseRustSandboxExecutor
+                ? sp.GetRequiredService<RustBackedIsolatedRuntime>()
+                : sp.GetRequiredService<ProcessIsolatedRuntime>();
+
+            return new RuntimeProviderRouter(
                 preferredProvider: runtimeProvider ?? "docker",
                 allowFallbackToProcess: allowFallbackToProcess,
                 docker: sp.GetRequiredService<DockerIsolatedRuntime>(),
                 wsl: sp.GetRequiredService<WslIsolatedRuntime>(),
                 hyperV: sp.GetRequiredService<HyperVRuntime>(),
-                process: sp.GetRequiredService<ProcessIsolatedRuntime>(),
+                process: processRuntime,
                 diagnostics: sp.GetRequiredService<IRuntimeDiagnostics>(),
-                logger: sp.GetRequiredService<ILogger<RuntimeProviderRouter>>()));
+                logger: sp.GetRequiredService<ILogger<RuntimeProviderRouter>>());
+        });
         services.AddSingleton<IWorkspacePool, VmWorkspacePool>();
         services.AddSingleton<IWorkspaceSyncService, FileSystemWorkspaceSyncService>();
+        if (configuration is not null)
+        {
+            services.Configure<ShadowToolchainWarmCacheOptions>(
+                configuration.GetSection("AutonomousAppGeneration:WarmCache"));
+        }
+
+        services.AddSingleton<IShadowToolchainWarmCache, ShadowToolchainWarmCache>();
+        services.AddHostedService<ShadowToolchainWarmCacheHostedService>();
 
         // Shadow execution = pool + runtime + sync.
-        services.AddSingleton<IShadowExecutionService, IsolatedShadowExecutionService>();
+        services.AddSingleton<IsolatedShadowExecutionService>();
+        services.AddSingleton<IShadowExecutionService>(sp => sp.GetRequiredService<IsolatedShadowExecutionService>());
+        services.AddSingleton<IShadowWorkspaceAccessor>(sp => sp.GetRequiredService<IsolatedShadowExecutionService>());
+        services.AddObscuraBrowserPlane(configuration, registerObscuraMediatRHandlers);
+        services.AddObscuraSessionHostedServices();
+        services.AddFastContext(configuration);
+        services.AddRunDiffReview();
+        services.AddRunHandoff(configuration);
+        services.AddAgentBackends(configuration);
+        services.Configure<HumanReviewOptions>(configuration.GetSection("AutonomousAppGeneration:HumanReview"));
+        if (configuration is not null)
+            services.Configure<ShipStageOptions>(configuration.GetSection(ShipStageOptions.SectionName));
+        else
+            services.Configure<ShipStageOptions>(_ => { });
+        services.AddSingleton<IObscuraEvidenceShipGate, ObscuraEvidenceShipGate>();
+        services.AddAgentRuntime(configuration);
+        services.AddPlatformUtilization();
+        services.AddExtensionHost(configuration);
+        services.AddGitHubActionsDispatch(configuration);
 
         // Multi-agent infrastructure for stack-specific generation
         services.AddSingleton<AgentSkillRegistry>(sp =>
@@ -189,6 +379,10 @@ public static class AutonomousAppGenerationDependencyInjection
         {
             services.Configure<AgentOrchestrationOptions>(
                 configuration.GetSection(AgentOrchestrationOptions.SectionName));
+            services.Configure<AutonomousBenchmarkModeOptions>(
+                configuration.GetSection(AutonomousBenchmarkModeOptions.SectionName));
+            services.Configure<AutonomousPlatformUtilizationOptions>(
+                configuration.GetSection(AutonomousPlatformUtilizationOptions.SectionName));
         }
         else
         {
@@ -236,3 +430,4 @@ public static class AutonomousAppGenerationDependencyInjection
         return services;
     }
 }
+

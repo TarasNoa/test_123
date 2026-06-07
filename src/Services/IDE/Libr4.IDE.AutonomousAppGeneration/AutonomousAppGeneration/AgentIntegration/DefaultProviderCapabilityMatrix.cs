@@ -31,7 +31,23 @@ public sealed class DefaultProviderCapabilityMatrix : IProviderCapabilityMatrix
     public ModelRoutingDecision RouteStage(string stage, StageModelRequirement requirement)
     {
         var normalizedStage = stage.Trim().ToLowerInvariant();
-        
+
+        if (_options.StageOverrides.TryGetValue(normalizedStage, out var stageOverride)
+            && !string.IsNullOrWhiteSpace(stageOverride.ProviderId))
+        {
+            var overrideProvider = GetProvider(stageOverride.ProviderId)
+                                   ?? throw new InvalidOperationException(
+                                       $"Stage override provider '{stageOverride.ProviderId}' is not registered.");
+            var overrideModel = !string.IsNullOrWhiteSpace(stageOverride.ModelId)
+                ? stageOverride.ModelId!
+                : SelectModelForStage(overrideProvider, normalizedStage);
+            return new ModelRoutingDecision(
+                stage,
+                overrideProvider.ProviderId,
+                overrideModel,
+                $"stage_override:{normalizedStage}");
+        }
+
         // Check if we have explicit stage requirements
         var stageReq = _stageRequirements.GetValueOrDefault(normalizedStage, requirement);
         
@@ -72,12 +88,21 @@ public sealed class DefaultProviderCapabilityMatrix : IProviderCapabilityMatrix
         }
 
         var modelId = SelectModelForStage(selected, normalizedStage);
-        
+        var routingReason = BuildRoutingReason(selected, normalizedStage, modelId);
+
         return new ModelRoutingDecision(
             Stage: stage,
             ProviderId: selected.ProviderId,
             ModelId: modelId,
-            RoutingReason: $"cost_optimized_capabilities:{selected.ProviderName}");
+            RoutingReason: routingReason);
+    }
+
+    private static string BuildRoutingReason(ProviderCapability provider, string stage, string modelId)
+    {
+        var profile = IsCodeGenerationStage(stage) ? "code_generation_specialist"
+            : IsReasoningStage(stage) ? "high_level_reasoning"
+            : "default";
+        return $"stage_model_routing:{profile}:{provider.ProviderName}";
     }
 
     public StageModelRequirement? GetStageRequirements(string stage)
@@ -94,11 +119,43 @@ public sealed class DefaultProviderCapabilityMatrix : IProviderCapabilityMatrix
             "alibabacloud" => SelectApiModel(stage),
             "openai" => SelectOpenAIModel(stage),
             "anthropic" => SelectAnthropicModel(stage),
-            "dockermodelrunner" => _options.LocalModel ?? "huggingface.co/hesamation/qwen3.6-35b-a3b-claude-4.6-opus-reasoning-distilled-gguf:Q4_K_M",
-            "ollama" => _options.LocalModel ?? "qwen35b",
+            "dockermodelrunner" or "ollama" => SelectLocalModel(stage),
             _ => _options.FallbackModel
         };
     }
+
+    private string SelectLocalModel(string stage)
+    {
+        const string defaultReasoning =
+            "huggingface.co/hesamation/qwen3.6-35b-a3b-claude-4.6-opus-reasoning-distilled-gguf:Q4_K_M";
+        const string defaultCoder = "huggingface.co/jackrong/qwopus3.5-9b-coder-gguf:Q4_K_M";
+
+        if (IsCodeGenerationStage(stage))
+        {
+            return _options.CodeGenerationModel
+                   ?? _options.LocalModel
+                   ?? defaultCoder;
+        }
+
+        if (IsReasoningStage(stage))
+        {
+            return _options.ReasoningModel
+                   ?? _options.LocalModel
+                   ?? defaultReasoning;
+        }
+
+        return _options.LocalModel ?? defaultReasoning;
+    }
+
+    private static bool IsCodeGenerationStage(string stage) =>
+        stage.Contains("generation", StringComparison.OrdinalIgnoreCase)
+        || stage.Contains("fixing", StringComparison.OrdinalIgnoreCase)
+        || stage.Contains("consistency", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsReasoningStage(string stage) =>
+        stage.Contains("plan", StringComparison.OrdinalIgnoreCase)
+        || stage.Contains("review", StringComparison.OrdinalIgnoreCase)
+        || stage.Contains("security", StringComparison.OrdinalIgnoreCase);
 
     private string SelectApiModel(string stage)
     {
@@ -281,4 +338,27 @@ public sealed class ProviderMatrixOptions
     /// When set, overrides stage-specific model selection.
     /// </summary>
     public string? ApiModel { get; set; }
+
+    /// <summary>
+    /// 35B (or similar) model for planning, security review, and other reasoning-heavy stages.
+    /// Falls back to <see cref="LocalModel"/>.
+    /// </summary>
+    public string? ReasoningModel { get; set; }
+
+    /// <summary>
+    /// Fast coder model for generation, fixing, database, frontend, and tests.
+    /// Falls back to <see cref="LocalModel"/>.
+    /// </summary>
+    public string? CodeGenerationModel { get; set; }
+
+    /// <summary>Per-stage provider/model override (stage name -> override).</summary>
+    public Dictionary<string, StageProviderOverride> StageOverrides { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class StageProviderOverride
+{
+    public string? ProviderId { get; set; }
+
+    public string? ModelId { get; set; }
 }

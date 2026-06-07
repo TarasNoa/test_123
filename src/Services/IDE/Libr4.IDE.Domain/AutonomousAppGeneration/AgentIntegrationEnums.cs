@@ -18,9 +18,16 @@ public enum McpToolRiskLevel
 
 public enum MemoryKind
 {
+    /// <summary>L0 — turn-level observations.</summary>
     Episodic = 0,
+    /// <summary>L2 — distilled facts and stack knowledge.</summary>
     Semantic = 1,
+    /// <summary>L1 — repeatable fix/playbook patterns.</summary>
     Procedural = 2,
+    /// <summary>L3 — run-level strategy and routing decisions.</summary>
+    Strategic = 3,
+    /// <summary>L4 — meta-lessons about agent behaviour.</summary>
+    Meta = 4,
 }
 
 public enum AgentTaskState

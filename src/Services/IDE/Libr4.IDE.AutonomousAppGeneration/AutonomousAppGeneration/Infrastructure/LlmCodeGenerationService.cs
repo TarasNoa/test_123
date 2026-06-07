@@ -3,7 +3,9 @@ using System.Text.Json;
 using Libr4.AI.Application.Abstractions;
 using Libr4.AI.Infrastructure.AI;
 using Libr4.IDE.Application.AutonomousAppGeneration.AgentIntegration;
+using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure.StackRecovery;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
+using Libr4.IDE.Application.AutonomousAppGeneration.Services.PlatformUtilization;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -40,6 +42,15 @@ JSON ESCAPING - THIS IS THE #1 FAILURE MODE, OBEY EXACTLY:
 - NEVER output a literal unescaped newline inside a JSON string.
 - NEVER wrap the JSON in ```json fences. NEVER add text before/after the JSON.
 - NEVER truncate. If a file would be too long, split it into smaller files listed in the manifest.
+
+====================== JAVA + REACT BANKING (when plan specifies backend/ + frontend/) ======================
+- Backend: Java 21 + Spring Boot 3.2+ under backend/ (Maven pom.xml, layered packages).
+- Frontend: React 18 + TypeScript + Vite under frontend/.
+- Use repo-relative paths only: backend/... and frontend/...
+- Every file must be complete and compile-ready; no TODO placeholders.
+- DTOs as records where appropriate; constructor injection; @Valid on inputs.
+- JWT/secrets via configuration placeholders (${APP_JWT_SECRET:}) — never hardcode production secrets.
+- Flyway/Liquibase when DB migrations are implied.
 
 ====================== TECH STACK (HARD) ======================
 Use EXACTLY the language / framework / database from the plan. No substitutions, no ""similar"" choices.
@@ -114,6 +125,8 @@ Return ONLY a JSON object: { ""files"": [ { ""relativePath"", ""content"" } ] }
 9. Never truncate. If your fix would be huge, split across multiple files but keep each complete.
 10. You MAY update multiple related files when needed (e.g., interface + implementation + registration + tests).
 11. For dependency errors, fix all impacted files in one patch set (cross-file, dependency-aware).
+12. For MISSING types/files (repository methods, JwtTokenProvider, DTOs): CREATE the file with COMPLETE compilable content.
+13. Return at most 8 files per response; prioritize error files first. Every entry MUST have non-empty ""content"".
 
 ====================== JSON ESCAPING ======================
 This is the top failure mode. Inside ""content"":
@@ -144,25 +157,49 @@ Return ONLY a JSON object: { ""files"": [ { ""relativePath"", ""content"" } ] }
 Return only valid JSON.
 ";
 
-    private const string GenerationGapFixerSystemPrompt = @"
-You are the Generation Gap Remediation agent. Expand an incomplete generated app to satisfy structural quality gates.
+    private static string BuildGenerationGapFixerSystemPrompt(GenerationPlan plan)
+    {
+        var langs = string.Join(", ", plan.TechStack.Languages);
+        var frameworks = string.Join(", ", plan.TechStack.Frameworks);
+        var stackRule = ResolveGenerationGapStackRule(plan);
 
-====================== OUTPUT CONTRACT (HARD) ======================
-Return ONLY a JSON object: { ""files"": [ { ""relativePath"", ""content"" } ] }
-- Include NEW and MODIFIED files under backend/ and frontend/ only (POSIX paths).
-- Full file content, valid JSON escaping.
+        return
+            "You are the Generation Gap Remediation agent. The generation quality gate FAILED — fix every listed check.\n\n" +
+            "====================== OUTPUT CONTRACT (HARD) ======================\n" +
+            "Return ONLY a JSON object: { \"files\": [ { \"relativePath\", \"content\" } ] }\n" +
+            "- Include NEW and MODIFIED files under backend/ and frontend/ only (POSIX paths).\n" +
+            "- Full file content, valid JSON escaping. No path-only entries.\n\n" +
+            "====================== ACTIVE STACK (DO NOT SUBSTITUTE) ======================\n" +
+            $"Languages: {langs}\n" +
+            $"Frameworks: {frameworks}\n" +
+            $"{stackRule}\n\n" +
+            "====================== GAP FIX RULES ======================\n" +
+            "1. missing_error_envelope_contract: add API error handler returning JSON with keys error, code, message.\n" +
+            "2. missing_test_project / business_tests_missing_or_superficial: add real domain tests (not only health checks).\n" +
+            "3. contains_empty_files: fill empty __init__.py, Dockerfile, and truncated modules.\n" +
+            "4. missing_data_layer: add models, migrations/schema, repository or ORM wiring.\n" +
+            "5. intent_* gaps: implement the missing auth/API/domain behavior described in each error hint.\n" +
+            "6. Preserve the locked stack above; do not switch frameworks.\n" +
+            "7. No placeholders, no empty method bodies, no hardcoded production secrets.\n\n" +
+            "Return only valid JSON.\n";
+    }
 
-====================== GAP FIX RULES ======================
-1. missing_data_layer: add entities, repositories, DB config (JPA/Hibernate or equivalent), migrations or schema.
-2. intent_auth_not_reflected_in_code: JWT or session auth, UserDetails/security config, protected routes.
-3. intent_http_api_not_reflected_in_code: REST controllers, DTOs, validation, consistent error responses.
-4. intent_task_domain_not_reflected_in_code: domain models and APIs aligned to the user request (banking, not generic kanban unless requested).
-5. Keep Java Spring Boot + React TypeScript stack; do not switch frameworks.
-6. You MAY create new files; relativePath must start with backend/ or frontend/.
-7. No placeholders, no empty method bodies, no hardcoded production secrets.
-
-Return only valid JSON.
-";
+    private static string ResolveGenerationGapStackRule(GenerationPlan plan)
+    {
+        if (StackLayoutHeuristics.UsesDjango(plan))
+            return "- Django + DRF backend: INSTALLED_APPS uses 'meals', imports meals.* (NOT calorievisionapp.meals). Use gunicorn in Dockerfile.";
+        if (StackLayoutHeuristics.UsesFastApi(plan))
+            return "- FastAPI backend: uvicorn entrypoint, pydantic models, pytest tests under backend/tests/.";
+        if (StackPlanHeuristics.Classify(plan) is StackKind.Java or StackKind.JavaReactFullStack)
+            return "- Java Spring Boot + Maven: backend/ layout, JPA entities, MockMvc or WebTestClient tests.";
+        if (StackPlanHeuristics.IsDotNet(plan))
+            return "- ASP.NET Core: WebApplicationFactory tests, consistent ProblemDetails or {{error,code,message}} envelope.";
+        if (StackLayoutHeuristics.UsesSolidJs(plan))
+            return "- SolidJS + Vite frontend: keep solid-js components, vitest tests, Vite dev server on port 5173.";
+        if (StackPlanHeuristics.IsNode(plan))
+            return "- Node/Nest/Express backend: TypeScript, vitest/jest API tests, error middleware.";
+        return "- Match the planned languages and frameworks exactly; keep backend/ + frontend/ layout when present.";
+    }
 
     private const string UpstreamSemanticAdaptationFixerSystemPrompt = @"
 You are the Upstream Adaptation agent. Map semantics from the cloned upstream/ snapshot into the generated ASP.NET Core product.
@@ -575,17 +612,52 @@ FAILURE to include these folders will cause generation to be rejected by quality
         var isSecurityRemediation = errors.Count > 0 && errors.All(e =>
             string.Equals(e.ErrorType, "SecurityFinding", StringComparison.OrdinalIgnoreCase));
         var isGenerationGapRemediation = errors.Count > 0 && errors.All(e =>
-            string.Equals(e.ErrorType, "GenerationQualityError", StringComparison.OrdinalIgnoreCase));
+            string.Equals(e.ErrorType, "GenerationQualityError", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(e.ErrorType, "GenerationQualityGateSummary", StringComparison.OrdinalIgnoreCase));
         var isSoftRemediation = isSecurityRemediation || isGenerationGapRemediation;
 
+        if (isSecurityRemediation)
+        {
+            var working = currentFiles.ToList();
+            if (StackArtifactRecoveryRouter.ApplySecurityRemediation(working, plan) > 0)
+            {
+                var deterministic = RepairErrorClassifier.DiffPatches(currentFiles, working);
+                if (deterministic.Count > 0)
+                {
+                    _logger.LogInformation(
+                        "Security remediation: applied {Count} deterministic stack patch(es) before LLM.",
+                        deterministic.Count);
+                    return deterministic;
+                }
+            }
+        }
+        // Build/startup/iteration compile fixes must not crash the run on scope or empty LLM output.
+        var isResilientFixPass = !isUpstreamSemanticAdaptation;
+
+        if (isResilientFixPass && !isSoftRemediation)
+        {
+            var preWorking = currentFiles.ToList();
+            if (StackArtifactRecoveryRouter.ApplyCompileRecovery(preWorking, plan, errors) > 0)
+            {
+                var stackPatches = RepairErrorClassifier.DiffPatches(currentFiles, preWorking);
+                if (stackPatches.Count > 0)
+                {
+                    _logger.LogInformation(
+                        "Stack compile remediation applied {Count} deterministic patch(es) before LLM fixer.",
+                        stackPatches.Count);
+                    return stackPatches;
+                }
+            }
+        }
+
         var fixContext = BuildFixContext(currentFiles, errors);
-        var prompt = BuildFixerPrompt(plan, fixContext, errors);
+        var prompt = BuildFixerPrompt(plan, fixContext, errors, currentFiles);
         var systemPrompt = isUpstreamSemanticAdaptation
             ? UpstreamSemanticAdaptationFixerSystemPrompt
             : isSecurityRemediation
                 ? SecurityRemediationFixerSystemPrompt
             : isGenerationGapRemediation
-                ? GenerationGapFixerSystemPrompt
+                ? BuildGenerationGapFixerSystemPrompt(plan)
                 : FixerSystemPrompt;
         string raw;
         try
@@ -594,6 +666,12 @@ FAILURE to include these folders will cause generation to be rejected by quality
         }
         catch (Exception ex)
         {
+            if (isResilientFixPass)
+            {
+                _logger.LogWarning(ex, "Fixer LLM call failed on resilient pass; continuing without patches.");
+                return Array.Empty<GeneratedFile>();
+            }
+
             _logger.LogError(ex, "Fixer LLM call failed");
             throw new AutonomousGenerationFailedException(
                 "fixing",
@@ -601,13 +679,39 @@ FAILURE to include these folders will cause generation to be rejected by quality
                 ex);
         }
 
-        var parsed = TryParseFiles(raw);
+        var parsed = FixerPatchScopePolicy.NormalizeParsedPatches(
+            LlmFixerOutputParser.Parse(raw, currentFiles, _logger));
+        if (parsed.Count == 0 && isResilientFixPass)
+        {
+            _logger.LogWarning("Fixer returned no parseable patches; retrying once with stricter JSON reminder.");
+            var retryPrompt = prompt + """
+
+                IMPORTANT: Return ONLY valid JSON:
+                { "files": [ { "relativePath": "backend/...", "content": "FULL FILE BODY WITH \\n ESCAPING" } ] }
+                - Paths MUST start with backend/ or frontend/
+                - CREATE missing files (JwtTokenProvider, AuthTokenResponse, repository methods) with complete bodies
+                - Never return path-only entries; content must be non-empty for every file
+                - Max 8 files; fix root compile errors first
+                """;
+            try
+            {
+                raw = await GenerateCompletionWithTimeoutAsync(retryPrompt, systemPrompt, ct, "fixing");
+                parsed = FixerPatchScopePolicy.NormalizeParsedPatches(
+                    LlmFixerOutputParser.Parse(raw, currentFiles, _logger));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Fixer retry failed on resilient pass; continuing without patches.");
+                return Array.Empty<GeneratedFile>();
+            }
+        }
+
         if (parsed.Count == 0)
         {
-            if (isSoftRemediation)
+            if (isResilientFixPass)
             {
                 _logger.LogWarning(
-                    "Fixer returned no parseable patches for soft remediation ({ErrorType}); continuing.",
+                    "Fixer returned no parseable patches ({ErrorType}); continuing.",
                     errors[0].ErrorType);
                 return Array.Empty<GeneratedFile>();
             }
@@ -622,7 +726,10 @@ FAILURE to include these folders will cause generation to be rejected by quality
         var allowed = fixContext.Select(f => f.RelativePath)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var projectFile in currentFiles.Where(f => IsReferenceFile(f.RelativePath)))
-            allowed.Add(projectFile.RelativePath);
+            allowed.Add(FixerPatchScopePolicy.NormalizePatchRelativePath(projectFile.RelativePath));
+
+        foreach (var productFile in currentFiles.Where(f => FixerPatchScopePolicy.IsGenerationGapProductPath(f.RelativePath)))
+            allowed.Add(productFile.RelativePath);
 
         if (isUpstreamSemanticAdaptation)
         {
@@ -630,26 +737,13 @@ FAILURE to include these folders will cause generation to be rejected by quality
                 allowed.Add(productFile.RelativePath);
         }
 
-        if (isGenerationGapRemediation)
-        {
-            foreach (var productFile in currentFiles.Where(f => IsGenerationGapProductPath(f.RelativePath)))
-                allowed.Add(productFile.RelativePath);
-        }
-
-        if (isSecurityRemediation)
-        {
-            foreach (var productFile in currentFiles.Where(f =>
-                         IsSecuritySensitivePath(f.RelativePath) || IsGenerationGapProductPath(f.RelativePath)))
-                allowed.Add(productFile.RelativePath);
-        }
-
-        var filtered = FilterPatchesToAllowedScope(parsed, allowed, isSoftRemediation || isUpstreamSemanticAdaptation);
+        var filtered = FixerPatchScopePolicy.FilterPatches(parsed, allowed, currentFiles, allowProductTreeFallback: true);
         if (filtered.Count == 0)
         {
-            if (isSoftRemediation)
+            if (isResilientFixPass)
             {
                 _logger.LogWarning(
-                    "Fixer patches did not match strict scope for {ErrorType}; continuing without applying.",
+                    "Fixer patches did not match scope for {ErrorType}; continuing without applying.",
                     errors[0].ErrorType);
                 return Array.Empty<GeneratedFile>();
             }
@@ -707,6 +801,12 @@ FAILURE to include these folders will cause generation to be rejected by quality
 
         if (accepted.Count == 0)
         {
+            if (isResilientFixPass)
+            {
+                _logger.LogWarning("All fixer patches rejected by rewrite-ratio guard; continuing without applying.");
+                return Array.Empty<GeneratedFile>();
+            }
+
             throw new AutonomousGenerationFailedException(
                 "fixing",
                 "Fixer patches were rejected (empty set after rewrite-ratio filtering).");
@@ -2313,32 +2413,6 @@ All responses must include:
                || path.StartsWith("tests/", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsGenerationGapProductPath(string relativePath)
-    {
-        var path = relativePath.Replace('\\', '/').TrimStart('/');
-        if (path.StartsWith("upstream/", StringComparison.OrdinalIgnoreCase))
-            return false;
-        return path.StartsWith("backend/", StringComparison.OrdinalIgnoreCase)
-               || path.StartsWith("frontend/", StringComparison.OrdinalIgnoreCase)
-               || path.StartsWith("src/", StringComparison.OrdinalIgnoreCase)
-               || path.StartsWith("tests/", StringComparison.OrdinalIgnoreCase)
-               || path.Equals("docker-compose.yml", StringComparison.OrdinalIgnoreCase)
-               || path.Equals("docker-compose.yaml", StringComparison.OrdinalIgnoreCase)
-               || path.Equals("pom.xml", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static List<GeneratedFile> FilterPatchesToAllowedScope(
-        IReadOnlyList<GeneratedFile> parsed,
-        HashSet<string> allowed,
-        bool allowProductTreeFallback)
-    {
-        var strict = parsed.Where(f => allowed.Contains(f.RelativePath)).ToList();
-        if (strict.Count > 0 || !allowProductTreeFallback)
-            return strict;
-
-        return parsed.Where(f => IsGenerationGapProductPath(f.RelativePath)).ToList();
-    }
-
     private static bool IsSecuritySensitivePath(string relativePath)
     {
         var p = relativePath.Replace('\\', '/').ToLowerInvariant();
@@ -2358,6 +2432,7 @@ All responses must include:
         // Files that define shared API surface other batches must agree with.
         if (ext is ".csproj" or ".sln") return true;
         if (name.Equals("package.json", StringComparison.OrdinalIgnoreCase)) return true;
+        if (name.Equals("pom.xml", StringComparison.OrdinalIgnoreCase)) return true;
         if (name.Equals("requirements.txt", StringComparison.OrdinalIgnoreCase)) return true;
         if (name.EndsWith("DbContext.cs", StringComparison.OrdinalIgnoreCase)) return true;
         if (name.StartsWith("I", StringComparison.Ordinal) && ext == ".cs") return true; // interfaces
@@ -2377,18 +2452,13 @@ All responses must include:
     private static string BuildFixerPrompt(
         GenerationPlan plan,
         IReadOnlyList<GeneratedFile> files,
-        IReadOnlyList<ErrorReport> errors)
+        IReadOnlyList<ErrorReport> errors,
+        IReadOnlyList<GeneratedFile> currentFiles)
     {
         var sb = new StringBuilder();
         sb.AppendLine($"Application: {plan.ApplicationName}");
-        sb.AppendLine("Current files:");
-        foreach (var f in files)
-        {
-            sb.AppendLine($"--- {f.RelativePath} ({f.Language}) ---");
-            sb.AppendLine(f.Content);
-            sb.AppendLine();
-        }
-        sb.AppendLine("Errors to fix:");
+        sb.AppendLine("Investigation mode: fix ROOT CAUSE first (manifest/pom/entry-point), not symptoms.");
+        sb.AppendLine("Errors to fix (root cause listed first — fix ALL):");
         foreach (var e in errors)
         {
             sb.Append($"- [{e.ErrorType}] {e.Message}");
@@ -2398,9 +2468,44 @@ All responses must include:
             if (!string.IsNullOrEmpty(e.SuggestedFix))
                 sb.AppendLine($"  Suggested fix: {e.SuggestedFix}");
         }
+
         sb.AppendLine();
-        sb.AppendLine("Return only the files you changed.");
+        var skipGeneric = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (ControllerServiceRepairContext.TryResolveAlignmentPair(errors, currentFiles, out var alignment)
+            && alignment is not null)
+        {
+            ControllerServiceRepairContext.AppendAlignmentInstructions(sb, alignment, skipGeneric);
+        }
+
+        sb.AppendLine("Relevant files (return FULL new content for every file you change or CREATE):");
+        foreach (var f in files)
+        {
+            if (skipGeneric.Contains(f.RelativePath))
+                continue;
+
+            sb.AppendLine($"--- {f.RelativePath} ({f.Language}) ---");
+            AppendFixerFileContent(sb, f.Content ?? string.Empty, f.RelativePath);
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("Return JSON only. CREATE missing types/files when errors reference unknown symbols.");
+        sb.AppendLine("Include pom.xml/package.json when dependencies or invalid XML are involved.");
         return sb.ToString();
+    }
+
+    private static void AppendFixerFileContent(StringBuilder sb, string content, string relativePath)
+    {
+        var isAlignmentArtifact = relativePath.Contains("Controller", StringComparison.OrdinalIgnoreCase)
+                                  || relativePath.Contains("/service/", StringComparison.OrdinalIgnoreCase);
+        if (isAlignmentArtifact || content.Length <= 14_000)
+        {
+            sb.AppendLine(content);
+            return;
+        }
+
+        sb.AppendLine(content[..7_000]);
+        sb.AppendLine("// ... [truncated for prompt budget — file continues] ...");
+        sb.AppendLine(content[^5_000..]);
     }
 
     private static IReadOnlyList<GeneratedFile> BuildFixContext(
@@ -2410,6 +2515,7 @@ All responses must include:
         if (errors.Count == 0) return currentFiles;
 
         var selected = new Dictionary<string, GeneratedFile>(StringComparer.OrdinalIgnoreCase);
+        ControllerServiceRepairContext.EnsurePairInContext(selected, currentFiles, errors);
 
         // 1) Directly referenced files from error reports.
         foreach (var err in errors)
@@ -2425,6 +2531,19 @@ All responses must include:
         foreach (var file in currentFiles.Where(f => IsReferenceFile(f.RelativePath)))
             selected[file.RelativePath] = file;
 
+        // 2b) For compile errors, include sibling sources in the same Java/TS package tree.
+        foreach (var err in errors)
+        {
+            if (string.IsNullOrWhiteSpace(err.FilePath))
+                continue;
+            var dir = Path.GetDirectoryName(err.FilePath.Replace('\\', '/'));
+            if (string.IsNullOrWhiteSpace(dir))
+                continue;
+            foreach (var file in currentFiles.Where(f =>
+                         f.RelativePath.Replace('\\', '/').StartsWith(dir + "/", StringComparison.OrdinalIgnoreCase)))
+                selected[file.RelativePath] = file;
+        }
+
         if (errors.All(e =>
                 string.Equals(e.ErrorType, "UpstreamSemanticAdaptation", StringComparison.OrdinalIgnoreCase)))
         {
@@ -2438,15 +2557,21 @@ All responses must include:
         }
 
         if (errors.Any(e => string.Equals(e.ErrorType, "SecurityFinding", StringComparison.OrdinalIgnoreCase)))
-        {
-            foreach (var file in currentFiles.Where(f =>
-                         IsSecuritySensitivePath(f.RelativePath) || IsGenerationGapProductPath(f.RelativePath)))
-                selected[file.RelativePath] = file;
-        }
+            return SecurityRemediationContextPolicy.BuildContext(currentFiles, errors);
 
         if (errors.All(e => string.Equals(e.ErrorType, "GenerationQualityError", StringComparison.OrdinalIgnoreCase)))
         {
-            foreach (var file in currentFiles.Where(f => IsGenerationGapProductPath(f.RelativePath)))
+            foreach (var file in currentFiles.Where(f => FixerPatchScopePolicy.IsGenerationGapProductPath(f.RelativePath)))
+                selected[file.RelativePath] = file;
+        }
+
+        var isCompileRemediation = errors.All(e =>
+            !string.Equals(e.ErrorType, "UpstreamSemanticAdaptation", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(e.ErrorType, "GenerationQualityError", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(e.ErrorType, "SecurityFinding", StringComparison.OrdinalIgnoreCase));
+        if (isCompileRemediation && selected.Count < 8)
+        {
+            foreach (var file in currentFiles.Where(f => FixerPatchScopePolicy.IsGenerationGapProductPath(f.RelativePath)))
                 selected[file.RelativePath] = file;
         }
 
@@ -2470,11 +2595,13 @@ All responses must include:
             }
         }
 
-        // Keep context bounded (generation-gap remediation needs broader product context).
+        // Keep context bounded (generation-gap / compile remediation needs broader product context).
         var contextLimit = errors.All(e =>
             string.Equals(e.ErrorType, "GenerationQualityError", StringComparison.OrdinalIgnoreCase))
             ? 60
-            : 25;
+            : isCompileRemediation
+                ? 45
+                : 25;
         return selected.Values.Take(contextLimit).ToList();
     }
 
@@ -2692,7 +2819,11 @@ EndGlobal
         
         var timeoutSeconds = Math.Clamp(_options.LlmStepTimeoutSeconds, 30, 1200);
         using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var budgetedPrompt = PromptPipelinePolicy.ApplyInputBudget(stage, prompt);
+        var budgetedPrompt = PromptPipelinePolicy.ApplyInputBudget(
+            stage,
+            PlatformCapabilityBriefingScope.AppendToPrompt(
+                prompt,
+                PlatformCapabilityBriefingStageMapper.FromLlmStage(stage)));
         var completionTask = Task.Run(async () =>
         {
             using var _ = AICallCancellationScope.Push(linkedCts.Token);
@@ -2706,6 +2837,14 @@ EndGlobal
         var raw = await completionTask;
         if (!PromptPipelinePolicy.ValidateOutputContract(stage, raw, out var reason))
         {
+            if (string.Equals(stage, "fixing", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning(
+                    "LLM fixing output failed strict contract ({Reason}); passing raw output to lenient parser.",
+                    reason);
+                return raw;
+            }
+
             _logger.LogWarning("LLM {Stage} output failed contract validation: {Reason}", stage, reason);
             return "{\"files\":[]}";
         }

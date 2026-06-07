@@ -1,9 +1,13 @@
 using FluentAssertions;
+using Libr4.IDE.Application.AutonomousAppGeneration.Infrastructure;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Pipeline;
 using Libr4.IDE.Application.AutonomousAppGeneration.Services.Rules;
+using Libr4.IDE.Application.AutonomousAppGeneration.Verify;
 using Libr4.IDE.Domain.AutonomousAppGeneration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using Moq;
 using Xunit;
 
 namespace Libr4.IntegrationTests.IDE.Pipeline;
@@ -144,7 +148,11 @@ public sealed class IndividualStagesTests
     [Fact]
     public async Task PlanQualityGateStage_NoPlan_StopsWithMissingPlan()
     {
-        var stage = new PlanQualityGateStage(new StubGateService(passed: true), NullLogger<PlanQualityGateStage>.Instance);
+        var stage = new PlanQualityGateStage(
+            new StubGateService(passed: true),
+            Microsoft.Extensions.Options.Options.Create(new Libr4.IDE.Application.AutonomousAppGeneration.Services.AutonomousBenchmarkModeOptions()),
+            PlatformUtilizationTestOptions.Production,
+            NullLogger<PlanQualityGateStage>.Instance);
         var ctx = MakeContext();
 
         var outcome = await stage.ExecuteAsync(ctx, CancellationToken.None);
@@ -157,7 +165,11 @@ public sealed class IndividualStagesTests
     public async Task PlanQualityGateStage_GatePasses_RecordsAndContinues()
     {
         var gates = new StubGateService(passed: true);
-        var stage = new PlanQualityGateStage(gates, NullLogger<PlanQualityGateStage>.Instance);
+        var stage = new PlanQualityGateStage(
+            gates,
+            Microsoft.Extensions.Options.Options.Create(new Libr4.IDE.Application.AutonomousAppGeneration.Services.AutonomousBenchmarkModeOptions()),
+            PlatformUtilizationTestOptions.Production,
+            NullLogger<PlanQualityGateStage>.Instance);
         var ctx = MakeContext();
         ctx.Plan = MakePlan(maxIterations: 10);
 
@@ -171,7 +183,11 @@ public sealed class IndividualStagesTests
     public async Task PlanQualityGateStage_GateFails_StopsWithReason()
     {
         var gates = new StubGateService(passed: false, reasons: new[] { "missing_phases", "no_runtime" });
-        var stage = new PlanQualityGateStage(gates, NullLogger<PlanQualityGateStage>.Instance);
+        var stage = new PlanQualityGateStage(
+            gates,
+            Microsoft.Extensions.Options.Options.Create(new Libr4.IDE.Application.AutonomousAppGeneration.Services.AutonomousBenchmarkModeOptions()),
+            PlatformUtilizationTestOptions.Production,
+            NullLogger<PlanQualityGateStage>.Instance);
         var ctx = MakeContext();
         ctx.Plan = MakePlan(maxIterations: 10);
 
@@ -181,6 +197,49 @@ public sealed class IndividualStagesTests
         outcome.FailureReason.Should().Contain("quality_gate_plan_failed");
         outcome.FailureReason.Should().Contain("missing_phases");
         ctx.Orchestrator.QualityGates.Should().ContainSingle(g => g.Stage == "plan" && !g.Passed);
+    }
+
+    // ---- Post-planning stages -------------------------------------------------
+
+    [Fact]
+    public async Task GenerationStage_MarksPipelineMilestone()
+    {
+        var stage = new GenerationStage(NullLogger<GenerationStage>.Instance);
+        var ctx = MakeContext();
+        ctx.Plan = MakePlan();
+
+        var outcome = await stage.ExecuteAsync(ctx, CancellationToken.None);
+
+        outcome.ShouldContinue.Should().BeTrue();
+        ctx.Orchestrator.PipelineStageReached.Should().Be(AutonomousPipelineStages.Generation);
+    }
+
+    [Fact]
+    public async Task ConsistencyCheckStage_NoFiles_Stops()
+    {
+        var stage = new ConsistencyCheckStage();
+        var outcome = await stage.ExecuteAsync(MakeContext(), CancellationToken.None);
+        outcome.ShouldContinue.Should().BeFalse();
+        outcome.FailureReason.Should().Be("consistency_check_no_files");
+    }
+
+    [Fact]
+    public async Task VerifyStage_TestsPassed_Continues()
+    {
+        var verify = new Mock<IVerifySubagentService>();
+        verify.Setup(v => v.RunAsync(It.IsAny<GenerationContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new VerifySubagentResult(true, "verify passed", "/tmp/report.json"));
+
+        var stage = new VerifyStage(
+            verify.Object,
+            Options.Create(new AutonomousBenchmarkModeOptions()),
+            PlatformUtilizationTestOptions.Production,
+            Options.Create(new VerifySubagentOptions()),
+            NullLogger<VerifyStage>.Instance);
+        var ctx = MakeContext();
+        ctx.Items["tests_passed"] = true;
+        var outcome = await stage.ExecuteAsync(ctx, CancellationToken.None);
+        outcome.ShouldContinue.Should().BeTrue();
     }
 
     // ---- helpers --------------------------------------------------------------

@@ -71,7 +71,7 @@ public class AgentObscuraTool : IAgentObscuraTool
             query, sources.Length);
 
         // Launch browser
-        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct);
+        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct, options.RunId, "research");
         
         try
         {
@@ -119,7 +119,7 @@ public class AgentObscuraTool : IAgentObscuraTool
         
         _logger.LogInformation("Scraping URL: {Url}", url);
 
-        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct);
+        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct, options.RunId, "scrape");
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         
         try
@@ -191,7 +191,7 @@ public class AgentObscuraTool : IAgentObscuraTool
             "Performing {ActionCount} actions starting from {Url}",
             actions.Length, startUrl);
 
-        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct);
+        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct, options.RunId, "actions");
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var logs = new List<string>();
         var screenshots = new List<ActionScreenshot>();
@@ -350,7 +350,7 @@ public class AgentObscuraTool : IAgentObscuraTool
         
         _logger.LogInformation("Taking screenshot of: {Url}", url);
 
-        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct);
+        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct, options.RunId, "screenshot");
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         
         try
@@ -402,7 +402,7 @@ public class AgentObscuraTool : IAgentObscuraTool
             "Extracting {ScriptCount} data points from: {Url}",
             extractionScripts.Length, url);
 
-        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct);
+        var sessionId = await LaunchBrowserForAgentAsync(options.StealthMode, ct, options.RunId, "extract");
         var extractedData = new Dictionary<string, string>();
         
         try
@@ -469,12 +469,18 @@ public class AgentObscuraTool : IAgentObscuraTool
         }
     }
 
-    private async Task<string> LaunchBrowserForAgentAsync(bool stealthMode, CancellationToken ct)
+    private async Task<string> LaunchBrowserForAgentAsync(
+        bool stealthMode,
+        CancellationToken ct,
+        string? runId = null,
+        string purpose = "agent")
     {
         var sessionId = await _browserService.LaunchBrowserAsync(new ObscuraLaunchOptions
         {
             StealthMode = stealthMode,
-            BlockTrackers = true
+            BlockTrackers = true,
+            RunId = runId,
+            Purpose = purpose
         }, ct);
 
         lock (_lock)
@@ -584,6 +590,7 @@ public class WebResearchOptions
     public int MaxSources { get; set; } = 5;
     public int WaitAfterLoadMs { get; set; } = 2000;
     public bool KeepSessionOpen { get; set; } = false;
+    public string? RunId { get; set; }
 }
 
 public class WebResearchResult
@@ -613,6 +620,7 @@ public class ScrapeOptions
     public bool TakeScreenshot { get; set; } = false;
     public int WaitAfterLoadMs { get; set; } = 2000;
     public bool KeepSessionOpen { get; set; } = false;
+    public string? RunId { get; set; }
 }
 
 public class ScrapeResult
@@ -635,6 +643,7 @@ public class ActionOptions
     public bool ContinueOnError { get; set; } = false;
     public int DelayBetweenActionsMs { get; set; } = 500;
     public bool KeepSessionOpen { get; set; } = false;
+    public string? RunId { get; set; }
 }
 
 public class ActionResult
@@ -663,6 +672,7 @@ public class ScreenshotOptions
     public int WaitAfterLoadMs { get; set; } = 2000;
     public (int width, int height)? ViewportSize { get; set; }
     public bool KeepSessionOpen { get; set; } = false;
+    public string? RunId { get; set; }
 }
 
 public class ScreenshotResult
@@ -679,6 +689,7 @@ public class ExtractionOptions
     public bool StealthMode { get; set; } = true;
     public int WaitAfterLoadMs { get; set; } = 2000;
     public bool KeepSessionOpen { get; set; } = false;
+    public string? RunId { get; set; }
 }
 
 public class ExtractionResult
